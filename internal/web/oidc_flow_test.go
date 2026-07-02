@@ -95,7 +95,10 @@ func startIssuer(t *testing.T, public bool) (issuer string, st *store.Store) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := NewServer(cfg, st, session.NewManager(st.DB, false), provider, storage, log)
+	srv, err := NewServer(Deps{
+		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, false),
+		OIDC: provider, OIDCStore: storage, Log: log,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

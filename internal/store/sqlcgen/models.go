@@ -41,6 +41,27 @@ type Group struct {
 	CreatedAt time.Time
 }
 
+type LdapSource struct {
+	ID              string
+	Name            string
+	Url             string
+	StartTls        bool
+	SkipTlsVerify   bool
+	BindDn          string
+	BindPasswordEnc []byte
+	BaseDn          string
+	UserFilter      string
+	UsernameAttr    string
+	EmailAttr       string
+	NameAttr        string
+	GroupFilter     string
+	GroupNameAttr   string
+	Enabled         bool
+	Position        int64
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
 type Provider struct {
 	ID                     string
 	ApplicationID          string
@@ -94,6 +115,8 @@ type User struct {
 	Active       bool
 	CreatedAt    time.Time
 	UpdatedAt    time.Time
+	LdapSourceID *string
+	LdapDn       *string
 }
 
 type UserGroup struct {

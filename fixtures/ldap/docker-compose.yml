@@ -1,0 +1,45 @@
+# Real directories for manual testing of the LDAP source.
+#
+#   docker compose -f fixtures/ldap/docker-compose.yml up -d
+#
+# OpenLDAP (osixia) — ldap://localhost:3891
+#   Service bind: cn=kivraid,dc=example,dc=org  /  svc-secret
+#                 (admin: cn=admin,dc=example,dc=org / adminpass)
+#   Base DN:      dc=example,dc=org
+#   User filter:  (&(objectClass=inetOrgPerson)(uid={username}))
+#   Group filter: (&(objectClass=groupOfNames)(member={dn}))
+#   Users:        alice/alicepass (groups: infra, dev), bob/bobpass (dev)
+#
+# LLDAP — ldap://localhost:3892 (web UI: http://localhost:17170, admin/lldap-admin-pass)
+#   Bind DN:      uid=admin,ou=people,dc=example,dc=com  /  lldap-admin-pass
+#                 (create a dedicated read-only user in the web UI for real setups)
+#   Base DN:      dc=example,dc=com
+#   User filter:  (&(objectClass=person)(|(uid={username})(mail={username})))
+#   Group filter: (&(objectClass=groupOfUniqueNames)(member={dn}))
+#   Users:        create via the web UI.
+
+services:
+  openldap:
+    image: osixia/openldap:1.5.0
+    command: ["--copy-service"]
+    ports:
+      - "3891:389"
+    environment:
+      LDAP_ORGANISATION: Example Org
+      LDAP_DOMAIN: example.org
+      LDAP_ADMIN_PASSWORD: adminpass
+      LDAP_READONLY_USER: "true"
+      LDAP_READONLY_USER_USERNAME: kivraid
+      LDAP_READONLY_USER_PASSWORD: svc-secret
+    volumes:
+      - ./seed.ldif:/container/service/slapd/assets/config/bootstrap/ldif/custom/seed.ldif:ro
+
+  lldap:
+    image: lldap/lldap:stable
+    ports:
+      - "3892:3890"
+      - "17170:17170"
+    environment:
+      LLDAP_LDAP_BASE_DN: dc=example,dc=com
+      LLDAP_LDAP_USER_PASS: lldap-admin-pass
+      LLDAP_JWT_SECRET: fixture-only-jwt-secret-change-me

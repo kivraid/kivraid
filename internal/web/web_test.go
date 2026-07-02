@@ -15,7 +15,9 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
+	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 )
@@ -41,7 +43,12 @@ func newTestServer(t *testing.T) *httptest.Server {
 	if err != nil {
 		t.Fatal(err)
 	}
-	srv, err := NewServer(cfg, st, session.NewManager(st.DB, false), oidcProvider, oidcStorage, log)
+	srv, err := NewServer(Deps{
+		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, false),
+		OIDC: oidcProvider, OIDCStore: oidcStorage,
+		LDAP: ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
+		Log:  log,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

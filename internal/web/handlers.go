@@ -6,6 +6,7 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
@@ -44,7 +45,15 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	password := r.PostFormValue("password")
 	next := safeNext(r.PostFormValue("next"), "/")
 
+	// Sources are tried in order: local accounts first, then the enabled
+	// LDAP directories.
 	user, err := s.local.Authenticate(r.Context(), username, password)
+	if errors.Is(err, local.ErrBadCredentials) && s.ldap != nil {
+		user, err = s.ldap.Authenticate(r.Context(), username, password)
+		if errors.Is(err, ldap.ErrBadCredentials) {
+			err = local.ErrBadCredentials
+		}
+	}
 	if errors.Is(err, local.ErrBadCredentials) {
 		w.WriteHeader(http.StatusUnauthorized)
 		s.render(w, r, "login.html", loginData{

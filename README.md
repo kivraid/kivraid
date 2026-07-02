@@ -9,8 +9,14 @@ See [DESIGN.md](DESIGN.md) for the full architecture and roadmap.
 
 ## Status
 
-Early development (milestone M0): local users, sessions, login page and
-user portal skeleton. No OIDC yet.
+Early development. Working so far: local users, sessions, user portal,
+OpenID Connect provider (code flow + PKCE, refresh rotation), admin UI
+for applications, and LDAP directories as a user source (OpenLDAP,
+LLDAP). See DESIGN.md for the milestone roadmap.
+
+Real directories for manual LDAP testing:
+`docker compose -f fixtures/ldap/docker-compose.yml up -d` (connection
+settings are documented in that file).
 
 ## Development
 

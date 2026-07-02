@@ -21,6 +21,7 @@
           <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}">Profile</a>
           {{if .User.IsAdmin}}
           <a href="/admin/applications" class="nav-link {{if eq .Active "apps"}}nav-active{{end}}">Applications</a>
+          <a href="/admin/ldap" class="nav-link {{if eq .Active "ldap"}}nav-active{{end}}">Directories</a>
           {{end}}
         </nav>
       </div>

@@ -16,6 +16,7 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
+	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 )
@@ -30,6 +31,7 @@ type Server struct {
 	cfg       config.Config
 	store     *store.Store
 	local     *local.Source
+	ldap      *ldap.Manager
 	sessions  *scs.SessionManager
 	oidc      http.Handler
 	oidcStore *oidcserver.Storage
@@ -39,16 +41,27 @@ type Server struct {
 	pages map[string]*template.Template
 }
 
-func NewServer(cfg config.Config, st *store.Store, sessions *scs.SessionManager,
-	oidcHandler http.Handler, oidcStore *oidcserver.Storage, log *slog.Logger) (*Server, error) {
+// Deps bundles the server's collaborators.
+type Deps struct {
+	Config    config.Config
+	Store     *store.Store
+	Sessions  *scs.SessionManager
+	OIDC      http.Handler
+	OIDCStore *oidcserver.Storage
+	LDAP      *ldap.Manager
+	Log       *slog.Logger
+}
+
+func NewServer(d Deps) (*Server, error) {
 	s := &Server{
-		cfg:       cfg,
-		store:     st,
-		local:     local.NewSource(st),
-		sessions:  sessions,
-		oidc:      oidcHandler,
-		oidcStore: oidcStore,
-		log:       log,
+		cfg:       d.Config,
+		store:     d.Store,
+		local:     local.NewSource(d.Store),
+		ldap:      d.LDAP,
+		sessions:  d.Sessions,
+		oidc:      d.OIDC,
+		oidcStore: d.OIDCStore,
+		log:       d.Log,
 		pages:     map[string]*template.Template{},
 	}
 
@@ -66,6 +79,7 @@ func NewServer(cfg config.Config, st *store.Store, sessions *scs.SessionManager,
 	withLayout := []string{
 		"profile.html",
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
+		"admin_ldap.html", "admin_ldap_form.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -94,6 +108,14 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/applications/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminAppUpdate)))
 	web.Handle("POST /admin/applications/{id}/rotate-secret", s.requireAdmin(http.HandlerFunc(s.handleAdminAppRotateSecret)))
 	web.Handle("POST /admin/applications/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminAppDelete)))
+
+	web.Handle("GET /admin/ldap", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapList)))
+	web.Handle("GET /admin/ldap/new", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapNew)))
+	web.Handle("POST /admin/ldap", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapCreate)))
+	web.Handle("GET /admin/ldap/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapEdit)))
+	web.Handle("POST /admin/ldap/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapUpdate)))
+	web.Handle("POST /admin/ldap/{id}/test", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapTest)))
+	web.Handle("POST /admin/ldap/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapDelete)))
 
 	webChain := secureHeaders(s.sessions.LoadAndSave(s.csrfProtect(web)))
 

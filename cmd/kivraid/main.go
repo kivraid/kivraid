@@ -23,7 +23,9 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
+	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 	"github.com/lporcheron/kivraid/internal/web"
@@ -123,7 +125,16 @@ func serve(args []string) error {
 	}()
 
 	sessions := session.NewManager(st.DB, strings.HasPrefix(cfg.BaseURL, "https://"))
-	srv, err := web.NewServer(cfg, st, sessions, oidcProvider, oidcStorage, log)
+	ldapManager := ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log)
+	srv, err := web.NewServer(web.Deps{
+		Config:    cfg,
+		Store:     st,
+		Sessions:  sessions,
+		OIDC:      oidcProvider,
+		OIDCStore: oidcStorage,
+		LDAP:      ldapManager,
+		Log:       log,
+	})
 	if err != nil {
 		return err
 	}
