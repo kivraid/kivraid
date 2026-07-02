@@ -1,0 +1,259 @@
+// Command kivraid runs the Kivraid identity provider.
+//
+//	kivraid serve    --config kivraid.yaml
+//	kivraid user add --config kivraid.yaml --username admin --email a@b.c [--name "..."] [--admin]
+package main
+
+import (
+	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"errors"
+	"flag"
+	"fmt"
+	"log/slog"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
+	"time"
+
+	"golang.org/x/term"
+
+	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/lporcheron/kivraid/internal/oidcserver"
+	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/lporcheron/kivraid/internal/sources/local"
+	"github.com/lporcheron/kivraid/internal/store"
+	"github.com/lporcheron/kivraid/internal/web"
+)
+
+func main() {
+	if len(os.Args) < 2 {
+		usage()
+		os.Exit(2)
+	}
+	var err error
+	switch os.Args[1] {
+	case "serve":
+		err = serve(os.Args[2:])
+	case "user":
+		if len(os.Args) < 3 || os.Args[2] != "add" {
+			usage()
+			os.Exit(2)
+		}
+		err = userAdd(os.Args[3:])
+	case "config":
+		if len(os.Args) < 3 || os.Args[2] != "init" {
+			usage()
+			os.Exit(2)
+		}
+		err = configInit(os.Args[3:])
+	case "help", "-h", "--help":
+		usage()
+	default:
+		fmt.Fprintf(os.Stderr, "unknown command %q\n", os.Args[1])
+		usage()
+		os.Exit(2)
+	}
+	if err != nil {
+		fmt.Fprintln(os.Stderr, "error:", err)
+		os.Exit(1)
+	}
+}
+
+func usage() {
+	fmt.Fprint(os.Stderr, `Kivraid — lightweight identity provider
+
+Usage:
+  kivraid config init [--config kivraid.yaml]   generate an initial configuration
+  kivraid serve       [--config kivraid.yaml]
+  kivraid user add    [--config kivraid.yaml] --username U --email E [--name N] [--admin]
+`)
+}
+
+func newLogger(level string) *slog.Logger {
+	var l slog.Level
+	if err := l.UnmarshalText([]byte(level)); err != nil {
+		l = slog.LevelInfo
+	}
+	return slog.New(slog.NewTextHandler(os.Stderr, &slog.HandlerOptions{Level: l}))
+}
+
+func serve(args []string) error {
+	fs := flag.NewFlagSet("serve", flag.ExitOnError)
+	cfgPath := fs.String("config", "kivraid.yaml", "path to the configuration file")
+	fs.Parse(args)
+
+	cfg, err := config.Load(*cfgPath)
+	if err != nil {
+		return err
+	}
+	log := newLogger(cfg.LogLevel)
+
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	st, err := store.Open(ctx, cfg.Database.Driver, cfg.Database.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	oidcProvider, oidcStorage, err := oidcserver.New(ctx, cfg, st, log)
+	if err != nil {
+		return err
+	}
+
+	// Periodic garbage collection of expired tokens and auth requests.
+	go func() {
+		ticker := time.NewTicker(15 * time.Minute)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				if err := oidcStorage.CleanupExpired(ctx); err != nil {
+					log.Warn("token cleanup", "err", err)
+				}
+			}
+		}
+	}()
+
+	sessions := session.NewManager(st.DB, strings.HasPrefix(cfg.BaseURL, "https://"))
+	srv, err := web.NewServer(cfg, st, sessions, oidcProvider, oidcStorage, log)
+	if err != nil {
+		return err
+	}
+
+	httpSrv := &http.Server{
+		Addr:              cfg.Listen,
+		Handler:           srv.Handler(),
+		ReadHeaderTimeout: 5 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      30 * time.Second,
+		IdleTimeout:       2 * time.Minute,
+	}
+
+	errCh := make(chan error, 1)
+	go func() {
+		log.Info("kivraid listening", "addr", cfg.Listen, "base_url", cfg.BaseURL)
+		errCh <- httpSrv.ListenAndServe()
+	}()
+
+	select {
+	case err := <-errCh:
+		return err
+	case <-ctx.Done():
+		log.Info("shutting down")
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+		return httpSrv.Shutdown(shutdownCtx)
+	}
+}
+
+func userAdd(args []string) error {
+	fs := flag.NewFlagSet("user add", flag.ExitOnError)
+	cfgPath := fs.String("config", "kivraid.yaml", "path to the configuration file")
+	username := fs.String("username", "", "login name (required)")
+	email := fs.String("email", "", "email address (required)")
+	name := fs.String("name", "", "display name")
+	admin := fs.Bool("admin", false, "grant administrator rights")
+	password := fs.String("password", "", "password (omit to be prompted; prefer the prompt)")
+	fs.Parse(args)
+
+	if *username == "" || *email == "" {
+		return errors.New("--username and --email are required")
+	}
+	if *name == "" {
+		*name = *username
+	}
+
+	// Load the config before prompting: a missing file should fail fast,
+	// not after the password has been typed twice.
+	cfg, err := config.Load(*cfgPath)
+	if err != nil {
+		return err
+	}
+
+	pw := *password
+	if pw == "" {
+		pw, err = promptPassword()
+		if err != nil {
+			return err
+		}
+	}
+	if len(pw) < 8 {
+		return errors.New("password must be at least 8 characters")
+	}
+	ctx := context.Background()
+	st, err := store.Open(ctx, cfg.Database.Driver, cfg.Database.DSN)
+	if err != nil {
+		return err
+	}
+	defer st.Close()
+
+	user, err := local.NewSource(st).CreateUser(ctx, *username, *email, *name, pw, *admin)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("created user %s (%s)\n", user.Username, user.ID)
+	return nil
+}
+
+func configInit(args []string) error {
+	fs := flag.NewFlagSet("config init", flag.ExitOnError)
+	cfgPath := fs.String("config", "kivraid.yaml", "path to write the configuration file")
+	fs.Parse(args)
+
+	if _, err := os.Stat(*cfgPath); err == nil {
+		return fmt.Errorf("%s already exists, refusing to overwrite", *cfgPath)
+	}
+
+	secret := make([]byte, 32)
+	if _, err := rand.Read(secret); err != nil {
+		return err
+	}
+	content := fmt.Sprintf(`listen: "127.0.0.1:9000"
+base_url: "http://localhost:9000"
+
+# Protects secrets at rest. Changing it invalidates encrypted data.
+secret_key: "%s"
+
+database:
+  driver: sqlite
+  dsn: "kivraid.db"
+
+log_level: info
+`, hex.EncodeToString(secret))
+
+	if err := os.WriteFile(*cfgPath, []byte(content), 0o600); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s\n", *cfgPath)
+	return nil
+}
+
+func promptPassword() (string, error) {
+	if !term.IsTerminal(int(os.Stdin.Fd())) {
+		return "", errors.New("stdin is not a terminal; use --password")
+	}
+	fmt.Fprint(os.Stderr, "Password: ")
+	pw, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	fmt.Fprint(os.Stderr, "Confirm:  ")
+	confirm, err := term.ReadPassword(int(os.Stdin.Fd()))
+	fmt.Fprintln(os.Stderr)
+	if err != nil {
+		return "", err
+	}
+	if string(pw) != string(confirm) {
+		return "", errors.New("passwords do not match")
+	}
+	return string(pw), nil
+}

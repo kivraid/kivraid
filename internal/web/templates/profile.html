@@ -1,0 +1,39 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
+  <p class="mt-1 text-sm text-muted">Your identity, as applications will see it.</p>
+</div>
+
+<div class="card">
+  <div class="flex items-center gap-4 border-b border-line p-6">
+    <span class="avatar-lg">{{initials .User.Name}}</span>
+    <div class="min-w-0">
+      <div class="flex items-center gap-2">
+        <h2 class="truncate text-lg font-semibold tracking-tight">{{.User.Name}}</h2>
+        {{if .User.IsAdmin}}<span class="badge-accent">Admin</span>{{end}}
+      </div>
+      <p class="truncate text-sm text-muted">{{.User.Email}}</p>
+    </div>
+  </div>
+  <dl class="grid grid-cols-1 gap-x-8 gap-y-6 p-6 text-sm sm:grid-cols-2">
+    <div>
+      <dt class="dt">Username</dt>
+      <dd class="font-mono text-[13px]">{{.User.Username}}</dd>
+    </div>
+    <div>
+      <dt class="dt">Source</dt>
+      <dd>{{if eq .User.Source "local"}}<span class="badge">Local account</span>{{else}}<span class="badge">{{.User.Source}}</span>{{end}}</dd>
+    </div>
+    <div>
+      <dt class="dt">Member since</dt>
+      <dd>{{.User.CreatedAt.Format "January 2, 2006"}}</dd>
+    </div>
+    <div>
+      <dt class="dt">Groups</dt>
+      <dd class="flex flex-wrap gap-1.5">
+        {{range .Groups}}<span class="badge">{{.Name}}</span>{{else}}<span class="text-faint">No groups yet</span>{{end}}
+      </dd>
+    </div>
+  </dl>
+</div>
+{{end}}

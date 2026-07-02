@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>{{.Title}} · Kivraid</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js"></script>
+</head>
+<body class="min-h-dvh">
+  <header class="sticky top-0 z-10 border-b border-line bg-bg/85 backdrop-blur">
+    <div class="mx-auto flex h-14 w-full max-w-3xl items-center justify-between px-6">
+      <div class="flex min-w-0 items-center gap-5">
+        <a href="/" class="flex shrink-0 items-center gap-2.5 text-[15px] font-semibold tracking-tight">
+          {{template "logo" 24}}
+          Kivraid
+        </a>
+        <nav class="flex items-center gap-1">
+          <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}">Profile</a>
+          {{if .User.IsAdmin}}
+          <a href="/admin/applications" class="nav-link {{if eq .Active "apps"}}nav-active{{end}}">Applications</a>
+          {{end}}
+        </nav>
+      </div>
+      <div class="flex items-center gap-1.5">
+        <button type="button" class="btn-icon" data-theme-toggle aria-label="Toggle theme">
+          <svg class="size-[18px] dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+          <svg class="hidden size-[18px] dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+        </button>
+        <div class="mx-1.5 flex items-center gap-2.5" title="{{.User.Email}}">
+          <span class="avatar">{{initials .User.Name}}</span>
+          <span class="hidden text-sm font-medium sm:block">{{.User.Name}}</span>
+        </div>
+        <form method="post" action="/logout">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button type="submit" class="btn-icon" aria-label="Sign out" title="Sign out">
+            <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
+          </button>
+        </form>
+      </div>
+    </div>
+  </header>
+  <main class="mx-auto w-full max-w-3xl px-6 py-10">
+    {{block "content" .}}{{end}}
+  </main>
+</body>
+</html>
+
+{{define "logo"}}
+<svg width="{{.}}" height="{{.}}" viewBox="0 0 24 24" aria-hidden="true">
+  <rect width="24" height="24" rx="6" class="fill-accent"/>
+  <path d="M8.5 6.5v11M15.5 7l-5.5 5 5.5 5" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+</svg>
+{{end}}

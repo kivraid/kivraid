@@ -1,0 +1,15 @@
+# Binaries
+/kivraid
+/dist/
+
+# Build tooling (downloaded by make)
+/.tools/
+
+# Local runtime data
+*.db
+*.db-wal
+*.db-shm
+/kivraid.yaml
+
+# OS noise
+.DS_Store

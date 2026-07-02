@@ -1,0 +1,201 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where([data-theme=dark], [data-theme=dark] *));
+
+@font-face {
+  font-family: "Inter Variable";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/static/fonts/InterVariable.woff2") format("woff2");
+}
+
+/*
+ * Design tokens. The whole skin is defined here: light values on :root,
+ * dark overrides on [data-theme=dark]. Semantic names only — templates
+ * never reference raw colors.
+ */
+:root {
+  color-scheme: light;
+
+  --bg: oklch(98.5% 0 0);
+  --surface: oklch(100% 0 0);
+  --raised: oklch(96.5% 0 0);
+  --line: oklch(92.2% 0 0);
+  --line-strong: oklch(87% 0 0);
+  --fg: oklch(20.5% 0 0);
+  --muted: oklch(52% 0 0);
+  --faint: oklch(68% 0 0);
+  --accent: oklch(51% 0.23 277);
+  --accent-hover: oklch(46% 0.23 277);
+  --accent-soft: oklch(95% 0.03 277);
+  --on-accent: oklch(100% 0 0);
+  --danger: oklch(57.7% 0.245 27.3);
+  --danger-soft: oklch(96% 0.02 27);
+  --ring: oklch(51% 0.23 277 / 55%);
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+
+  --bg: oklch(14.5% 0 0);
+  --surface: oklch(18.5% 0 0);
+  --raised: oklch(23% 0 0);
+  --line: oklch(27% 0 0);
+  --line-strong: oklch(33% 0 0);
+  --fg: oklch(93% 0 0);
+  --muted: oklch(65% 0 0);
+  --faint: oklch(50% 0 0);
+  --accent: oklch(65% 0.19 277);
+  --accent-hover: oklch(70% 0.17 277);
+  --accent-soft: oklch(26% 0.06 277);
+  --on-accent: oklch(100% 0 0);
+  --danger: oklch(68% 0.2 25);
+  --danger-soft: oklch(24% 0.05 25);
+  --ring: oklch(65% 0.19 277 / 60%);
+}
+
+@theme inline {
+  --color-*: initial;
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-raised: var(--raised);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+
+  --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
+}
+
+@layer base {
+  *,
+  ::before,
+  ::after {
+    border-color: var(--line);
+  }
+
+  body {
+    @apply bg-bg font-sans text-fg antialiased;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
+
+  ::selection {
+    background: var(--accent-soft);
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    ::before,
+    ::after {
+      transition-duration: 0.01ms !important;
+      animation-duration: 0.01ms !important;
+    }
+  }
+}
+
+@layer components {
+  .card {
+    @apply rounded-xl border border-line bg-surface shadow-xs;
+  }
+
+  .btn,
+  .btn-primary,
+  .btn-ghost,
+  .btn-danger {
+    @apply inline-flex h-9 cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-primary {
+    @apply bg-accent text-on-accent hover:bg-accent-hover;
+  }
+
+  .btn-ghost {
+    @apply text-muted hover:bg-raised hover:text-fg;
+  }
+
+  .btn-danger {
+    @apply bg-danger text-on-accent hover:opacity-90;
+  }
+
+  .nav-link {
+    @apply rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:bg-raised hover:text-fg;
+  }
+
+  .nav-active {
+    @apply bg-raised text-fg;
+  }
+
+  .btn-icon {
+    @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-raised hover:text-fg;
+  }
+
+  .label {
+    @apply mb-1.5 block text-[13px] font-medium text-fg;
+  }
+
+  .input {
+    @apply h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm text-fg shadow-xs transition-colors duration-150 placeholder:text-faint hover:border-line-strong;
+  }
+
+  .badge {
+    @apply inline-flex items-center rounded-md border border-line bg-raised px-2 py-0.5 text-xs font-medium text-muted;
+  }
+
+  .badge-accent {
+    @apply inline-flex items-center rounded-md border border-transparent bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent;
+  }
+
+  .alert-danger {
+    @apply rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-2.5 text-sm text-danger;
+  }
+
+  .alert-success {
+    @apply rounded-lg border border-accent/25 bg-accent-soft px-3.5 py-2.5 text-sm text-accent;
+  }
+
+  .textarea {
+    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg shadow-xs transition-colors duration-150 placeholder:text-faint hover:border-line-strong;
+  }
+
+  .code-box {
+    @apply block truncate rounded-lg border border-line bg-raised px-3 py-2 font-mono text-[13px];
+  }
+
+  .avatar {
+    @apply inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent;
+  }
+
+  .avatar-lg {
+    @apply inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-lg font-semibold text-accent;
+  }
+
+  .dt {
+    @apply mb-1 text-[13px] font-medium text-muted;
+  }
+
+  /* Soft radial glow behind centered auth pages. */
+  .aurora {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background: radial-gradient(
+      640px circle at 50% -10%,
+      color-mix(in oklab, var(--accent) 10%, transparent),
+      transparent 70%
+    );
+  }
+}

@@ -1,0 +1,36 @@
+{{define "content"}}
+<div class="mb-8 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Applications</h1>
+    <p class="mt-1 text-sm text-muted">Applications that authenticate through Kivraid via OpenID Connect.</p>
+  </div>
+  <a href="/admin/applications/new" class="btn-primary shrink-0">New application</a>
+</div>
+
+{{if .Data.Apps}}
+<div class="card divide-y divide-line">
+  {{range .Data.Apps}}
+  <a href="/admin/applications/{{.Application.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
+    <span class="avatar">{{initials .Application.Name}}</span>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <span class="truncate text-sm font-medium">{{.Application.Name}}</span>
+        {{if .Provider.Public}}<span class="badge">Public · PKCE</span>{{else}}<span class="badge">Confidential</span>{{end}}
+      </div>
+      <div class="mt-0.5 truncate font-mono text-xs text-faint">{{.Provider.ClientID}}</div>
+    </div>
+    <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+  </a>
+  {{end}}
+</div>
+{{else}}
+<div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
+  <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+  <div>
+    <h2 class="text-sm font-semibold">No applications yet</h2>
+    <p class="mt-1 text-sm text-muted">Register your first application to put it behind SSO.</p>
+  </div>
+  <a href="/admin/applications/new" class="btn-primary mt-2">New application</a>
+</div>
+{{end}}
+{{end}}
