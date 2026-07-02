@@ -19,10 +19,16 @@ TAILWIND := .tools/tailwindcss-$(TAILWIND_VERSION)
 CSS_IN   := internal/web/static/src/app.css
 CSS_OUT  := internal/web/static/app.css
 
-.PHONY: build css css-watch sqlc test vet run clean
+VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS := -X main.version=$(VERSION)
+
+.PHONY: build css css-watch sqlc test vet run clean docker
 
 build: css sqlc
-	go build -o kivraid ./cmd/kivraid
+	go build -ldflags "$(LDFLAGS)" -o kivraid ./cmd/kivraid
+
+docker:
+	docker build --build-arg VERSION=$(VERSION) -t kivraid:$(VERSION) -t kivraid:latest .
 
 css: $(CSS_OUT)
 

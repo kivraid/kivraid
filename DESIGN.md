@@ -95,11 +95,12 @@ minimal) is a default pick, easy to re-skin later via design tokens.
 
 ### Frontend
 
-- **Server-rendered Go templates + htmx**, all assets embedded via
-  `go:embed`. No Node build chain, no SPA. htmx covers the dynamic bits
-  (redirect-URI lists in the admin, live session revocation in the
-  portal); a few hundred lines of vanilla JS at most for the rest
-  (clipboard copy, theme toggle, command-palette-style app search).
+- **Server-rendered Go templates**, all assets embedded via `go:embed`.
+  No Node build chain, no SPA. A small vanilla JS file covers the
+  interactivity shipped so far (theme toggle, clipboard copy, confirm
+  dialogs); htmx remains the plan for genuinely dynamic admin widgets
+  but is only added the day a page needs it — no unused bytes in the
+  binary.
 - Server-rendered does **not** mean austere — the UI is a headline
   requirement. See "Design system" below.
 

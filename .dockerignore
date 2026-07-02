@@ -1,0 +1,11 @@
+.git
+.tools
+kivraid
+*.db
+*.db-wal
+*.db-shm
+kivraid.yaml
+fixtures
+docs
+DESIGN.md
+README.md

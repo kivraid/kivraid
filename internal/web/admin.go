@@ -23,7 +23,8 @@ import (
 func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return s.requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !currentUser(r).IsAdmin {
-			http.Error(w, "administrator access required", http.StatusForbidden)
+			s.renderError(w, r, http.StatusForbidden, "Administrator access required",
+				"This page is reserved for administrators of this Kivraid instance.")
 			return
 		}
 		next.ServeHTTP(w, r)

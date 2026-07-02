@@ -242,7 +242,25 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, dat
 	}
 }
 
+type errorData struct {
+	Code    int
+	Title   string
+	Message string
+}
+
+func (s *Server) renderError(w http.ResponseWriter, r *http.Request, code int, title, message string) {
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	w.WriteHeader(code)
+	s.render(w, r, "error.html", errorData{Code: code, Title: title, Message: message})
+}
+
 func (s *Server) serverError(w http.ResponseWriter, r *http.Request, err error) {
 	s.log.Error("internal error", "method", r.Method, "path", r.URL.Path, "err", err)
-	http.Error(w, "internal server error", http.StatusInternalServerError)
+	s.renderError(w, r, http.StatusInternalServerError, "Something went wrong",
+		"An unexpected error occurred. It has been logged — please try again.")
+}
+
+func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
+	s.renderError(w, r, http.StatusNotFound, "Page not found",
+		"The page you are looking for does not exist or has moved.")
 }

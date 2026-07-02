@@ -1,0 +1,48 @@
+# Systemd unit for Kivraid.
+#
+#   install -m 755 kivraid /usr/local/bin/kivraid
+#   install -m 644 packaging/kivraid.service /etc/systemd/system/
+#   systemctl daemon-reload
+#   kivraid config init --config /var/lib/kivraid/kivraid.yaml   (as root, then chown)
+#   systemctl enable --now kivraid
+
+[Unit]
+Description=Kivraid identity provider
+Documentation=https://github.com/lporcheron/kivraid
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+ExecStart=/usr/local/bin/kivraid serve --config /var/lib/kivraid/kivraid.yaml
+WorkingDirectory=/var/lib/kivraid
+Restart=on-failure
+RestartSec=2
+
+# Run as a transient unprivileged user owning only its state directory.
+DynamicUser=yes
+StateDirectory=kivraid
+
+# Sandboxing
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+CapabilityBoundingSet=
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+SystemCallFilter=~@privileged @resources
+
+[Install]
+WantedBy=multi-user.target

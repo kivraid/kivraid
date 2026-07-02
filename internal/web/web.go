@@ -28,7 +28,7 @@ import (
 //go:embed templates/*.html
 var templatesFS embed.FS
 
-//go:embed static/app.css static/app.js static/fonts static/htmx.min.js static/favicon.svg
+//go:embed static/app.css static/app.js static/fonts static/favicon.svg
 var staticFS embed.FS
 
 type Server struct {
@@ -86,7 +86,7 @@ func NewServer(d Deps) (*Server, error) {
 	funcs := template.FuncMap{
 		"initials": initials,
 	}
-	standalone := []string{"login.html"}
+	standalone := []string{"login.html", "error.html"}
 	for _, page := range standalone {
 		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page)
 		if err != nil {
@@ -141,6 +141,9 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/ldap/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapDelete)))
 
 	web.Handle("GET /admin/audit", s.requireAdmin(http.HandlerFunc(s.handleAdminAudit)))
+
+	// Anything else under the web surface gets the styled 404.
+	web.HandleFunc("/", s.handleNotFound)
 
 	webChain := secureHeaders(s.sessions.LoadAndSave(s.csrfProtect(web)))
 

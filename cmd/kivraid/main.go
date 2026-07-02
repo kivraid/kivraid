@@ -32,6 +32,9 @@ import (
 	"github.com/lporcheron/kivraid/internal/web"
 )
 
+// version is stamped at build time via -ldflags "-X main.version=...".
+var version = "dev"
+
 func main() {
 	if len(os.Args) < 2 {
 		usage()
@@ -53,6 +56,8 @@ func main() {
 			os.Exit(2)
 		}
 		err = configInit(os.Args[3:])
+	case "version", "-v", "--version":
+		fmt.Println("kivraid", version)
 	case "help", "-h", "--help":
 		usage()
 	default:
@@ -155,7 +160,7 @@ func serve(args []string) error {
 
 	errCh := make(chan error, 1)
 	go func() {
-		log.Info("kivraid listening", "addr", cfg.Listen, "base_url", cfg.BaseURL)
+		log.Info("kivraid listening", "version", version, "addr", cfg.Listen, "base_url", cfg.BaseURL)
 		errCh <- httpSrv.ListenAndServe()
 	}()
 
@@ -235,6 +240,9 @@ func configInit(args []string) error {
 		return err
 	}
 	content := fmt.Sprintf(`listen: "127.0.0.1:9000"
+
+# Public URL of this instance; also the OIDC issuer. Use https:// in
+# production (behind a TLS-terminating reverse proxy).
 base_url: "http://localhost:9000"
 
 # Protects secrets at rest. Changing it invalidates encrypted data.
@@ -243,6 +251,11 @@ secret_key: "%s"
 database:
   driver: sqlite
   dsn: "kivraid.db"
+
+# Hosts allowed for forward-auth post-login redirects; entries starting
+# with a dot match subdomains. See docs/forward-auth.md.
+# forward_auth:
+#   domains: [".home.example.com"]
 
 log_level: info
 `, hex.EncodeToString(secret))
