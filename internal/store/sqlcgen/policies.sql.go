@@ -10,7 +10,7 @@ import (
 )
 
 const addAppPolicy = `-- name: AddAppPolicy :exec
-INSERT INTO app_policies (application_id, group_id) VALUES (?, ?)
+INSERT INTO app_policies (application_id, group_id) VALUES ($1, $2)
 `
 
 type AddAppPolicyParams struct {
@@ -24,7 +24,7 @@ func (q *Queries) AddAppPolicy(ctx context.Context, arg AddAppPolicyParams) erro
 }
 
 const countAppPolicies = `-- name: CountAppPolicies :one
-SELECT COUNT(*) FROM app_policies WHERE application_id = ?
+SELECT COUNT(*) FROM app_policies WHERE application_id = $1
 `
 
 func (q *Queries) CountAppPolicies(ctx context.Context, applicationID string) (int64, error) {
@@ -38,7 +38,7 @@ const countMatchingAppPolicies = `-- name: CountMatchingAppPolicies :one
 SELECT COUNT(*)
 FROM app_policies p
 JOIN user_groups ug ON ug.group_id = p.group_id
-WHERE p.application_id = ? AND ug.user_id = ?
+WHERE p.application_id = $1 AND ug.user_id = $2
 `
 
 type CountMatchingAppPoliciesParams struct {
@@ -54,7 +54,7 @@ func (q *Queries) CountMatchingAppPolicies(ctx context.Context, arg CountMatchin
 }
 
 const deleteAppPolicies = `-- name: DeleteAppPolicies :exec
-DELETE FROM app_policies WHERE application_id = ?
+DELETE FROM app_policies WHERE application_id = $1
 `
 
 func (q *Queries) DeleteAppPolicies(ctx context.Context, applicationID string) error {
@@ -63,7 +63,7 @@ func (q *Queries) DeleteAppPolicies(ctx context.Context, applicationID string) e
 }
 
 const listAppPolicyGroupIDs = `-- name: ListAppPolicyGroupIDs :many
-SELECT group_id FROM app_policies WHERE application_id = ?
+SELECT group_id FROM app_policies WHERE application_id = $1
 `
 
 func (q *Queries) ListAppPolicyGroupIDs(ctx context.Context, applicationID string) ([]string, error) {
@@ -122,7 +122,7 @@ FROM applications a
 LEFT JOIN app_policies p ON p.application_id = a.id
 WHERE a.launch_url != ''
   AND (p.application_id IS NULL
-       OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
+       OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = $1))
 ORDER BY a.name
 `
 

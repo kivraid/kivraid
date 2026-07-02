@@ -7,7 +7,6 @@ import (
 	"io"
 	"log/slog"
 	"net"
-	"path/filepath"
 	"strings"
 	"sync"
 	"testing"
@@ -19,6 +18,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/lporcheron/kivraid/internal/store/storetest"
 )
 
 const (
@@ -148,11 +148,7 @@ func newTestManager(t *testing.T) (*Manager, *store.Store) {
 	ctx := context.Background()
 	addr := startFakeDirectory(t)
 
-	st, err := store.Open(ctx, "sqlite", filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := storetest.Open(t)
 
 	sealKey := secrets.DeriveKey(testSealSecret, "ldap-bind-passwords")
 	sealed, err := secrets.Seal(sealKey, []byte(testServicePW))

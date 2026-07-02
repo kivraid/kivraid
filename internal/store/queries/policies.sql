@@ -2,22 +2,22 @@
 SELECT * FROM groups ORDER BY name;
 
 -- name: ListAppPolicyGroupIDs :many
-SELECT group_id FROM app_policies WHERE application_id = ?;
+SELECT group_id FROM app_policies WHERE application_id = $1;
 
 -- name: DeleteAppPolicies :exec
-DELETE FROM app_policies WHERE application_id = ?;
+DELETE FROM app_policies WHERE application_id = $1;
 
 -- name: AddAppPolicy :exec
-INSERT INTO app_policies (application_id, group_id) VALUES (?, ?);
+INSERT INTO app_policies (application_id, group_id) VALUES ($1, $2);
 
 -- name: CountAppPolicies :one
-SELECT COUNT(*) FROM app_policies WHERE application_id = ?;
+SELECT COUNT(*) FROM app_policies WHERE application_id = $1;
 
 -- name: CountMatchingAppPolicies :one
 SELECT COUNT(*)
 FROM app_policies p
 JOIN user_groups ug ON ug.group_id = p.group_id
-WHERE p.application_id = ? AND ug.user_id = ?;
+WHERE p.application_id = $1 AND ug.user_id = $2;
 
 -- name: ListLaunchableApplications :many
 SELECT DISTINCT a.*
@@ -25,5 +25,5 @@ FROM applications a
 LEFT JOIN app_policies p ON p.application_id = a.id
 WHERE a.launch_url != ''
   AND (p.application_id IS NULL
-       OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = ?))
+       OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = $1))
 ORDER BY a.name;

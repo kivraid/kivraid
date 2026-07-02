@@ -8,7 +8,6 @@ import (
 	"net/http/cookiejar"
 	"net/http/httptest"
 	"net/url"
-	"path/filepath"
 	"regexp"
 	"strings"
 	"testing"
@@ -20,17 +19,14 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
+	"github.com/lporcheron/kivraid/internal/store/storetest"
 )
 
 func buildTestServer(t *testing.T, forwardAuthDomains []string) (*httptest.Server, *store.Store) {
 	t.Helper()
 	ctx := context.Background()
 
-	st, err := store.Open(ctx, "sqlite", filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st := storetest.Open(t)
 
 	if _, err := local.NewSource(st).CreateUser(ctx,
 		"alice", "alice@example.com", "Alice Liddell", "s3cret-pass", false); err != nil {
@@ -48,7 +44,7 @@ func buildTestServer(t *testing.T, forwardAuthDomains []string) (*httptest.Serve
 		t.Fatal(err)
 	}
 	srv, err := NewServer(Deps{
-		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, false),
+		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false),
 		OIDC: oidcProvider, OIDCStore: oidcStorage,
 		LDAP: ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
 		Log:  log,

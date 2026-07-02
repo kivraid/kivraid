@@ -108,7 +108,7 @@ type RefreshToken struct {
 type Session struct {
 	Token  string
 	Data   []byte
-	Expiry float64
+	Expiry time.Time
 }
 
 type SigningKey struct {

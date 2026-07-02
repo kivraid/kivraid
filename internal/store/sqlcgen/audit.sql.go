@@ -11,7 +11,7 @@ import (
 )
 
 const deleteAuditBefore = `-- name: DeleteAuditBefore :exec
-DELETE FROM audit_log WHERE ts < ?
+DELETE FROM audit_log WHERE ts < $1
 `
 
 func (q *Queries) DeleteAuditBefore(ctx context.Context, ts time.Time) error {
@@ -21,7 +21,7 @@ func (q *Queries) DeleteAuditBefore(ctx context.Context, ts time.Time) error {
 
 const insertAudit = `-- name: InsertAudit :exec
 INSERT INTO audit_log (ts, actor, action, object, detail, ip)
-VALUES (?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type InsertAuditParams struct {
@@ -46,10 +46,10 @@ func (q *Queries) InsertAudit(ctx context.Context, arg InsertAuditParams) error 
 }
 
 const listAudit = `-- name: ListAudit :many
-SELECT id, ts, actor, "action", object, detail, ip FROM audit_log ORDER BY id DESC LIMIT ?
+SELECT id, ts, actor, action, object, detail, ip FROM audit_log ORDER BY id DESC LIMIT $1
 `
 
-func (q *Queries) ListAudit(ctx context.Context, limit int64) ([]AuditLog, error) {
+func (q *Queries) ListAudit(ctx context.Context, limit int32) ([]AuditLog, error) {
 	rows, err := q.db.QueryContext(ctx, listAudit, limit)
 	if err != nil {
 		return nil, err

@@ -24,6 +24,8 @@ SQLite database**: no Python, no PostgreSQL, no Redis, no workers.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP,
   login rate limiting, append-only audit log, all secrets hashed or
   encrypted at rest.
+- **SQLite or PostgreSQL** — SQLite by default (zero external services);
+  Postgres for larger installs. The full test suite runs against both.
 
 ## Quickstart (binary)
 
@@ -67,8 +69,8 @@ has a `KIVRAID_*` environment override.
 | `listen` | `KIVRAID_LISTEN` | `127.0.0.1:9000` | HTTP listen address. |
 | `base_url` | `KIVRAID_BASE_URL` | `http://localhost:9000` | Public URL; also the OIDC issuer. `https://` enables secure cookies. |
 | `secret_key` | `KIVRAID_SECRET_KEY` | — | ≥ 32 chars; protects keys and directory credentials at rest. Changing it invalidates them. |
-| `database.driver` | `KIVRAID_DB_DRIVER` | `sqlite` | Postgres support is planned. |
-| `database.dsn` | `KIVRAID_DB_DSN` | `kivraid.db` | SQLite file path. |
+| `database.driver` | `KIVRAID_DB_DRIVER` | `sqlite` | `sqlite` or `postgres`. |
+| `database.dsn` | `KIVRAID_DB_DSN` | `kivraid.db` | SQLite file path, or a `postgres://user:pass@host/db` URL. |
 | `forward_auth.domains` | `KIVRAID_FORWARD_AUTH_DOMAINS` | `[]` | Hosts allowed for forward-auth post-login redirects (`.suffix` matches subdomains). |
 | `log_level` | `KIVRAID_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
 

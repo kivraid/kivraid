@@ -63,17 +63,20 @@ minimal) is a default pick, easy to re-skin later via design tokens.
   `modernc.org/sqlite` (pure Go, no CGO, trivial cross-compilation), WAL
   mode — the zero-dependency default that carries the "single binary"
   pitch. Postgres via `jackc/pgx` for larger installs or HA.
-- Consequences, enforced from day one even though Postgres ships in a
-  later milestone:
-  - Portable SQL only — stick to the common subset (both engines support
-    `RETURNING`, CTEs, partial indexes; avoid SQLite pragmas and Postgres
-    types in queries).
-  - `sqlc` with two engine configs over the same logical schema; per-dialect
-    migration files where types differ (`TEXT`/`INTEGER` vs
-    `timestamptz`/`bigint`), one shared numbering.
-  - The store is exposed to the rest of the app as Go interfaces, so the
-    dialect is an implementation detail.
-  - CI runs the test suite against both engines once Postgres lands.
+- How the dual-engine support actually landed (M6):
+  - **One query set with `$n` placeholders**: Postgres requires them and
+    SQLite supports them natively, so a single sqlc-generated package
+    (codegen runs against the Postgres schema) serves both engines over
+    `database/sql` (modernc for SQLite, pgx stdlib for Postgres).
+  - Per-dialect migration files with shared numbering
+    (`migrations/sqlite/`, `migrations/postgres/`): `TIMESTAMP`/`BLOB`
+    vs `timestamptz`/`bytea`, and the scs session-store schema each
+    driver expects.
+  - Portable SQL only in queries — the common subset both engines parse
+    (`RETURNING`, boolean literals, `LIMIT $1`).
+  - Tests: `storetest.Open` gives each test a fresh SQLite file, or a
+    throwaway Postgres database when `KIVRAID_TEST_POSTGRES_DSN` is set;
+    CI runs the full suite against both engines.
 
 ### LDAP integration
 

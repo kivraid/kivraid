@@ -134,7 +134,7 @@ func serve(args []string) error {
 		}
 	}()
 
-	sessions := session.NewManager(st.DB, strings.HasPrefix(cfg.BaseURL, "https://"))
+	sessions := session.NewManager(st.DB, st.Driver, strings.HasPrefix(cfg.BaseURL, "https://"))
 	ldapManager := ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log)
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,

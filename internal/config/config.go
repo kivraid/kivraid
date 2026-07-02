@@ -101,8 +101,8 @@ func (c Config) validate() error {
 	if len(c.SecretKey) < 32 {
 		return fmt.Errorf("secret_key must be at least 32 characters (got %d); generate one with: openssl rand -hex 32", len(c.SecretKey))
 	}
-	if c.Database.Driver != "sqlite" {
-		return fmt.Errorf("unsupported database driver %q (only \"sqlite\" for now)", c.Database.Driver)
+	if c.Database.Driver != "sqlite" && c.Database.Driver != "postgres" {
+		return fmt.Errorf("unsupported database driver %q (want \"sqlite\" or \"postgres\")", c.Database.Driver)
 	}
 	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
 		return fmt.Errorf("base_url must start with http:// or https://")

@@ -1,6 +1,7 @@
-// Package store provides database access. SQLite is the only engine for
-// now; queries stick to portable SQL so a Postgres implementation can be
-// added later (see DESIGN.md).
+// Package store provides database access. SQLite is the default engine;
+// PostgreSQL is supported for larger installs. Queries stick to the
+// portable subset both engines accept: $n placeholders (native in both)
+// and ANSI-ish DDL split per dialect (see migrations/).
 package store
 
 import (
@@ -10,41 +11,53 @@ import (
 	"net/url"
 	"strings"
 
+	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
 
 type Store struct {
-	DB *sql.DB
+	// Driver is "sqlite" or "postgres".
+	Driver string
+	DB     *sql.DB
 	*sqlcgen.Queries
 }
 
-// Open opens the database, applies pragmas suited for a long-running
-// server process, and runs pending migrations.
+// Open opens the database, applies engine-appropriate settings, and runs
+// pending migrations.
 func Open(ctx context.Context, driver, dsn string) (*Store, error) {
-	if driver != "sqlite" {
+	var db *sql.DB
+	var err error
+	switch driver {
+	case "sqlite":
+		db, err = sql.Open("sqlite", sqliteDSN(dsn))
+		if err != nil {
+			return nil, err
+		}
+		// SQLite allows a single writer; serializing all access through
+		// one connection avoids SQLITE_BUSY without a meaningful
+		// throughput cost for an IdP workload.
+		db.SetMaxOpenConns(1)
+	case "postgres":
+		db, err = sql.Open("pgx", dsn)
+		if err != nil {
+			return nil, err
+		}
+		db.SetMaxOpenConns(10)
+	default:
 		return nil, fmt.Errorf("unsupported database driver %q", driver)
 	}
-
-	db, err := sql.Open("sqlite", sqliteDSN(dsn))
-	if err != nil {
-		return nil, err
-	}
-	// SQLite allows a single writer; serializing all access through one
-	// connection avoids SQLITE_BUSY without a meaningful throughput cost
-	// for an IdP workload.
-	db.SetMaxOpenConns(1)
 
 	if err := db.PingContext(ctx); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("open database: %w", err)
 	}
-	if err := Migrate(ctx, db); err != nil {
+	if err := Migrate(ctx, db, driver); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("migrate: %w", err)
 	}
-	return &Store{DB: db, Queries: sqlcgen.New(db)}, nil
+	return &Store{Driver: driver, DB: db, Queries: sqlcgen.New(db)}, nil
 }
 
 func (s *Store) Close() error { return s.DB.Close() }

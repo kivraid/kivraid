@@ -23,10 +23,36 @@ jobs:
         run: |
           go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0 generate
           git diff --exit-code internal/store/sqlcgen
-      - name: Test
+      - name: Test (SQLite)
         run: go test ./...
       - name: Build
         run: make build
+
+  test-postgres:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Build CSS
+        run: make css
+      - name: Test (Postgres)
+        env:
+          KIVRAID_TEST_POSTGRES_DSN: postgres://postgres:postgres@localhost:5432/postgres?sslmode=disable
+        run: go test ./...
 
   docker:
     runs-on: ubuntu-latest

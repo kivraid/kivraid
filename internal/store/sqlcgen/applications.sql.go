@@ -12,7 +12,7 @@ import (
 
 const createApplication = `-- name: CreateApplication :one
 INSERT INTO applications (id, name, slug, launch_url, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6)
 RETURNING id, name, slug, launch_url, created_at, updated_at
 `
 
@@ -50,7 +50,7 @@ const createProvider = `-- name: CreateProvider :one
 INSERT INTO providers (id, application_id, client_id, client_secret_hash, redirect_uris,
                        post_logout_redirect_uris, public, access_token_ttl_seconds,
                        refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 RETURNING id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at
 `
 
@@ -103,7 +103,7 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 }
 
 const deleteApplication = `-- name: DeleteApplication :exec
-DELETE FROM applications WHERE id = ?
+DELETE FROM applications WHERE id = $1
 `
 
 func (q *Queries) DeleteApplication(ctx context.Context, id string) error {
@@ -112,7 +112,7 @@ func (q *Queries) DeleteApplication(ctx context.Context, id string) error {
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, name, slug, launch_url, created_at, updated_at FROM applications WHERE id = ?
+SELECT id, name, slug, launch_url, created_at, updated_at FROM applications WHERE id = $1
 `
 
 func (q *Queries) GetApplication(ctx context.Context, id string) (Application, error) {
@@ -130,7 +130,7 @@ func (q *Queries) GetApplication(ctx context.Context, id string) (Application, e
 }
 
 const getProviderByApplication = `-- name: GetProviderByApplication :one
-SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at FROM providers WHERE application_id = ?
+SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at FROM providers WHERE application_id = $1
 `
 
 func (q *Queries) GetProviderByApplication(ctx context.Context, applicationID string) (Provider, error) {
@@ -154,7 +154,7 @@ func (q *Queries) GetProviderByApplication(ctx context.Context, applicationID st
 }
 
 const getProviderByClientID = `-- name: GetProviderByClientID :one
-SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at FROM providers WHERE client_id = ?
+SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at FROM providers WHERE client_id = $1
 `
 
 func (q *Queries) GetProviderByClientID(ctx context.Context, clientID string) (Provider, error) {
@@ -232,7 +232,7 @@ func (q *Queries) ListApplicationsWithProviders(ctx context.Context) ([]ListAppl
 }
 
 const updateApplication = `-- name: UpdateApplication :exec
-UPDATE applications SET name = ?, slug = ?, launch_url = ?, updated_at = ? WHERE id = ?
+UPDATE applications SET name = $1, slug = $2, launch_url = $3, updated_at = $4 WHERE id = $5
 `
 
 type UpdateApplicationParams struct {
@@ -255,7 +255,7 @@ func (q *Queries) UpdateApplication(ctx context.Context, arg UpdateApplicationPa
 }
 
 const updateProviderRedirects = `-- name: UpdateProviderRedirects :exec
-UPDATE providers SET redirect_uris = ?, post_logout_redirect_uris = ?, updated_at = ? WHERE id = ?
+UPDATE providers SET redirect_uris = $1, post_logout_redirect_uris = $2, updated_at = $3 WHERE id = $4
 `
 
 type UpdateProviderRedirectsParams struct {
@@ -276,7 +276,7 @@ func (q *Queries) UpdateProviderRedirects(ctx context.Context, arg UpdateProvide
 }
 
 const updateProviderSecret = `-- name: UpdateProviderSecret :exec
-UPDATE providers SET client_secret_hash = ?, updated_at = ? WHERE id = ?
+UPDATE providers SET client_secret_hash = $1, updated_at = $2 WHERE id = $3
 `
 
 type UpdateProviderSecretParams struct {

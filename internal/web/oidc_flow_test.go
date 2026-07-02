@@ -12,7 +12,6 @@ import (
 	"net"
 	"net/http"
 	"net/url"
-	"path/filepath"
 	"strings"
 	"testing"
 	"time"
@@ -26,6 +25,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/lporcheron/kivraid/internal/store/storetest"
 )
 
 const (
@@ -46,11 +46,7 @@ func startIssuer(t *testing.T, public bool) (issuer string, st *store.Store) {
 	}
 	issuer = "http://" + l.Addr().String()
 
-	st, err = store.Open(ctx, "sqlite", filepath.Join(t.TempDir(), "test.db"))
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(func() { st.Close() })
+	st = storetest.Open(t)
 
 	user, err := local.NewSource(st).CreateUser(ctx,
 		"alice", "alice@example.com", "Alice Liddell", "s3cret-pass", false)
@@ -58,11 +54,11 @@ func startIssuer(t *testing.T, public bool) (issuer string, st *store.Store) {
 		t.Fatal(err)
 	}
 	// Group membership for the groups scope.
-	if _, err := st.DB.Exec(`INSERT INTO groups (id, name, created_at) VALUES ('g1', 'infra', ?)`,
+	if _, err := st.DB.Exec(`INSERT INTO groups (id, name, created_at) VALUES ('g1', 'infra', $1)`,
 		time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}
-	if _, err := st.DB.Exec(`INSERT INTO user_groups (user_id, group_id) VALUES (?, 'g1')`, user.ID); err != nil {
+	if _, err := st.DB.Exec(`INSERT INTO user_groups (user_id, group_id) VALUES ($1, 'g1')`, user.ID); err != nil {
 		t.Fatal(err)
 	}
 
@@ -96,7 +92,7 @@ func startIssuer(t *testing.T, public bool) (issuer string, st *store.Store) {
 		t.Fatal(err)
 	}
 	srv, err := NewServer(Deps{
-		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, false),
+		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false),
 		OIDC: provider, OIDCStore: storage, Log: log,
 	})
 	if err != nil {
@@ -242,7 +238,7 @@ func TestOIDCAccessPolicyDenied(t *testing.T) {
 	issuer, st := startIssuer(t, false)
 
 	// Bind the application to a group alice is not a member of.
-	if _, err := st.DB.Exec(`INSERT INTO groups (id, name, created_at) VALUES ('g2', 'admins', ?)`,
+	if _, err := st.DB.Exec(`INSERT INTO groups (id, name, created_at) VALUES ('g2', 'admins', $1)`,
 		time.Now().UTC()); err != nil {
 		t.Fatal(err)
 	}

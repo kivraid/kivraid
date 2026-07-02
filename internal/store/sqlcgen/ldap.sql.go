@@ -11,7 +11,7 @@ import (
 )
 
 const addUserGroup = `-- name: AddUserGroup :exec
-INSERT INTO user_groups (user_id, group_id) VALUES (?, ?)
+INSERT INTO user_groups (user_id, group_id) VALUES ($1, $2)
 `
 
 type AddUserGroupParams struct {
@@ -25,7 +25,7 @@ func (q *Queries) AddUserGroup(ctx context.Context, arg AddUserGroupParams) erro
 }
 
 const createGroup = `-- name: CreateGroup :one
-INSERT INTO groups (id, name, created_at) VALUES (?, ?, ?) RETURNING id, name, created_at
+INSERT INTO groups (id, name, created_at) VALUES ($1, $2, $3) RETURNING id, name, created_at
 `
 
 type CreateGroupParams struct {
@@ -46,7 +46,7 @@ INSERT INTO ldap_sources (id, name, url, start_tls, skip_tls_verify, bind_dn, bi
                           base_dn, user_filter, username_attr, email_attr, name_attr,
                           group_filter, group_name_attr, password_writeback, enabled, position,
                           created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19)
 RETURNING id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback
 `
 
@@ -120,7 +120,7 @@ func (q *Queries) CreateLdapSource(ctx context.Context, arg CreateLdapSourcePara
 }
 
 const deleteLdapSource = `-- name: DeleteLdapSource :exec
-DELETE FROM ldap_sources WHERE id = ?
+DELETE FROM ldap_sources WHERE id = $1
 `
 
 func (q *Queries) DeleteLdapSource(ctx context.Context, id string) error {
@@ -129,7 +129,7 @@ func (q *Queries) DeleteLdapSource(ctx context.Context, id string) error {
 }
 
 const deleteUserGroups = `-- name: DeleteUserGroups :exec
-DELETE FROM user_groups WHERE user_id = ?
+DELETE FROM user_groups WHERE user_id = $1
 `
 
 func (q *Queries) DeleteUserGroups(ctx context.Context, userID string) error {
@@ -138,7 +138,7 @@ func (q *Queries) DeleteUserGroups(ctx context.Context, userID string) error {
 }
 
 const getGroupByName = `-- name: GetGroupByName :one
-SELECT id, name, created_at FROM groups WHERE name = ?
+SELECT id, name, created_at FROM groups WHERE name = $1
 `
 
 func (q *Queries) GetGroupByName(ctx context.Context, name string) (Group, error) {
@@ -149,7 +149,7 @@ func (q *Queries) GetGroupByName(ctx context.Context, name string) (Group, error
 }
 
 const getLdapSource = `-- name: GetLdapSource :one
-SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback FROM ldap_sources WHERE id = ?
+SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback FROM ldap_sources WHERE id = $1
 `
 
 func (q *Queries) GetLdapSource(ctx context.Context, id string) (LdapSource, error) {
@@ -275,10 +275,10 @@ func (q *Queries) ListLdapSources(ctx context.Context) ([]LdapSource, error) {
 
 const updateLdapSource = `-- name: UpdateLdapSource :exec
 UPDATE ldap_sources
-SET name = ?, url = ?, start_tls = ?, skip_tls_verify = ?, bind_dn = ?, base_dn = ?,
-    user_filter = ?, username_attr = ?, email_attr = ?, name_attr = ?,
-    group_filter = ?, group_name_attr = ?, password_writeback = ?, enabled = ?, updated_at = ?
-WHERE id = ?
+SET name = $1, url = $2, start_tls = $3, skip_tls_verify = $4, bind_dn = $5, base_dn = $6,
+    user_filter = $7, username_attr = $8, email_attr = $9, name_attr = $10,
+    group_filter = $11, group_name_attr = $12, password_writeback = $13, enabled = $14, updated_at = $15
+WHERE id = $16
 `
 
 type UpdateLdapSourceParams struct {
@@ -323,7 +323,7 @@ func (q *Queries) UpdateLdapSource(ctx context.Context, arg UpdateLdapSourcePara
 }
 
 const updateLdapSourceBindPassword = `-- name: UpdateLdapSourceBindPassword :exec
-UPDATE ldap_sources SET bind_password_enc = ?, updated_at = ? WHERE id = ?
+UPDATE ldap_sources SET bind_password_enc = $1, updated_at = $2 WHERE id = $3
 `
 
 type UpdateLdapSourceBindPasswordParams struct {
@@ -338,7 +338,7 @@ func (q *Queries) UpdateLdapSourceBindPassword(ctx context.Context, arg UpdateLd
 }
 
 const updateUserLdapProfile = `-- name: UpdateUserLdapProfile :exec
-UPDATE users SET email = ?, name = ?, ldap_dn = ?, updated_at = ? WHERE id = ?
+UPDATE users SET email = $1, name = $2, ldap_dn = $3, updated_at = $4 WHERE id = $5
 `
 
 type UpdateUserLdapProfileParams struct {

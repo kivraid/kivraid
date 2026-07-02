@@ -8,13 +8,13 @@ import (
 	"sort"
 )
 
-//go:embed migrations/*.sql
+//go:embed migrations/sqlite/*.sql migrations/postgres/*.sql
 var migrationsFS embed.FS
 
-// Migrate applies pending migrations in lexical filename order. Each
-// migration runs in its own transaction and is recorded in
-// schema_migrations.
-func Migrate(ctx context.Context, db *sql.DB) error {
+// Migrate applies pending migrations for the given dialect in lexical
+// filename order. Both dialects share the same numbering; each migration
+// runs in its own transaction and is recorded in schema_migrations.
+func Migrate(ctx context.Context, db *sql.DB, dialect string) error {
 	if _, err := db.ExecContext(ctx,
 		`CREATE TABLE IF NOT EXISTS schema_migrations (
 			filename   TEXT PRIMARY KEY,
@@ -41,9 +41,10 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 		return err
 	}
 
-	entries, err := migrationsFS.ReadDir("migrations")
+	dir := "migrations/" + dialect
+	entries, err := migrationsFS.ReadDir(dir)
 	if err != nil {
-		return err
+		return fmt.Errorf("unknown dialect %q: %w", dialect, err)
 	}
 	names := make([]string, 0, len(entries))
 	for _, e := range entries {
@@ -55,7 +56,7 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 		if applied[name] {
 			continue
 		}
-		sqlBytes, err := migrationsFS.ReadFile("migrations/" + name)
+		sqlBytes, err := migrationsFS.ReadFile(dir + "/" + name)
 		if err != nil {
 			return err
 		}
@@ -68,7 +69,7 @@ func Migrate(ctx context.Context, db *sql.DB) error {
 			return fmt.Errorf("apply migration %s: %w", name, err)
 		}
 		if _, err := tx.ExecContext(ctx,
-			`INSERT INTO schema_migrations (filename, applied_at) VALUES (?, CURRENT_TIMESTAMP)`,
+			`INSERT INTO schema_migrations (filename, applied_at) VALUES ($1, CURRENT_TIMESTAMP)`,
 			name); err != nil {
 			tx.Rollback()
 			return fmt.Errorf("record migration %s: %w", name, err)

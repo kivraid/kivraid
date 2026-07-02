@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/alexedwards/scs/postgresstore"
 	"github.com/alexedwards/scs/sqlite3store"
 	"github.com/alexedwards/scs/v2"
 )
@@ -24,9 +25,14 @@ const (
 	KeyLoginAt   = "loginAt"
 )
 
-func NewManager(db *sql.DB, secureCookies bool) *scs.SessionManager {
+func NewManager(db *sql.DB, driver string, secureCookies bool) *scs.SessionManager {
 	m := scs.New()
-	m.Store = sqlite3store.NewWithCleanupInterval(db, 30*time.Minute)
+	switch driver {
+	case "postgres":
+		m.Store = postgresstore.NewWithCleanupInterval(db, 30*time.Minute)
+	default:
+		m.Store = sqlite3store.NewWithCleanupInterval(db, 30*time.Minute)
+	}
 	m.Lifetime = 7 * 24 * time.Hour
 	m.Cookie.Name = "kivraid_session"
 	m.Cookie.HttpOnly = true

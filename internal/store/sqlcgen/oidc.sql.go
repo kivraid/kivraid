@@ -12,7 +12,7 @@ import (
 
 const createAccessToken = `-- name: CreateAccessToken :exec
 INSERT INTO access_tokens (id, user_id, client_id, scopes, audience, refresh_token_id, expires_at, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateAccessTokenParams struct {
@@ -41,7 +41,7 @@ func (q *Queries) CreateAccessToken(ctx context.Context, arg CreateAccessTokenPa
 }
 
 const createAuthRequest = `-- name: CreateAuthRequest :exec
-INSERT INTO auth_requests (id, request, created_at) VALUES (?, ?, ?)
+INSERT INTO auth_requests (id, request, created_at) VALUES ($1, $2, $3)
 `
 
 type CreateAuthRequestParams struct {
@@ -57,7 +57,7 @@ func (q *Queries) CreateAuthRequest(ctx context.Context, arg CreateAuthRequestPa
 
 const createRefreshToken = `-- name: CreateRefreshToken :exec
 INSERT INTO refresh_tokens (id, user_id, client_id, scopes, audience, amr, auth_time, expires_at, created_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type CreateRefreshTokenParams struct {
@@ -89,7 +89,7 @@ func (q *Queries) CreateRefreshToken(ctx context.Context, arg CreateRefreshToken
 
 const createSigningKey = `-- name: CreateSigningKey :exec
 INSERT INTO signing_keys (id, alg, private_key_enc, public_key_der, active, created_at)
-VALUES (?, ?, ?, ?, ?, ?)
+VALUES ($1, $2, $3, $4, $5, $6)
 `
 
 type CreateSigningKeyParams struct {
@@ -114,7 +114,7 @@ func (q *Queries) CreateSigningKey(ctx context.Context, arg CreateSigningKeyPara
 }
 
 const deleteAccessToken = `-- name: DeleteAccessToken :exec
-DELETE FROM access_tokens WHERE id = ?
+DELETE FROM access_tokens WHERE id = $1
 `
 
 func (q *Queries) DeleteAccessToken(ctx context.Context, id string) error {
@@ -123,7 +123,7 @@ func (q *Queries) DeleteAccessToken(ctx context.Context, id string) error {
 }
 
 const deleteAccessTokensByRefreshToken = `-- name: DeleteAccessTokensByRefreshToken :exec
-DELETE FROM access_tokens WHERE refresh_token_id = ?
+DELETE FROM access_tokens WHERE refresh_token_id = $1
 `
 
 func (q *Queries) DeleteAccessTokensByRefreshToken(ctx context.Context, refreshTokenID *string) error {
@@ -132,7 +132,7 @@ func (q *Queries) DeleteAccessTokensByRefreshToken(ctx context.Context, refreshT
 }
 
 const deleteAccessTokensByUserClient = `-- name: DeleteAccessTokensByUserClient :exec
-DELETE FROM access_tokens WHERE user_id = ? AND client_id = ?
+DELETE FROM access_tokens WHERE user_id = $1 AND client_id = $2
 `
 
 type DeleteAccessTokensByUserClientParams struct {
@@ -146,7 +146,7 @@ func (q *Queries) DeleteAccessTokensByUserClient(ctx context.Context, arg Delete
 }
 
 const deleteAuthRequest = `-- name: DeleteAuthRequest :exec
-DELETE FROM auth_requests WHERE id = ?
+DELETE FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) DeleteAuthRequest(ctx context.Context, id string) error {
@@ -155,7 +155,7 @@ func (q *Queries) DeleteAuthRequest(ctx context.Context, id string) error {
 }
 
 const deleteExpiredAccessTokens = `-- name: DeleteExpiredAccessTokens :exec
-DELETE FROM access_tokens WHERE expires_at < ?
+DELETE FROM access_tokens WHERE expires_at < $1
 `
 
 func (q *Queries) DeleteExpiredAccessTokens(ctx context.Context, expiresAt time.Time) error {
@@ -164,7 +164,7 @@ func (q *Queries) DeleteExpiredAccessTokens(ctx context.Context, expiresAt time.
 }
 
 const deleteExpiredAuthRequests = `-- name: DeleteExpiredAuthRequests :exec
-DELETE FROM auth_requests WHERE created_at < ?
+DELETE FROM auth_requests WHERE created_at < $1
 `
 
 func (q *Queries) DeleteExpiredAuthRequests(ctx context.Context, createdAt time.Time) error {
@@ -173,7 +173,7 @@ func (q *Queries) DeleteExpiredAuthRequests(ctx context.Context, createdAt time.
 }
 
 const deleteExpiredRefreshTokens = `-- name: DeleteExpiredRefreshTokens :exec
-DELETE FROM refresh_tokens WHERE expires_at < ?
+DELETE FROM refresh_tokens WHERE expires_at < $1
 `
 
 func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context, expiresAt time.Time) error {
@@ -182,7 +182,7 @@ func (q *Queries) DeleteExpiredRefreshTokens(ctx context.Context, expiresAt time
 }
 
 const deleteRefreshToken = `-- name: DeleteRefreshToken :exec
-DELETE FROM refresh_tokens WHERE id = ?
+DELETE FROM refresh_tokens WHERE id = $1
 `
 
 func (q *Queries) DeleteRefreshToken(ctx context.Context, id string) error {
@@ -191,7 +191,7 @@ func (q *Queries) DeleteRefreshToken(ctx context.Context, id string) error {
 }
 
 const deleteRefreshTokensByUserClient = `-- name: DeleteRefreshTokensByUserClient :exec
-DELETE FROM refresh_tokens WHERE user_id = ? AND client_id = ?
+DELETE FROM refresh_tokens WHERE user_id = $1 AND client_id = $2
 `
 
 type DeleteRefreshTokensByUserClientParams struct {
@@ -205,7 +205,7 @@ func (q *Queries) DeleteRefreshTokensByUserClient(ctx context.Context, arg Delet
 }
 
 const getAccessToken = `-- name: GetAccessToken :one
-SELECT id, user_id, client_id, scopes, audience, refresh_token_id, expires_at, created_at FROM access_tokens WHERE id = ?
+SELECT id, user_id, client_id, scopes, audience, refresh_token_id, expires_at, created_at FROM access_tokens WHERE id = $1
 `
 
 func (q *Queries) GetAccessToken(ctx context.Context, id string) (AccessToken, error) {
@@ -259,7 +259,7 @@ func (q *Queries) GetActiveSigningKeys(ctx context.Context) ([]SigningKey, error
 }
 
 const getAuthRequestByCode = `-- name: GetAuthRequestByCode :one
-SELECT id, code, request, created_at FROM auth_requests WHERE code = ?
+SELECT id, code, request, created_at FROM auth_requests WHERE code = $1
 `
 
 func (q *Queries) GetAuthRequestByCode(ctx context.Context, code *string) (AuthRequest, error) {
@@ -275,7 +275,7 @@ func (q *Queries) GetAuthRequestByCode(ctx context.Context, code *string) (AuthR
 }
 
 const getAuthRequestByID = `-- name: GetAuthRequestByID :one
-SELECT id, code, request, created_at FROM auth_requests WHERE id = ?
+SELECT id, code, request, created_at FROM auth_requests WHERE id = $1
 `
 
 func (q *Queries) GetAuthRequestByID(ctx context.Context, id string) (AuthRequest, error) {
@@ -291,7 +291,7 @@ func (q *Queries) GetAuthRequestByID(ctx context.Context, id string) (AuthReques
 }
 
 const getRefreshToken = `-- name: GetRefreshToken :one
-SELECT id, user_id, client_id, scopes, audience, amr, auth_time, expires_at, created_at FROM refresh_tokens WHERE id = ?
+SELECT id, user_id, client_id, scopes, audience, amr, auth_time, expires_at, created_at FROM refresh_tokens WHERE id = $1
 `
 
 func (q *Queries) GetRefreshToken(ctx context.Context, id string) (RefreshToken, error) {
@@ -312,7 +312,7 @@ func (q *Queries) GetRefreshToken(ctx context.Context, id string) (RefreshToken,
 }
 
 const setAuthRequestCode = `-- name: SetAuthRequestCode :exec
-UPDATE auth_requests SET code = ? WHERE id = ?
+UPDATE auth_requests SET code = $1 WHERE id = $2
 `
 
 type SetAuthRequestCodeParams struct {
@@ -326,7 +326,7 @@ func (q *Queries) SetAuthRequestCode(ctx context.Context, arg SetAuthRequestCode
 }
 
 const updateAuthRequest = `-- name: UpdateAuthRequest :exec
-UPDATE auth_requests SET request = ? WHERE id = ?
+UPDATE auth_requests SET request = $1 WHERE id = $2
 `
 
 type UpdateAuthRequestParams struct {

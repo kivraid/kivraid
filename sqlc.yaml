@@ -1,10 +1,26 @@
+# Codegen runs against the Postgres schema; the generated queries use $n
+# placeholders, which SQLite also supports natively, so a single generated
+# package serves both engines.
 version: "2"
 sql:
-  - engine: "sqlite"
-    schema: "internal/store/migrations"
+  - engine: "postgresql"
+    schema: "internal/store/migrations/postgres"
     queries: "internal/store/queries"
     gen:
       go:
         package: "sqlcgen"
         out: "internal/store/sqlcgen"
-        emit_pointers_for_null_types: true
+        sql_package: "database/sql"
+        overrides:
+          # Nullable text columns map to *string (matches what the
+          # sqlite engine generated before the dual-engine switch).
+          - db_type: "pg_catalog.text"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
+          - db_type: "text"
+            nullable: true
+            go_type:
+              type: "string"
+              pointer: true
