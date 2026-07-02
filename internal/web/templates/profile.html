@@ -31,9 +31,43 @@
     <div>
       <dt class="dt">Groups</dt>
       <dd class="flex flex-wrap gap-1.5">
-        {{range .Groups}}<span class="badge">{{.Name}}</span>{{else}}<span class="text-faint">No groups yet</span>{{end}}
+        {{range .Data.Groups}}<span class="badge">{{.Name}}</span>{{else}}<span class="text-faint">No groups yet</span>{{end}}
       </dd>
     </div>
   </dl>
 </div>
+
+{{if .Data.CanChangePW}}
+<div class="mt-4 space-y-4">
+  {{if .Data.PWSuccess}}<div class="alert-success" role="status">Your password has been changed.</div>{{end}}
+  {{if .Data.PWError}}<div class="alert-danger" role="alert">{{.Data.PWError}}</div>{{end}}
+
+  <form method="post" action="/profile/password" class="card space-y-5 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div>
+      <h2 class="text-sm font-semibold">Change password</h2>
+      {{if eq .User.Source "ldap"}}
+      <p class="mt-1 text-xs text-muted">Your password lives in the directory; the change is written back to it.</p>
+      {{end}}
+    </div>
+    <div>
+      <label class="label" for="current_password">Current password</label>
+      <input class="input sm:w-2/3" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+    </div>
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div>
+        <label class="label" for="new_password">New password</label>
+        <input class="input" id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <div>
+        <label class="label" for="confirm_password">Confirm new password</label>
+        <input class="input" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+    </div>
+    <div class="flex justify-end border-t border-line pt-5">
+      <button type="submit" class="btn-primary">Change password</button>
+    </div>
+  </form>
+</div>
+{{end}}
 {{end}}

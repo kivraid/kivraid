@@ -1,0 +1,12 @@
+{{define "content"}}
+<div class="mx-auto flex max-w-md flex-col items-center gap-4 py-16 text-center">
+  <span class="inline-flex size-12 items-center justify-center rounded-full bg-danger-soft text-danger">
+    <svg class="size-6" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M4.9 4.9l14.2 14.2"/></svg>
+  </span>
+  <div>
+    <h1 class="text-xl font-semibold tracking-tight">No access to {{.Data.Name}}</h1>
+    <p class="mt-2 text-sm text-muted">Your account is not in any of the groups allowed to use this application. If you believe this is a mistake, contact your administrator.</p>
+  </div>
+  <a href="/" class="btn-primary mt-2">Back to home</a>
+</div>
+{{end}}

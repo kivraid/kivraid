@@ -59,6 +59,29 @@ func (s *Source) Authenticate(ctx context.Context, username, password string) (s
 	return user, nil
 }
 
+// ChangePassword verifies the current password and stores a new hash.
+func (s *Source) ChangePassword(ctx context.Context, user sqlcgen.User, current, newPassword string) error {
+	if user.Source != "local" || user.PasswordHash == nil {
+		return errors.New("not a local account")
+	}
+	ok, err := VerifyPassword(*user.PasswordHash, current)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return ErrBadCredentials
+	}
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return s.store.UpdateUserPassword(ctx, sqlcgen.UpdateUserPasswordParams{
+		PasswordHash: &hash,
+		UpdatedAt:    time.Now().UTC(),
+		ID:           user.ID,
+	})
+}
+
 // CreateUser creates a local account with the given password.
 func (s *Source) CreateUser(ctx context.Context, username, email, name, password string, isAdmin bool) (sqlcgen.User, error) {
 	hash, err := HashPassword(password)

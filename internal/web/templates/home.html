@@ -1,0 +1,29 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">Hello, {{.User.Name}}</h1>
+  <p class="mt-1 text-sm text-muted">Your applications, one sign-in away.</p>
+</div>
+
+{{if .Data.Apps}}
+<div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+  {{range .Data.Apps}}
+  <a href="{{.LaunchUrl}}" class="card group flex items-center gap-4 p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md">
+    <span class="avatar-lg">{{initials .Name}}</span>
+    <div class="min-w-0 flex-1">
+      <div class="truncate text-sm font-semibold">{{.Name}}</div>
+      <div class="mt-0.5 truncate text-xs text-faint">{{.LaunchUrl}}</div>
+    </div>
+    <svg class="size-4 shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
+  </a>
+  {{end}}
+</div>
+{{else}}
+<div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
+  <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
+  <div>
+    <h2 class="text-sm font-semibold">No applications yet</h2>
+    <p class="mt-1 text-sm text-muted">Applications you can open will appear here once an administrator publishes them.</p>
+  </div>
+</div>
+{{end}}
+{{end}}

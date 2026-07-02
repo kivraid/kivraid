@@ -1,8 +1,9 @@
 -- name: CreateLdapSource :one
 INSERT INTO ldap_sources (id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc,
                           base_dn, user_filter, username_attr, email_attr, name_attr,
-                          group_filter, group_name_attr, enabled, position, created_at, updated_at)
-VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                          group_filter, group_name_attr, password_writeback, enabled, position,
+                          created_at, updated_at)
+VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
 RETURNING *;
 
 -- name: GetLdapSource :one
@@ -18,7 +19,7 @@ SELECT * FROM ldap_sources WHERE enabled = TRUE ORDER BY position, name;
 UPDATE ldap_sources
 SET name = ?, url = ?, start_tls = ?, skip_tls_verify = ?, bind_dn = ?, base_dn = ?,
     user_filter = ?, username_attr = ?, email_attr = ?, name_attr = ?,
-    group_filter = ?, group_name_attr = ?, enabled = ?, updated_at = ?
+    group_filter = ?, group_name_attr = ?, password_writeback = ?, enabled = ?, updated_at = ?
 WHERE id = ?;
 
 -- name: UpdateLdapSourceBindPassword :exec

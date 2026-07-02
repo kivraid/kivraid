@@ -1,0 +1,259 @@
+package web
+
+import (
+	"context"
+	"crypto/sha256"
+	"encoding/hex"
+	"errors"
+	"net"
+	"net/http"
+	"sort"
+	"strings"
+	"time"
+
+	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/lporcheron/kivraid/internal/sources/ldap"
+	"github.com/lporcheron/kivraid/internal/sources/local"
+	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+)
+
+type homeData struct {
+	Apps []sqlcgen.Application
+}
+
+// handleHome renders the application launcher: applications the user may
+// access that have a launch URL.
+func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	apps, err := s.store.ListLaunchableApplications(r.Context(), user.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.render(w, r, "home.html", pageData{
+		Title: "Home", Active: "home", CSRF: s.csrfToken(r.Context()),
+		User: user, Data: homeData{Apps: apps},
+	})
+}
+
+// --- Password change ------------------------------------------------------
+
+func (s *Server) canChangePassword(r *http.Request, user sqlcgen.User) bool {
+	switch user.Source {
+	case "local":
+		return true
+	case "ldap":
+		if user.LdapSourceID == nil {
+			return false
+		}
+		src, err := s.store.GetLdapSource(r.Context(), *user.LdapSourceID)
+		return err == nil && src.PasswordWriteback
+	}
+	return false
+}
+
+func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	current := r.PostFormValue("current_password")
+	newPW := r.PostFormValue("new_password")
+	confirm := r.PostFormValue("confirm_password")
+
+	fail := func(msg string) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.renderProfile(w, r, user, msg, false)
+	}
+
+	if !s.canChangePassword(r, user) {
+		fail("Password changes are not available for this account.")
+		return
+	}
+	if len(newPW) < 8 {
+		fail("The new password must be at least 8 characters.")
+		return
+	}
+	if newPW != confirm {
+		fail("The new passwords do not match.")
+		return
+	}
+
+	var err error
+	switch user.Source {
+	case "local":
+		err = s.local.ChangePassword(r.Context(), user, current, newPW)
+	case "ldap":
+		if s.ldap == nil {
+			fail("Password changes are not available for this account.")
+			return
+		}
+		err = s.ldap.ChangePassword(r.Context(), user, current, newPW)
+	}
+	switch {
+	case errors.Is(err, local.ErrBadCredentials) || errors.Is(err, ldap.ErrBadCredentials):
+		fail("The current password is incorrect.")
+		return
+	case errors.Is(err, ldap.ErrWritebackDisabled):
+		fail("Password changes are disabled for your directory.")
+		return
+	case err != nil:
+		s.log.Error("password change", "user", user.Username, "err", err)
+		fail("The directory refused the password change. Contact your administrator.")
+		return
+	}
+	s.log.Info("password changed", "user", user.Username, "source", user.Source)
+	http.Redirect(w, r, "/profile?pw=1", http.StatusSeeOther)
+}
+
+// --- Sessions --------------------------------------------------------------
+
+type sessionInfo struct {
+	TokenHash string
+	Device    string
+	IP        string
+	LoginAt   time.Time
+	Expiry    time.Time
+	Current   bool
+}
+
+type sessionsData struct {
+	Sessions []sessionInfo
+	Others   int
+}
+
+// listUserSessions walks the session store and returns the current user's
+// sessions, newest first.
+func (s *Server) listUserSessions(r *http.Request, userID string) ([]sessionInfo, error) {
+	currentToken := s.sessions.Token(r.Context())
+	var out []sessionInfo
+	err := s.sessions.Iterate(r.Context(), func(ctx context.Context) error {
+		if s.sessions.GetString(ctx, session.KeyUserID) != userID {
+			return nil
+		}
+		token := s.sessions.Token(ctx)
+		hash := sha256.Sum256([]byte(token))
+		out = append(out, sessionInfo{
+			TokenHash: hex.EncodeToString(hash[:]),
+			Device:    summarizeUA(s.sessions.GetString(ctx, session.KeyUserAgent)),
+			IP:        s.sessions.GetString(ctx, session.KeyIP),
+			LoginAt:   time.Unix(s.sessions.GetInt64(ctx, session.KeyLoginAt), 0).UTC(),
+			Expiry:    s.sessions.Deadline(ctx).UTC(),
+			Current:   token == currentToken,
+		})
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	sort.Slice(out, func(i, j int) bool { return out[i].LoginAt.After(out[j].LoginAt) })
+	return out, nil
+}
+
+func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	sessions, err := s.listUserSessions(r, user.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	others := 0
+	for _, si := range sessions {
+		if !si.Current {
+			others++
+		}
+	}
+	s.render(w, r, "sessions.html", pageData{
+		Title: "Sessions", Active: "sessions", CSRF: s.csrfToken(r.Context()),
+		User: user, Data: sessionsData{Sessions: sessions, Others: others},
+	})
+}
+
+func (s *Server) handleSessionRevoke(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	target := r.PostFormValue("token_hash")
+	err := s.sessions.Iterate(r.Context(), func(ctx context.Context) error {
+		if s.sessions.GetString(ctx, session.KeyUserID) != user.ID {
+			return nil
+		}
+		token := s.sessions.Token(ctx)
+		hash := sha256.Sum256([]byte(token))
+		if hex.EncodeToString(hash[:]) == target {
+			return s.sessions.Store.Delete(token)
+		}
+		return nil
+	})
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+}
+
+func (s *Server) handleSessionsRevokeOthers(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	currentToken := s.sessions.Token(r.Context())
+	err := s.sessions.Iterate(r.Context(), func(ctx context.Context) error {
+		if s.sessions.GetString(ctx, session.KeyUserID) != user.ID {
+			return nil
+		}
+		if token := s.sessions.Token(ctx); token != currentToken {
+			return s.sessions.Store.Delete(token)
+		}
+		return nil
+	})
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+}
+
+// summarizeUA turns a User-Agent header into a short human label.
+func summarizeUA(ua string) string {
+	if ua == "" {
+		return "Unknown device"
+	}
+	browser := "Browser"
+	switch {
+	case strings.Contains(ua, "Firefox/"):
+		browser = "Firefox"
+	case strings.Contains(ua, "Edg/"):
+		browser = "Edge"
+	case strings.Contains(ua, "Chrome/"), strings.Contains(ua, "Chromium/"):
+		browser = "Chrome"
+	case strings.Contains(ua, "Safari/"):
+		browser = "Safari"
+	case strings.HasPrefix(ua, "curl/"):
+		browser = "curl"
+	}
+	os := ""
+	switch {
+	case strings.Contains(ua, "iPhone"), strings.Contains(ua, "iPad"):
+		os = "iOS"
+	case strings.Contains(ua, "Android"):
+		os = "Android"
+	case strings.Contains(ua, "Mac OS X"), strings.Contains(ua, "Macintosh"):
+		os = "macOS"
+	case strings.Contains(ua, "Windows"):
+		os = "Windows"
+	case strings.Contains(ua, "Linux"):
+		os = "Linux"
+	}
+	if os == "" {
+		return browser
+	}
+	return browser + " · " + os
+}
+
+// clientIP extracts the requester's IP, honoring X-Forwarded-For when the
+// instance runs behind a reverse proxy.
+func clientIP(r *http.Request) string {
+	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+		if first, _, ok := strings.Cut(xff, ","); ok || first != "" {
+			return strings.TrimSpace(first)
+		}
+	}
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		return r.RemoteAddr
+	}
+	return host
+}

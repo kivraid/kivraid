@@ -77,7 +77,7 @@ func NewServer(d Deps) (*Server, error) {
 		s.pages[page] = t
 	}
 	withLayout := []string{
-		"profile.html",
+		"home.html", "profile.html", "sessions.html", "denied.html",
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html",
 	}
@@ -99,6 +99,10 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("POST /logout", s.handleLogout)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))
 	web.Handle("GET /profile", s.requireAuth(http.HandlerFunc(s.handleProfile)))
+	web.Handle("POST /profile/password", s.requireAuth(http.HandlerFunc(s.handleProfilePassword)))
+	web.Handle("GET /sessions", s.requireAuth(http.HandlerFunc(s.handleSessions)))
+	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
+	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))
 	web.Handle("GET "+oidcserver.ResumePath, s.requireAuth(http.HandlerFunc(s.handleOIDCResume)))
 
 	web.Handle("GET /admin/applications", s.requireAdmin(http.HandlerFunc(s.handleAdminApps)))

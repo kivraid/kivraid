@@ -18,8 +18,11 @@
           Kivraid
         </a>
         <nav class="flex items-center gap-1">
+          <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}">Home</a>
           <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}">Profile</a>
+          <a href="/sessions" class="nav-link {{if eq .Active "sessions"}}nav-active{{end}}">Sessions</a>
           {{if .User.IsAdmin}}
+          <span class="mx-1 h-4 w-px bg-line"></span>
           <a href="/admin/applications" class="nav-link {{if eq .Active "apps"}}nav-active{{end}}">Applications</a>
           <a href="/admin/ldap" class="nav-link {{if eq .Active "ldap"}}nav-active{{end}}">Directories</a>
           {{end}}

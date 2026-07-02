@@ -114,8 +114,8 @@ func (m *Manager) lookupAndBind(src sqlcgen.LdapSource, username, password strin
 	return entry, nil
 }
 
-// Connect dials the source and binds with the service account.
-func (m *Manager) Connect(src sqlcgen.LdapSource) (*goldap.Conn, error) {
+// dial opens an unauthenticated connection to the source.
+func (m *Manager) dial(src sqlcgen.LdapSource) (*goldap.Conn, error) {
 	u, err := url.Parse(src.Url)
 	if err != nil {
 		return nil, fmt.Errorf("invalid url: %w", err)
@@ -136,6 +136,15 @@ func (m *Manager) Connect(src sqlcgen.LdapSource) (*goldap.Conn, error) {
 			return nil, fmt.Errorf("starttls: %w", err)
 		}
 	}
+	return conn, nil
+}
+
+// Connect dials the source and binds with the service account.
+func (m *Manager) Connect(src sqlcgen.LdapSource) (*goldap.Conn, error) {
+	conn, err := m.dial(src)
+	if err != nil {
+		return nil, err
+	}
 	bindPassword, err := secrets.Open(m.sealKey, src.BindPasswordEnc)
 	if err != nil {
 		conn.Close()
@@ -146,6 +155,45 @@ func (m *Manager) Connect(src sqlcgen.LdapSource) (*goldap.Conn, error) {
 		return nil, fmt.Errorf("service bind: %w", err)
 	}
 	return conn, nil
+}
+
+// ErrWritebackDisabled is returned when the user's source does not allow
+// password changes from Kivraid.
+var ErrWritebackDisabled = errors.New("password changes are disabled for this directory")
+
+// ChangePassword performs the RFC 3062 Password Modify extended operation
+// on the user's own connection: the current password is verified by the
+// user bind, and the directory's ACLs decide whether self-service change
+// is allowed. Works with OpenLDAP and LLDAP.
+func (m *Manager) ChangePassword(ctx context.Context, user sqlcgen.User, current, newPassword string) error {
+	if user.LdapSourceID == nil || user.LdapDn == nil {
+		return errors.New("user has no directory binding")
+	}
+	if current == "" {
+		return ErrBadCredentials // avoid an anonymous bind
+	}
+	src, err := m.store.GetLdapSource(ctx, *user.LdapSourceID)
+	if err != nil {
+		return err
+	}
+	if !src.PasswordWriteback {
+		return ErrWritebackDisabled
+	}
+	conn, err := m.dial(src)
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	if err := conn.Bind(*user.LdapDn, current); err != nil {
+		return ErrBadCredentials
+	}
+	// Empty user identity means "the bound user" (most compatible across
+	// OpenLDAP and LLDAP).
+	if _, err := conn.PasswordModify(goldap.NewPasswordModifyRequest("", current, newPassword)); err != nil {
+		return fmt.Errorf("password modify: %w", err)
+	}
+	m.log.Info("ldap password changed", "user", user.Username, "source", src.Name)
+	return nil
 }
 
 // FindUser searches the directory for username; exported for the admin

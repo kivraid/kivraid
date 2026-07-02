@@ -238,6 +238,60 @@ func TestOIDCCodeFlowConfidential(t *testing.T) {
 	}
 }
 
+func TestOIDCAccessPolicyDenied(t *testing.T) {
+	issuer, st := startIssuer(t, false)
+
+	// Bind the application to a group alice is not a member of.
+	if _, err := st.DB.Exec(`INSERT INTO groups (id, name, created_at) VALUES ('g2', 'admins', ?)`,
+		time.Now().UTC()); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB.Exec(`INSERT INTO app_policies (application_id, group_id) VALUES ('app1', 'g2')`); err != nil {
+		t.Fatal(err)
+	}
+
+	authURL := issuer + "/authorize?" + url.Values{
+		"client_id":     {testClientID},
+		"redirect_uri":  {testRedirectURI},
+		"response_type": {"code"},
+		"scope":         {"openid"},
+		"state":         {"teststate"},
+	}.Encode()
+
+	c := newClient(t)
+	resp, err := c.Get(authURL)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	loginLoc := resp.Header.Get("Location")
+	u, _ := url.Parse(issuer + loginLoc)
+	next := u.Query().Get("next")
+
+	csrf := fetchCSRF(t, c, issuer+loginLoc)
+	resp, err = c.PostForm(issuer+"/login", url.Values{
+		"_csrf": {csrf}, "username": {"alice"}, "password": {"s3cret-pass"}, "next": {next},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	// The resume step must refuse to complete the authorization.
+	resp, err = c.Get(issuer + resp.Header.Get("Location"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("want 403, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "No access to IT App") {
+		t.Fatal("denied page missing application name")
+	}
+}
+
 func TestOIDCCodeFlowPublicPKCE(t *testing.T) {
 	issuer, _ := startIssuer(t, true)
 

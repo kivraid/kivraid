@@ -1,8 +1,10 @@
 package web
 
 import (
+	"context"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/session"
@@ -75,7 +77,10 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sessions.Put(r.Context(), session.KeyUserID, user.ID)
-	s.log.Info("user logged in", "user", user.Username)
+	s.sessions.Put(r.Context(), session.KeyIP, clientIP(r))
+	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
+	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
+	s.log.Info("user logged in", "user", user.Username, "source", user.Source)
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
@@ -87,14 +92,18 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
 }
 
-func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
-	// The portal home becomes the application launcher in M3; until then
-	// the profile is the only page.
-	http.Redirect(w, r, "/profile", http.StatusSeeOther)
+type profileData struct {
+	Groups      []sqlcgen.Group
+	CanChangePW bool
+	PWError     string
+	PWSuccess   bool
 }
 
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
-	user := currentUser(r)
+	s.renderProfile(w, r, currentUser(r), "", r.URL.Query().Get("pw") == "1")
+}
+
+func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlcgen.User, pwError string, pwSuccess bool) {
 	groups, err := s.store.ListUserGroups(r.Context(), user.ID)
 	if err != nil {
 		s.serverError(w, r, err)
@@ -105,7 +114,12 @@ func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
 		Active: "profile",
 		CSRF:   s.csrfToken(r.Context()),
 		User:   user,
-		Groups: groups,
+		Data: profileData{
+			Groups:      groups,
+			CanChangePW: s.canChangePassword(r, user),
+			PWError:     pwError,
+			PWSuccess:   pwSuccess,
+		},
 	})
 }
 
@@ -116,12 +130,63 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	user := currentUser(r)
+
+	clientID, err := s.oidcStore.ClientIDForAuthRequest(r.Context(), id)
+	if err != nil {
+		s.log.Warn("resume authorization request", "id", id, "err", err)
+		http.Error(w, "authorization request not found or expired", http.StatusBadRequest)
+		return
+	}
+	provider, err := s.store.GetProviderByClientID(r.Context(), clientID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	app, err := s.store.GetApplication(r.Context(), provider.ApplicationID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	allowed, err := s.userCanAccessApp(r.Context(), app.ID, user.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	if !allowed {
+		s.log.Info("application access denied", "app", app.Slug, "user", user.Username)
+		w.WriteHeader(http.StatusForbidden)
+		s.render(w, r, "denied.html", pageData{
+			Title: "Access denied", CSRF: s.csrfToken(r.Context()),
+			User: user, Data: app,
+		})
+		return
+	}
+
 	if err := s.oidcStore.CompleteAuthRequest(r.Context(), id, user.ID); err != nil {
 		s.log.Warn("resume authorization request", "id", id, "err", err)
 		http.Error(w, "authorization request not found or expired", http.StatusBadRequest)
 		return
 	}
 	http.Redirect(w, r, oidcserver.CallbackPath(id), http.StatusSeeOther)
+}
+
+// userCanAccessApp evaluates the group policy: no bound groups means the
+// application is open to every authenticated user.
+func (s *Server) userCanAccessApp(ctx context.Context, appID, userID string) (bool, error) {
+	total, err := s.store.CountAppPolicies(ctx, appID)
+	if err != nil {
+		return false, err
+	}
+	if total == 0 {
+		return true, nil
+	}
+	matching, err := s.store.CountMatchingAppPolicies(ctx, sqlcgen.CountMatchingAppPoliciesParams{
+		ApplicationID: appID, UserID: userID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return matching > 0, nil
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, data any) {

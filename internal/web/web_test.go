@@ -174,6 +174,129 @@ func TestAnonymousRedirectedToLogin(t *testing.T) {
 	}
 }
 
+func login(t *testing.T, c *http.Client, baseURL, username, password string) {
+	t.Helper()
+	csrf := fetchCSRF(t, c, baseURL+"/login")
+	resp, err := c.PostForm(baseURL+"/login", url.Values{
+		"_csrf": {csrf}, "username": {username}, "password": {password},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("login %s: want 303, got %d", username, resp.StatusCode)
+	}
+}
+
+func TestPasswordChangeLocal(t *testing.T) {
+	ts := newTestServer(t)
+	c := newClient(t)
+	login(t, c, ts.URL, "alice", "s3cret-pass")
+	csrf := fetchCSRFFromPage(t, c, ts.URL+"/profile")
+
+	// Wrong current password is rejected.
+	resp, err := c.PostForm(ts.URL+"/profile/password", url.Values{
+		"_csrf": {csrf}, "current_password": {"wrong"},
+		"new_password": {"new-pass-123"}, "confirm_password": {"new-pass-123"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnprocessableEntity || !strings.Contains(string(body), "current password is incorrect") {
+		t.Fatalf("wrong current: got %d", resp.StatusCode)
+	}
+
+	// Correct current password changes it.
+	resp, err = c.PostForm(ts.URL+"/profile/password", url.Values{
+		"_csrf": {csrf}, "current_password": {"s3cret-pass"},
+		"new_password": {"new-pass-123"}, "confirm_password": {"new-pass-123"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("change: want 303, got %d", resp.StatusCode)
+	}
+
+	// Old password no longer works, the new one does.
+	c2 := newClient(t)
+	csrf2 := fetchCSRF(t, c2, ts.URL+"/login")
+	resp, _ = c2.PostForm(ts.URL+"/login", url.Values{
+		"_csrf": {csrf2}, "username": {"alice"}, "password": {"s3cret-pass"},
+	})
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("old password still accepted: %d", resp.StatusCode)
+	}
+	login(t, c2, ts.URL, "alice", "new-pass-123")
+}
+
+var tokenHashRe = regexp.MustCompile(`name="token_hash" value="([0-9a-f]+)"`)
+
+func TestSessionsListAndRevoke(t *testing.T) {
+	ts := newTestServer(t)
+
+	// Two sessions for the same user.
+	c1 := newClient(t)
+	login(t, c1, ts.URL, "alice", "s3cret-pass")
+	c2 := newClient(t)
+	login(t, c2, ts.URL, "alice", "s3cret-pass")
+
+	resp, err := c1.Get(ts.URL + "/sessions")
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	page := string(body)
+	if !strings.Contains(page, "This device") {
+		t.Fatal("current session not marked")
+	}
+	m := tokenHashRe.FindStringSubmatch(page)
+	if m == nil {
+		t.Fatal("no revocable session listed")
+	}
+
+	// Revoke the other session; it must be logged out.
+	csrf := csrfRe.FindSubmatch(body)
+	resp, err = c1.PostForm(ts.URL+"/sessions/revoke", url.Values{
+		"_csrf": {string(csrf[1])}, "token_hash": {m[1]},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	resp, err = c2.Get(ts.URL + "/profile")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther {
+		t.Fatalf("revoked session still alive: %d", resp.StatusCode)
+	}
+}
+
+// fetchCSRFFromPage extracts the CSRF token from any authenticated page.
+func fetchCSRFFromPage(t *testing.T, c *http.Client, url string) string {
+	t.Helper()
+	resp, err := c.Get(url)
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	m := csrfRe.FindSubmatch(body)
+	if m == nil {
+		t.Fatalf("no CSRF token on %s", url)
+	}
+	return string(m[1])
+}
+
 func TestSecurityHeaders(t *testing.T) {
 	ts := newTestServer(t)
 	resp, err := http.Get(ts.URL + "/login")

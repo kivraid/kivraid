@@ -9,6 +9,7 @@ import (
 	"net"
 	"path/filepath"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -53,6 +54,10 @@ func startFakeDirectory(t *testing.T) string {
 	if err != nil {
 		t.Fatal(err)
 	}
+	// boundDNs tracks which DN each connection is bound as, so the
+	// password-modify handler can require a user bind.
+	var mu sync.Mutex
+	boundDNs := map[int]string{}
 	mux.Bind(func(w *gldap.ResponseWriter, r *gldap.Request) {
 		resp := r.NewBindResponse(gldap.WithResponseCode(gldap.ResultInvalidCredentials))
 		defer func() { w.Write(resp) }()
@@ -67,8 +72,21 @@ func startFakeDirectory(t *testing.T) string {
 		}
 		if pw, ok := creds[m.UserName]; ok && pw == string(m.Password) && pw != "" {
 			resp.SetResultCode(gldap.ResultSuccess)
+			mu.Lock()
+			boundDNs[r.ConnectionID()] = m.UserName
+			mu.Unlock()
 		}
 	})
+	mux.ExtendedOperation(func(w *gldap.ResponseWriter, r *gldap.Request) {
+		resp := r.NewExtendedResponse(gldap.WithResponseCode(gldap.ResultUnwillingToPerform))
+		mu.Lock()
+		dn := boundDNs[r.ConnectionID()]
+		mu.Unlock()
+		if dn == testAliceDN || dn == testBobDN {
+			resp.SetResultCode(gldap.ResultSuccess)
+		}
+		w.Write(resp)
+	}, gldap.ExtendedOperationPasswordModify)
 	mux.Search(func(w *gldap.ResponseWriter, r *gldap.Request) {
 		m, err := r.GetSearchMessage()
 		if err != nil {
@@ -148,7 +166,8 @@ func newTestManager(t *testing.T) (*Manager, *store.Store) {
 		UserFilter:   "(&(objectClass=person)(uid={username}))",
 		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn",
 		GroupFilter: "(&(objectClass=groupOfNames)(member={dn}))", GroupNameAttr: "cn",
-		Enabled: true, Position: 0, CreatedAt: now, UpdatedAt: now,
+		PasswordWriteback: true,
+		Enabled:           true, Position: 0, CreatedAt: now, UpdatedAt: now,
 	}); err != nil {
 		t.Fatal(err)
 	}
@@ -209,6 +228,34 @@ func TestAuthenticateRejectsBadPassword(t *testing.T) {
 	}
 	if _, err := m.Authenticate(ctx, "alice", ""); !errors.Is(err, ErrBadCredentials) {
 		t.Fatalf("empty password: want ErrBadCredentials, got %v", err)
+	}
+}
+
+func TestChangePasswordWriteback(t *testing.T) {
+	m, st := newTestManager(t)
+	ctx := context.Background()
+
+	user, err := m.Authenticate(ctx, "alice", testAlicePW)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// Wrong current password: the user bind fails, nothing is written.
+	if err := m.ChangePassword(ctx, user, "wrong", "brand-new-pass"); !errors.Is(err, ErrBadCredentials) {
+		t.Fatalf("wrong current: want ErrBadCredentials, got %v", err)
+	}
+
+	// Correct current password: RFC 3062 password modify succeeds.
+	if err := m.ChangePassword(ctx, user, testAlicePW, "brand-new-pass"); err != nil {
+		t.Fatalf("change password: %v", err)
+	}
+
+	// Write-back disabled on the source: refused before contacting LDAP.
+	if _, err := st.DB.Exec(`UPDATE ldap_sources SET password_writeback = FALSE`); err != nil {
+		t.Fatal(err)
+	}
+	if err := m.ChangePassword(ctx, user, testAlicePW, "another-pass"); !errors.Is(err, ErrWritebackDisabled) {
+		t.Fatalf("want ErrWritebackDisabled, got %v", err)
 	}
 }
 

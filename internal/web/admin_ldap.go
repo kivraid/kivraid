@@ -28,6 +28,7 @@ type ldapForm struct {
 	NameAttr      string
 	GroupFilter   string
 	GroupNameAttr string
+	Writeback     bool
 	Enabled       bool
 }
 
@@ -57,7 +58,8 @@ func formFromSource(src sqlcgen.LdapSource) ldapForm {
 		Name: src.Name, URL: src.Url, StartTLS: src.StartTls, SkipTLSVerify: src.SkipTlsVerify,
 		BindDN: src.BindDn, BaseDN: src.BaseDn, UserFilter: src.UserFilter,
 		UsernameAttr: src.UsernameAttr, EmailAttr: src.EmailAttr, NameAttr: src.NameAttr,
-		GroupFilter: src.GroupFilter, GroupNameAttr: src.GroupNameAttr, Enabled: src.Enabled,
+		GroupFilter: src.GroupFilter, GroupNameAttr: src.GroupNameAttr,
+		Writeback: src.PasswordWriteback, Enabled: src.Enabled,
 	}
 }
 
@@ -77,6 +79,7 @@ func parseLdapForm(r *http.Request) ldapForm {
 		NameAttr:      str("name_attr"),
 		GroupFilter:   str("group_filter"),
 		GroupNameAttr: str("group_name_attr"),
+		Writeback:     r.PostFormValue("password_writeback") == "on",
 		Enabled:       r.PostFormValue("enabled") == "on",
 	}
 	if f.UsernameAttr == "" {
@@ -142,7 +145,8 @@ func (s *Server) renderLdapForm(w http.ResponseWriter, r *http.Request, data adm
 
 func (s *Server) handleAdminLdapNew(w http.ResponseWriter, r *http.Request) {
 	s.renderLdapForm(w, r, adminLdapFormData{IsNew: true, Form: ldapForm{
-		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn", GroupNameAttr: "cn", Enabled: true,
+		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn", GroupNameAttr: "cn",
+		Writeback: true, Enabled: true,
 	}})
 }
 
@@ -173,7 +177,8 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		UserFilter: form.UserFilter, UsernameAttr: form.UsernameAttr,
 		EmailAttr: form.EmailAttr, NameAttr: form.NameAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
-		Enabled: form.Enabled, Position: 0, CreatedAt: now, UpdatedAt: now,
+		PasswordWriteback: form.Writeback,
+		Enabled:           form.Enabled, Position: 0, CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -230,7 +235,8 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		BindDn: form.BindDN, BaseDn: form.BaseDN, UserFilter: form.UserFilter,
 		UsernameAttr: form.UsernameAttr, EmailAttr: form.EmailAttr, NameAttr: form.NameAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
-		Enabled: form.Enabled, UpdatedAt: now, ID: src.ID,
+		PasswordWriteback: form.Writeback,
+		Enabled:           form.Enabled, UpdatedAt: now, ID: src.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
 			fail("A directory with this name already exists.")

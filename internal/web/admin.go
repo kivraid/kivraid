@@ -64,6 +64,8 @@ type adminAppDetailData struct {
 	Issuer   string
 	Error    string
 	Saved    bool
+	Groups   []sqlcgen.Group
+	Bound    map[string]bool
 }
 
 func (s *Server) handleAdminApps(w http.ResponseWriter, r *http.Request) {
@@ -269,10 +271,27 @@ func (s *Server) renderAppDetail(w http.ResponseWriter, r *http.Request, app sql
 		PostLogoutURIs: strings.Join(decodeList(provider.PostLogoutRedirectUris), "\n"),
 		Public:         provider.Public,
 	}
+	groups, err := s.store.ListGroups(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	boundIDs, err := s.store.ListAppPolicyGroupIDs(r.Context(), app.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	bound := make(map[string]bool, len(boundIDs))
+	for _, id := range boundIDs {
+		bound[id] = true
+	}
 	s.render(w, r, "admin_app_detail.html", pageData{
 		Title: app.Name, Active: "apps", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
-		Data: adminAppDetailData{App: app, Provider: provider, Form: form, Issuer: s.issuer(), Error: errMsg, Saved: saved},
+		Data: adminAppDetailData{
+			App: app, Provider: provider, Form: form, Issuer: s.issuer(),
+			Error: errMsg, Saved: saved, Groups: groups, Bound: bound,
+		},
 	})
 }
 
@@ -315,6 +334,31 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 		RedirectUris: jsonList(redirects), PostLogoutRedirectUris: jsonList(postLogout),
 		UpdatedAt: now, ID: provider.ID,
 	}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+
+	// Replace the group access policy (no boxes checked = everyone).
+	tx, err := s.store.DB.BeginTx(r.Context(), nil)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	defer tx.Rollback()
+	q := s.store.Queries.WithTx(tx)
+	if err := q.DeleteAppPolicies(r.Context(), app.ID); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	for _, groupID := range r.PostForm["policy_groups"] {
+		if err := q.AddAppPolicy(r.Context(), sqlcgen.AddAppPolicyParams{
+			ApplicationID: app.ID, GroupID: groupID,
+		}); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
+	if err := tx.Commit(); err != nil {
 		s.serverError(w, r, err)
 		return
 	}

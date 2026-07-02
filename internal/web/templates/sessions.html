@@ -1,0 +1,41 @@
+{{define "content"}}
+<div class="mb-8 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Sessions</h1>
+    <p class="mt-1 text-sm text-muted">Devices currently signed in to your account.</p>
+  </div>
+  {{if .Data.Others}}
+  <form method="post" action="/sessions/revoke-others" class="shrink-0"
+        data-confirm="Sign out {{.Data.Others}} other session(s)?">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="btn border border-line text-danger hover:bg-danger-soft">Sign out other sessions</button>
+  </form>
+  {{end}}
+</div>
+
+<div class="card divide-y divide-line">
+  {{range .Data.Sessions}}
+  <div class="flex items-center gap-4 p-4">
+    <span class="btn-icon pointer-events-none border border-line">
+      <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+    </span>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <span class="text-sm font-medium">{{.Device}}</span>
+        {{if .Current}}<span class="badge-accent">This device</span>{{end}}
+      </div>
+      <div class="mt-0.5 text-xs text-muted">
+        {{if .IP}}{{.IP}} · {{end}}signed in {{.LoginAt.Format "Jan 2, 2006 15:04"}} · expires {{.Expiry.Format "Jan 2, 2006"}}
+      </div>
+    </div>
+    {{if not .Current}}
+    <form method="post" action="/sessions/revoke" class="shrink-0">
+      <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+      <input type="hidden" name="token_hash" value="{{.TokenHash}}">
+      <button type="submit" class="btn-ghost">Revoke</button>
+    </form>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

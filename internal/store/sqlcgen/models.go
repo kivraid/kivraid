@@ -19,6 +19,11 @@ type AccessToken struct {
 	CreatedAt      time.Time
 }
 
+type AppPolicy struct {
+	ApplicationID string
+	GroupID       string
+}
+
 type Application struct {
 	ID        string
 	Name      string
@@ -42,24 +47,25 @@ type Group struct {
 }
 
 type LdapSource struct {
-	ID              string
-	Name            string
-	Url             string
-	StartTls        bool
-	SkipTlsVerify   bool
-	BindDn          string
-	BindPasswordEnc []byte
-	BaseDn          string
-	UserFilter      string
-	UsernameAttr    string
-	EmailAttr       string
-	NameAttr        string
-	GroupFilter     string
-	GroupNameAttr   string
-	Enabled         bool
-	Position        int64
-	CreatedAt       time.Time
-	UpdatedAt       time.Time
+	ID                string
+	Name              string
+	Url               string
+	StartTls          bool
+	SkipTlsVerify     bool
+	BindDn            string
+	BindPasswordEnc   []byte
+	BaseDn            string
+	UserFilter        string
+	UsernameAttr      string
+	EmailAttr         string
+	NameAttr          string
+	GroupFilter       string
+	GroupNameAttr     string
+	Enabled           bool
+	Position          int64
+	CreatedAt         time.Time
+	UpdatedAt         time.Time
+	PasswordWriteback bool
 }
 
 type Provider struct {

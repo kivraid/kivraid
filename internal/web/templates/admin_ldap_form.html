@@ -45,6 +45,9 @@
       <label class="flex cursor-pointer items-center gap-2 text-sm">
         <input type="checkbox" name="enabled" class="accent-accent" {{if .Data.Form.Enabled}}checked{{end}}> Enabled
       </label>
+      <label class="flex cursor-pointer items-center gap-2 text-sm" title="Allow users to change their directory password from the portal (RFC 3062)">
+        <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> Password write-back
+      </label>
     </div>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>

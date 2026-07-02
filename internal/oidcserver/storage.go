@@ -114,6 +114,21 @@ func (s *Storage) DeleteAuthRequest(ctx context.Context, id string) error {
 	return s.store.DeleteAuthRequest(ctx, id)
 }
 
+// ClientIDForAuthRequest returns the client a pending authorization
+// request belongs to, so the web layer can enforce access policies
+// before completing it.
+func (s *Storage) ClientIDForAuthRequest(ctx context.Context, id string) (string, error) {
+	row, err := s.store.GetAuthRequestByID(ctx, id)
+	if err != nil {
+		return "", notFound(err)
+	}
+	req, err := s.authRequestFromRow(row)
+	if err != nil {
+		return "", err
+	}
+	return req.ClientID, nil
+}
+
 // CompleteAuthRequest binds the authenticated user to a pending
 // authorization request. Called by the web layer after login.
 func (s *Storage) CompleteAuthRequest(ctx context.Context, id, userID string) error {

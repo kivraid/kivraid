@@ -39,6 +39,24 @@
       <label class="label" for="post_logout_uris">Post-logout redirect URIs <span class="font-normal text-faint">(optional)</span></label>
       <textarea class="textarea font-mono" id="post_logout_uris" name="post_logout_uris" rows="2">{{.Data.Form.PostLogoutURIs}}</textarea>
     </div>
+
+    <div class="border-t border-line pt-5">
+      <h2 class="text-sm font-semibold">Access</h2>
+      {{if .Data.Groups}}
+      <p class="mb-3 mt-1 text-xs text-muted">Restrict sign-in to members of the checked groups. Nothing checked means every authenticated user may sign in.</p>
+      <div class="flex flex-wrap gap-x-6 gap-y-2">
+        {{range .Data.Groups}}
+        <label class="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" name="policy_groups" value="{{.ID}}" class="accent-accent" {{if index $.Data.Bound .ID}}checked{{end}}>
+          {{.Name}}
+        </label>
+        {{end}}
+      </div>
+      {{else}}
+      <p class="mt-1 text-xs text-muted">No groups exist yet — every authenticated user may sign in. Groups appear here once created (e.g. synced from a directory).</p>
+      {{end}}
+    </div>
+
     <div class="flex justify-end border-t border-line pt-5">
       <button type="submit" class="btn-primary">Save changes</button>
     </div>

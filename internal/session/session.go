@@ -17,6 +17,11 @@ const (
 	KeyUserID = "userID"
 	// KeyCSRF is the session key holding the CSRF token.
 	KeyCSRF = "csrf"
+	// KeyIP, KeyUserAgent and KeyLoginAt describe the login that created
+	// the session; shown on the portal's sessions page.
+	KeyIP        = "ip"
+	KeyUserAgent = "ua"
+	KeyLoginAt   = "loginAt"
 )
 
 func NewManager(db *sql.DB, secureCookies bool) *scs.SessionManager {
