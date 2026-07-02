@@ -4,8 +4,10 @@ import (
 	"context"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
+	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/session"
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
@@ -33,19 +35,33 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if s.sessions.GetString(r.Context(), session.KeyUserID) != "" {
 		// Already authenticated: honor the next target (e.g. an OIDC flow
 		// resume) instead of bouncing to the portal.
-		http.Redirect(w, r, safeNext(r.URL.Query().Get("next"), "/"), http.StatusSeeOther)
+		http.Redirect(w, r, s.safeNext(r.URL.Query().Get("next"), "/"), http.StatusSeeOther)
 		return
 	}
 	s.render(w, r, "login.html", loginData{
 		CSRF: s.csrfToken(r.Context()),
-		Next: safeNext(r.URL.Query().Get("next"), ""),
+		Next: s.safeNext(r.URL.Query().Get("next"), ""),
 	})
 }
 
 func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := r.PostFormValue("username")
 	password := r.PostFormValue("password")
-	next := safeNext(r.PostFormValue("next"), "/")
+	next := s.safeNext(r.PostFormValue("next"), "/")
+	ip := clientIP(r)
+	loginKey := strings.ToLower(strings.TrimSpace(username))
+
+	if !s.ipLimiter.Allow(ip) || s.userLimiter.Blocked(loginKey) {
+		s.audit.Record(r.Context(), loginKey, audit.ActionLoginThrottled, "", "", ip)
+		w.WriteHeader(http.StatusTooManyRequests)
+		s.render(w, r, "login.html", loginData{
+			CSRF:     s.csrfToken(r.Context()),
+			Error:    "Too many attempts. Please wait a minute and try again.",
+			Username: username,
+			Next:     next,
+		})
+		return
+	}
 
 	// Sources are tried in order: local accounts first, then the enabled
 	// LDAP directories.
@@ -57,6 +73,8 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if errors.Is(err, local.ErrBadCredentials) {
+		s.userLimiter.Allow(loginKey) // consume a failure token
+		s.audit.Record(r.Context(), loginKey, audit.ActionLoginFailed, "", "", ip)
 		w.WriteHeader(http.StatusUnauthorized)
 		s.render(w, r, "login.html", loginData{
 			CSRF:     s.csrfToken(r.Context()),
@@ -80,16 +98,37 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	s.sessions.Put(r.Context(), session.KeyIP, clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
+	s.audit.Record(r.Context(), user.Username, audit.ActionLogin, "", "source="+user.Source, ip)
 	s.log.Info("user logged in", "user", user.Username, "source", user.Source)
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	if userID := s.sessions.GetString(r.Context(), session.KeyUserID); userID != "" {
+		if user, err := s.store.GetUserByID(r.Context(), userID); err == nil {
+			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "", clientIP(r))
+		}
+	}
 	if err := s.sessions.Destroy(r.Context()); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+// handleEndSession terminates the Kivraid session before delegating the
+// OIDC protocol part (token cleanup, post-logout redirect) to op.
+func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
+	if userID := s.sessions.GetString(r.Context(), session.KeyUserID); userID != "" {
+		if user, err := s.store.GetUserByID(r.Context(), userID); err == nil {
+			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "rp-initiated", clientIP(r))
+		}
+		if err := s.sessions.Destroy(r.Context()); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
+	s.oidc.ServeHTTP(w, r)
 }
 
 type profileData struct {
@@ -153,6 +192,7 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !allowed {
+		s.audit.Record(r.Context(), user.Username, audit.ActionOIDCDeny, app.Slug, "", clientIP(r))
 		s.log.Info("application access denied", "app", app.Slug, "user", user.Username)
 		w.WriteHeader(http.StatusForbidden)
 		s.render(w, r, "denied.html", pageData{
@@ -167,6 +207,7 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authorization request not found or expired", http.StatusBadRequest)
 		return
 	}
+	s.audit.Record(r.Context(), user.Username, audit.ActionOIDCGrant, app.Slug, "", clientIP(r))
 	http.Redirect(w, r, oidcserver.CallbackPath(id), http.StatusSeeOther)
 }
 

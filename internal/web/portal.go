@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/session"
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
@@ -99,6 +100,7 @@ func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 		fail("The directory refused the password change. Contact your administrator.")
 		return
 	}
+	s.audit.Record(r.Context(), user.Username, audit.ActionPasswordChange, "", "source="+user.Source, clientIP(r))
 	s.log.Info("password changed", "user", user.Username, "source", user.Source)
 	http.Redirect(w, r, "/profile?pw=1", http.StatusSeeOther)
 }
@@ -184,6 +186,7 @@ func (s *Server) handleSessionRevoke(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "one session", clientIP(r))
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
 
@@ -203,6 +206,7 @@ func (s *Server) handleSessionsRevokeOthers(w http.ResponseWriter, r *http.Reque
 		s.serverError(w, r, err)
 		return
 	}
+	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "all other sessions", clientIP(r))
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
 

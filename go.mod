@@ -6,10 +6,13 @@ require (
 	github.com/alexedwards/scs/sqlite3store v0.0.0-20251002162104-209de6e426de
 	github.com/alexedwards/scs/v2 v2.9.0
 	github.com/go-jose/go-jose/v4 v4.1.4
+	github.com/go-ldap/ldap/v3 v3.4.13
 	github.com/google/uuid v1.6.0
+	github.com/jimlambrt/gldap v0.1.14
 	github.com/zitadel/oidc/v3 v3.47.5
 	golang.org/x/crypto v0.53.0
 	golang.org/x/term v0.44.0
+	golang.org/x/time v0.15.0
 	gopkg.in/yaml.v3 v3.0.1
 	modernc.org/sqlite v1.53.0
 )
@@ -23,12 +26,10 @@ require (
 	github.com/fatih/color v1.17.0 // indirect
 	github.com/go-asn1-ber/asn1-ber v1.5.8-0.20250403174932-29230038a667 // indirect
 	github.com/go-chi/chi/v5 v5.2.5 // indirect
-	github.com/go-ldap/ldap/v3 v3.4.13 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
 	github.com/gorilla/securecookie v1.1.2 // indirect
 	github.com/hashicorp/go-hclog v1.6.3 // indirect
-	github.com/jimlambrt/gldap v0.1.14 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/muhlemmer/gu v0.3.1 // indirect

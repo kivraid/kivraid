@@ -10,6 +10,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
@@ -188,6 +189,7 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapCreate, src.Name, "", clientIP(r))
 	s.log.Info("ldap source created", "source", src.Name, "by", currentUser(r).Username)
 	http.Redirect(w, r, "/admin/ldap/"+src.ID+"?saved=1", http.StatusSeeOther)
 }
@@ -258,6 +260,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapUpdate, src.Name, "", clientIP(r))
 	http.Redirect(w, r, "/admin/ldap/"+src.ID+"?saved=1", http.StatusSeeOther)
 }
 
@@ -270,6 +273,7 @@ func (s *Server) handleAdminLdapDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapDelete, src.Name, "", clientIP(r))
 	s.log.Info("ldap source deleted", "source", src.Name, "by", currentUser(r).Username)
 	http.Redirect(w, r, "/admin/ldap", http.StatusSeeOther)
 }

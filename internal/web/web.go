@@ -11,11 +11,15 @@ import (
 	"log/slog"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/alexedwards/scs/v2"
+	"golang.org/x/time/rate"
 
+	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
+	"github.com/lporcheron/kivraid/internal/ratelimit"
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
@@ -35,7 +39,13 @@ type Server struct {
 	sessions  *scs.SessionManager
 	oidc      http.Handler
 	oidcStore *oidcserver.Storage
+	audit     *audit.Recorder
 	log       *slog.Logger
+
+	// Login brute-force protection: per-IP on attempts, per-username on
+	// failures.
+	ipLimiter   *ratelimit.Limiter
+	userLimiter *ratelimit.Limiter
 
 	// pages maps a page name to its parsed template set (layout + page).
 	pages map[string]*template.Template
@@ -49,10 +59,14 @@ type Deps struct {
 	OIDC      http.Handler
 	OIDCStore *oidcserver.Storage
 	LDAP      *ldap.Manager
+	Audit     *audit.Recorder
 	Log       *slog.Logger
 }
 
 func NewServer(d Deps) (*Server, error) {
+	if d.Audit == nil {
+		d.Audit = audit.NewRecorder(d.Store, d.Log)
+	}
 	s := &Server{
 		cfg:       d.Config,
 		store:     d.Store,
@@ -61,8 +75,12 @@ func NewServer(d Deps) (*Server, error) {
 		sessions:  d.Sessions,
 		oidc:      d.OIDC,
 		oidcStore: d.OIDCStore,
+		audit:     d.Audit,
 		log:       d.Log,
-		pages:     map[string]*template.Template{},
+		// 10 attempts/minute per IP, 5 failures/minute per username.
+		ipLimiter:   ratelimit.New(rate.Every(6*time.Second), 10),
+		userLimiter: ratelimit.New(rate.Every(12*time.Second), 5),
+		pages:       map[string]*template.Template{},
 	}
 
 	funcs := template.FuncMap{
@@ -79,7 +97,7 @@ func NewServer(d Deps) (*Server, error) {
 	withLayout := []string{
 		"home.html", "profile.html", "sessions.html", "denied.html",
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
-		"admin_ldap.html", "admin_ldap_form.html",
+		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -104,6 +122,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
 	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))
 	web.Handle("GET "+oidcserver.ResumePath, s.requireAuth(http.HandlerFunc(s.handleOIDCResume)))
+	web.HandleFunc("GET /outpost/auth", s.handleForwardAuth)
 
 	web.Handle("GET /admin/applications", s.requireAdmin(http.HandlerFunc(s.handleAdminApps)))
 	web.Handle("GET /admin/applications/new", s.requireAdmin(http.HandlerFunc(s.handleAdminAppNew)))
@@ -121,6 +140,8 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/ldap/{id}/test", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapTest)))
 	web.Handle("POST /admin/ldap/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapDelete)))
 
+	web.Handle("GET /admin/audit", s.requireAdmin(http.HandlerFunc(s.handleAdminAudit)))
+
 	webChain := secureHeaders(s.sessions.LoadAndSave(s.csrfProtect(web)))
 
 	root := http.NewServeMux()
@@ -130,10 +151,16 @@ func (s *Server) Handler() http.Handler {
 		w.Write([]byte("ok"))
 	})
 	// Protocol endpoints are API surface: no session, no CSRF, no CSP.
+	// end_session is the exception: it needs the session middleware so
+	// RP-initiated logout also terminates the Kivraid session.
 	if s.oidc != nil {
 		for _, pattern := range oidcserver.Routes() {
+			if pattern == "/end_session" {
+				continue
+			}
 			root.Handle(pattern, s.oidc)
 		}
+		root.Handle("/end_session", s.sessions.LoadAndSave(http.HandlerFunc(s.handleEndSession)))
 	}
 	root.Handle("/", webChain)
 	return root

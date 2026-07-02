@@ -1,0 +1,43 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">Activity</h1>
+  <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first (last 200).</p>
+</div>
+
+{{if .Data.Entries}}
+<div class="card overflow-x-auto">
+  <table class="w-full text-left text-sm">
+    <thead>
+      <tr class="border-b border-line text-[13px] text-muted">
+        <th class="px-4 py-2.5 font-medium">Time</th>
+        <th class="px-4 py-2.5 font-medium">Actor</th>
+        <th class="px-4 py-2.5 font-medium">Action</th>
+        <th class="px-4 py-2.5 font-medium">Object</th>
+        <th class="px-4 py-2.5 font-medium">Detail</th>
+        <th class="px-4 py-2.5 font-medium">IP</th>
+      </tr>
+    </thead>
+    <tbody class="divide-y divide-line">
+      {{range .Data.Entries}}
+      <tr>
+        <td class="whitespace-nowrap px-4 py-2.5 tabular-nums text-muted">{{.Ts.Format "Jan 2 15:04:05"}}</td>
+        <td class="px-4 py-2.5 font-medium">{{if .Actor}}{{.Actor}}{{else}}<span class="text-faint">—</span>{{end}}</td>
+        <td class="px-4 py-2.5"><span class="badge font-mono">{{.Action}}</span></td>
+        <td class="px-4 py-2.5">{{if .Object}}{{.Object}}{{else}}<span class="text-faint">—</span>{{end}}</td>
+        <td class="px-4 py-2.5 text-muted">{{.Detail}}</td>
+        <td class="px-4 py-2.5 font-mono text-xs text-faint">{{.Ip}}</td>
+      </tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{else}}
+<div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
+  <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
+  <div>
+    <h2 class="text-sm font-semibold">No activity yet</h2>
+    <p class="mt-1 text-sm text-muted">Logins, password changes and admin actions will appear here.</p>
+  </div>
+</div>
+{{end}}
+{{end}}

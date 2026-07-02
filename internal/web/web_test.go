@@ -22,7 +22,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/store"
 )
 
-func newTestServer(t *testing.T) *httptest.Server {
+func buildTestServer(t *testing.T, forwardAuthDomains []string) (*httptest.Server, *store.Store) {
 	t.Helper()
 	ctx := context.Background()
 
@@ -37,7 +37,11 @@ func newTestServer(t *testing.T) *httptest.Server {
 		t.Fatal(err)
 	}
 
-	cfg := config.Config{BaseURL: "http://localhost", SecretKey: strings.Repeat("k", 32)}
+	cfg := config.Config{
+		BaseURL:     "http://localhost",
+		SecretKey:   strings.Repeat("k", 32),
+		ForwardAuth: config.ForwardAuth{Domains: forwardAuthDomains},
+	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	oidcProvider, oidcStorage, err := oidcserver.New(ctx, cfg, st, log)
 	if err != nil {
@@ -55,6 +59,11 @@ func newTestServer(t *testing.T) *httptest.Server {
 
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
+	return ts, st
+}
+
+func newTestServer(t *testing.T) *httptest.Server {
+	ts, _ := buildTestServer(t, nil)
 	return ts
 }
 

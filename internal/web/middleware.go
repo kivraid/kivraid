@@ -98,10 +98,8 @@ func (s *Server) csrfToken(ctx context.Context) string {
 	return tok
 }
 
-// safeNext returns next if it is a same-site path, otherwise the fallback.
-func safeNext(next, fallback string) string {
-	if len(next) > 1 && next[0] == '/' && next[1] != '/' && next[1] != '\\' {
-		return next
-	}
-	return fallback
+// isLocalPath reports whether next is a same-site path (no scheme, no
+// protocol-relative tricks).
+func isLocalPath(next string) bool {
+	return len(next) > 1 && next[0] == '/' && next[1] != '/' && next[1] != '\\'
 }

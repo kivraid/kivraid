@@ -21,6 +21,7 @@ import (
 
 	"golang.org/x/term"
 
+	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/secrets"
@@ -120,6 +121,10 @@ func serve(args []string) error {
 				if err := oidcStorage.CleanupExpired(ctx); err != nil {
 					log.Warn("token cleanup", "err", err)
 				}
+				// Audit retention: 90 days.
+				if err := st.DeleteAuditBefore(ctx, time.Now().UTC().AddDate(0, 0, -90)); err != nil {
+					log.Warn("audit cleanup", "err", err)
+				}
 			}
 		}
 	}()
@@ -210,6 +215,8 @@ func userAdd(args []string) error {
 	if err != nil {
 		return err
 	}
+	audit.NewRecorder(st, newLogger(cfg.LogLevel)).
+		Record(ctx, "cli", audit.ActionUserCreate, user.Username, "", "")
 	fmt.Printf("created user %s (%s)\n", user.Username, user.ID)
 	return nil
 }

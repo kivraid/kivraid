@@ -33,10 +33,11 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logg
 	}
 
 	opConfig := &op.Config{
-		CryptoKey:             secrets.DeriveKey(cfg.SecretKey, "access-token-crypto"),
-		CodeMethodS256:        true,
-		AuthMethodPost:        true,
-		GrantTypeRefreshToken: true,
+		CryptoKey:                secrets.DeriveKey(cfg.SecretKey, "access-token-crypto"),
+		CodeMethodS256:           true,
+		AuthMethodPost:           true,
+		GrantTypeRefreshToken:    true,
+		DefaultLogoutRedirectURI: "/login",
 		SupportedScopes: []string{
 			"openid", "profile", "email", "offline_access", ScopeGroups,
 		},

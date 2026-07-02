@@ -33,6 +33,16 @@ type Application struct {
 	UpdatedAt time.Time
 }
 
+type AuditLog struct {
+	ID     int64
+	Ts     time.Time
+	Actor  string
+	Action string
+	Object string
+	Detail string
+	Ip     string
+}
+
 type AuthRequest struct {
 	ID        string
 	Code      *string

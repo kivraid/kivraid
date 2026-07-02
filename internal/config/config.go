@@ -17,6 +17,14 @@ type Database struct {
 	DSN    string `yaml:"dsn"`
 }
 
+type ForwardAuth struct {
+	// Domains that forward-auth protected applications live on. Entries
+	// starting with a dot match any subdomain (".home.example.com");
+	// others match exactly. Post-login redirects are only allowed to
+	// these hosts.
+	Domains []string `yaml:"domains"`
+}
+
 type Config struct {
 	// Listen is the address the HTTP server binds to.
 	Listen string `yaml:"listen"`
@@ -24,9 +32,10 @@ type Config struct {
 	// build absolute links (and later, OIDC issuer identity).
 	BaseURL string `yaml:"base_url"`
 	// SecretKey protects secrets at rest and must be at least 32 bytes.
-	SecretKey string   `yaml:"secret_key"`
-	Database  Database `yaml:"database"`
-	LogLevel  string   `yaml:"log_level"`
+	SecretKey   string      `yaml:"secret_key"`
+	Database    Database    `yaml:"database"`
+	ForwardAuth ForwardAuth `yaml:"forward_auth"`
+	LogLevel    string      `yaml:"log_level"`
 }
 
 func defaults() Config {
@@ -78,6 +87,14 @@ func applyEnv(cfg *Config) {
 	set("DB_DRIVER", &cfg.Database.Driver)
 	set("DB_DSN", &cfg.Database.DSN)
 	set("LOG_LEVEL", &cfg.LogLevel)
+	if v, ok := os.LookupEnv("KIVRAID_FORWARD_AUTH_DOMAINS"); ok {
+		cfg.ForwardAuth.Domains = nil
+		for _, d := range strings.Split(v, ",") {
+			if d = strings.TrimSpace(d); d != "" {
+				cfg.ForwardAuth.Domains = append(cfg.ForwardAuth.Domains, d)
+			}
+		}
+	}
 }
 
 func (c Config) validate() error {
