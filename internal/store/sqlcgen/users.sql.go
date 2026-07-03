@@ -24,7 +24,7 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, email, name, password_hash, source, ldap_source_id, ldap_dn, is_admin, active, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn
+RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime
 `
 
 type CreateUserParams struct {
@@ -71,12 +71,14 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.UpdatedAt,
 		&i.LdapSourceID,
 		&i.LdapDn,
+		&i.Photo,
+		&i.PhotoMime,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn FROM users WHERE email = $1
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -95,12 +97,14 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.UpdatedAt,
 		&i.LdapSourceID,
 		&i.LdapDn,
+		&i.Photo,
+		&i.PhotoMime,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn FROM users WHERE id = $1
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -119,12 +123,14 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.UpdatedAt,
 		&i.LdapSourceID,
 		&i.LdapDn,
+		&i.Photo,
+		&i.PhotoMime,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn FROM users WHERE username = $1
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -143,12 +149,14 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.UpdatedAt,
 		&i.LdapSourceID,
 		&i.LdapDn,
+		&i.Photo,
+		&i.PhotoMime,
 	)
 	return i, err
 }
 
 const listUserGroups = `-- name: ListUserGroups :many
-SELECT g.id, g.name, g.created_at
+SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id
 FROM groups g
 JOIN user_groups ug ON ug.group_id = g.id
 WHERE ug.user_id = $1
@@ -164,7 +172,13 @@ func (q *Queries) ListUserGroups(ctx context.Context, userID string) ([]Group, e
 	var items []Group
 	for rows.Next() {
 		var i Group
-		if err := rows.Scan(&i.ID, &i.Name, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.Source,
+			&i.LdapSourceID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

@@ -3,6 +3,7 @@ package web
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -27,6 +28,7 @@ type ldapForm struct {
 	UsernameAttr  string
 	EmailAttr     string
 	NameAttr      string
+	PhotoAttr     string
 	GroupFilter   string
 	GroupNameAttr string
 	Writeback     bool
@@ -52,6 +54,7 @@ type adminLdapFormData struct {
 	Error      string
 	Saved      bool
 	TestResult *ldapTestResult
+	SyncResult *ldapTestResult
 }
 
 func formFromSource(src sqlcgen.LdapSource) ldapForm {
@@ -59,6 +62,7 @@ func formFromSource(src sqlcgen.LdapSource) ldapForm {
 		Name: src.Name, URL: src.Url, StartTLS: src.StartTls, SkipTLSVerify: src.SkipTlsVerify,
 		BindDN: src.BindDn, BaseDN: src.BaseDn, UserFilter: src.UserFilter,
 		UsernameAttr: src.UsernameAttr, EmailAttr: src.EmailAttr, NameAttr: src.NameAttr,
+		PhotoAttr:   src.PhotoAttr,
 		GroupFilter: src.GroupFilter, GroupNameAttr: src.GroupNameAttr,
 		Writeback: src.PasswordWriteback, Enabled: src.Enabled,
 	}
@@ -78,6 +82,7 @@ func parseLdapForm(r *http.Request) ldapForm {
 		UsernameAttr:  str("username_attr"),
 		EmailAttr:     str("email_attr"),
 		NameAttr:      str("name_attr"),
+		PhotoAttr:     str("photo_attr"),
 		GroupFilter:   str("group_filter"),
 		GroupNameAttr: str("group_name_attr"),
 		Writeback:     r.PostFormValue("password_writeback") == "on",
@@ -106,17 +111,14 @@ func (f *ldapForm) validate() error {
 	if err != nil || (u.Scheme != "ldap" && u.Scheme != "ldaps") || u.Host == "" {
 		return errors.New("URL must look like ldap://host:389 or ldaps://host:636.")
 	}
-	if f.BindDN == "" {
-		return errors.New("Bind DN is required (a read-only service account).")
-	}
 	if f.BaseDN == "" {
 		return errors.New("Base DN is required.")
 	}
 	if !strings.Contains(f.UserFilter, "{username}") {
 		return errors.New("User filter must contain the {username} placeholder.")
 	}
-	if f.GroupFilter != "" && !strings.Contains(f.GroupFilter, "{dn}") {
-		return errors.New("Group filter must contain the {dn} placeholder (or be empty to disable group sync).")
+	if f.GroupFilter != "" && !strings.Contains(f.GroupFilter, "{dn}") && !strings.Contains(f.GroupFilter, "{username}") {
+		return errors.New("Group filter must contain a {dn} or {username} placeholder (or be empty to disable group sync).")
 	}
 	return nil
 }
@@ -146,8 +148,9 @@ func (s *Server) renderLdapForm(w http.ResponseWriter, r *http.Request, data adm
 
 func (s *Server) handleAdminLdapNew(w http.ResponseWriter, r *http.Request) {
 	s.renderLdapForm(w, r, adminLdapFormData{IsNew: true, Form: ldapForm{
-		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn", GroupNameAttr: "cn",
-		Writeback: true, Enabled: true,
+		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn", PhotoAttr: "jpegPhoto",
+		GroupNameAttr: "cn",
+		Writeback:     true, Enabled: true,
 	}})
 }
 
@@ -161,8 +164,8 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		fail(err.Error())
 		return
 	}
-	if form.BindPassword == "" {
-		fail("Bind password is required.")
+	if form.BindDN != "" && form.BindPassword == "" {
+		fail("Bind password is required (leave the bind DN empty for anonymous binds).")
 		return
 	}
 	sealed, err := secrets.Seal(s.ldap.SealKey(), []byte(form.BindPassword))
@@ -176,7 +179,7 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		StartTls: form.StartTLS, SkipTlsVerify: form.SkipTLSVerify,
 		BindDn: form.BindDN, BindPasswordEnc: sealed, BaseDn: form.BaseDN,
 		UserFilter: form.UserFilter, UsernameAttr: form.UsernameAttr,
-		EmailAttr: form.EmailAttr, NameAttr: form.NameAttr,
+		EmailAttr: form.EmailAttr, NameAttr: form.NameAttr, PhotoAttr: form.PhotoAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
 		PasswordWriteback: form.Writeback,
 		Enabled:           form.Enabled, Position: 0, CreatedAt: now, UpdatedAt: now,
@@ -236,6 +239,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		Name: form.Name, Url: form.URL, StartTls: form.StartTLS, SkipTlsVerify: form.SkipTLSVerify,
 		BindDn: form.BindDN, BaseDn: form.BaseDN, UserFilter: form.UserFilter,
 		UsernameAttr: form.UsernameAttr, EmailAttr: form.EmailAttr, NameAttr: form.NameAttr,
+		PhotoAttr:   form.PhotoAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
 		PasswordWriteback: form.Writeback,
 		Enabled:           form.Enabled, UpdatedAt: now, ID: src.ID,
@@ -278,36 +282,118 @@ func (s *Server) handleAdminLdapDelete(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, "/admin/ldap", http.StatusSeeOther)
 }
 
-// handleAdminLdapTest verifies connectivity and the service bind, and
-// optionally resolves a test username through the configured filters.
+// draftSource builds an unsaved LdapSource from the submitted form so a
+// configuration can be tested before it exists in the database.
+// storedPassword carries the persisted encrypted bind password to fall
+// back on when the (write-only) password field is left empty on edit.
+func (s *Server) draftSource(form ldapForm, storedPassword []byte) (sqlcgen.LdapSource, error) {
+	enc := storedPassword
+	if form.BindPassword != "" || storedPassword == nil {
+		sealed, err := secrets.Seal(s.ldap.SealKey(), []byte(form.BindPassword))
+		if err != nil {
+			return sqlcgen.LdapSource{}, err
+		}
+		enc = sealed
+	}
+	return sqlcgen.LdapSource{
+		Name: form.Name, Url: form.URL,
+		StartTls: form.StartTLS, SkipTlsVerify: form.SkipTLSVerify,
+		BindDn: form.BindDN, BindPasswordEnc: enc, BaseDn: form.BaseDN,
+		UserFilter: form.UserFilter, UsernameAttr: form.UsernameAttr,
+		EmailAttr: form.EmailAttr, NameAttr: form.NameAttr, PhotoAttr: form.PhotoAttr,
+		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
+	}, nil
+}
+
+// runLdapTest verifies connectivity and the service bind, and optionally
+// resolves a test username through the configured filters.
+func (s *Server) runLdapTest(src sqlcgen.LdapSource, testUser string) *ldapTestResult {
+	result := &ldapTestResult{}
+	if u, err := url.Parse(src.Url); err != nil || (u.Scheme != "ldap" && u.Scheme != "ldaps") || u.Host == "" {
+		result.Message = "Fill in a valid LDAP URL first (ldap://host:389 or ldaps://host:636)."
+		return result
+	}
+	if testUser == "" {
+		conn, err := s.ldap.Connect(src)
+		if err != nil {
+			result.Message = err.Error()
+			return result
+		}
+		conn.Close()
+		result.OK = true
+		if src.BindDn == "" {
+			result.Message = "Connection succeeded (anonymous bind)."
+		} else {
+			result.Message = "Connection and service bind succeeded."
+		}
+		return result
+	}
+	if src.BaseDn == "" || !strings.Contains(src.UserFilter, "{username}") {
+		result.Message = "Fill in the base DN and a user filter containing {username} to test a user lookup."
+		return result
+	}
+	entry, err := s.ldap.FindUser(src, testUser)
+	if err != nil {
+		result.Message = err.Error()
+		return result
+	}
+	result.OK = true
+	result.Message = "User found."
+	result.DN = entry.DN
+	result.Email = entry.Email
+	result.Groups = entry.Groups
+	return result
+}
+
+// handleAdminLdapTest tests the configuration as currently filled in on
+// the edit form, without saving it.
 func (s *Server) handleAdminLdapTest(w http.ResponseWriter, r *http.Request) {
 	src, ok := s.loadLdapSource(w, r)
 	if !ok {
 		return
 	}
-	result := &ldapTestResult{}
-	testUser := strings.TrimSpace(r.PostFormValue("test_username"))
-
-	if testUser == "" {
-		conn, err := s.ldap.Connect(src)
-		if err != nil {
-			result.Message = err.Error()
-		} else {
-			conn.Close()
-			result.OK = true
-			result.Message = "Connection and service bind succeeded."
-		}
-	} else {
-		entry, err := s.ldap.FindUser(src, testUser)
-		if err != nil {
-			result.Message = err.Error()
-		} else {
-			result.OK = true
-			result.Message = "User found."
-			result.DN = entry.DN
-			result.Email = entry.Email
-			result.Groups = entry.Groups
-		}
+	form := parseLdapForm(r)
+	draft, err := s.draftSource(form, src.BindPasswordEnc)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
 	}
-	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: formFromSource(src), TestResult: result})
+	result := s.runLdapTest(draft, strings.TrimSpace(r.PostFormValue("test_username")))
+	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: form, TestResult: result})
+}
+
+// handleAdminLdapSync imports or refreshes every directory user and their
+// groups without waiting for individual sign-ins.
+func (s *Server) handleAdminLdapSync(w http.ResponseWriter, r *http.Request) {
+	src, ok := s.loadLdapSource(w, r)
+	if !ok {
+		return
+	}
+	result := &ldapTestResult{}
+	sync, err := s.ldap.SyncAll(r.Context(), src)
+	if err != nil {
+		result.Message = err.Error()
+	} else {
+		result.OK = true
+		result.Message = fmt.Sprintf("Synchronized: %d user(s) created, %d updated, %d skipped.",
+			sync.Created, sync.Updated, sync.Skipped)
+		if sync.Missing > 0 {
+			result.Message += fmt.Sprintf(" %d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
+		}
+		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, result.Message, clientIP(r))
+	}
+	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: formFromSource(src), SyncResult: result})
+}
+
+// handleAdminLdapTestDraft is the same for the creation form: the source
+// does not exist yet.
+func (s *Server) handleAdminLdapTestDraft(w http.ResponseWriter, r *http.Request) {
+	form := parseLdapForm(r)
+	draft, err := s.draftSource(form, nil)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	result := s.runLdapTest(draft, strings.TrimSpace(r.PostFormValue("test_username")))
+	s.renderLdapForm(w, r, adminLdapFormData{IsNew: true, Form: form, TestResult: result})
 }

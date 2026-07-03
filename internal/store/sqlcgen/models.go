@@ -51,9 +51,11 @@ type AuthRequest struct {
 }
 
 type Group struct {
-	ID        string
-	Name      string
-	CreatedAt time.Time
+	ID           string
+	Name         string
+	CreatedAt    time.Time
+	Source       string
+	LdapSourceID *string
 }
 
 type LdapSource struct {
@@ -76,6 +78,7 @@ type LdapSource struct {
 	CreatedAt         time.Time
 	UpdatedAt         time.Time
 	PasswordWriteback bool
+	PhotoAttr         string
 }
 
 type Provider struct {
@@ -133,6 +136,8 @@ type User struct {
 	UpdatedAt    time.Time
 	LdapSourceID *string
 	LdapDn       *string
+	Photo        []byte
+	PhotoMime    *string
 }
 
 type UserGroup struct {

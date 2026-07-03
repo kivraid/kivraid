@@ -1,0 +1,63 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Welcome · Kivraid</title>
+  <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/app.js"></script>
+</head>
+<body class="min-h-dvh">
+  <div class="aurora"></div>
+  <main class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
+    <div class="w-full max-w-sm">
+      <div class="mb-8 flex flex-col items-center gap-4">
+        <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true">
+          <rect width="24" height="24" rx="6" class="fill-accent"/>
+          <path d="M8.5 6.5v11M15.5 7l-5.5 5 5.5 5" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+        <div class="text-center">
+          <h1 class="text-xl font-semibold tracking-tight">Welcome to Kivraid</h1>
+          <p class="mt-1 text-sm text-muted">Create the administrator account to get started.</p>
+        </div>
+      </div>
+
+      {{if .Error}}
+      <div class="alert-danger mb-4" role="alert">{{.Error}}</div>
+      {{end}}
+
+      <form method="post" action="/setup" class="card space-y-4 p-6">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <div>
+            <label class="label" for="username">Username</label>
+            <input class="input" id="username" name="username" value="{{.Username}}"
+                   autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
+          </div>
+          <div>
+            <label class="label" for="name">Display name</label>
+            <input class="input" id="name" name="name" value="{{.Name}}" autocomplete="name">
+          </div>
+        </div>
+        <div>
+          <label class="label" for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" value="{{.Email}}" autocomplete="email" required>
+        </div>
+        <div>
+          <label class="label" for="password">Password</label>
+          <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <div>
+          <label class="label" for="confirm_password">Confirm password</label>
+          <input class="input" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+        </div>
+        <button type="submit" class="btn-primary w-full">Create administrator</button>
+      </form>
+
+      <p class="mt-8 text-center text-xs text-faint">This account gets full administrative rights.</p>
+    </div>
+  </main>
+</body>
+</html>

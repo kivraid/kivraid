@@ -131,11 +131,33 @@
   }
 
   .nav-link {
-    @apply rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:bg-raised hover:text-fg;
+    @apply cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:bg-raised hover:text-fg;
   }
 
   .nav-active {
     @apply bg-raised text-fg;
+  }
+
+  /* Dropdown menus (toggled by app.js on [data-menu] containers). */
+  .menu-panel {
+    @apply invisible absolute right-0 top-full z-20 mt-2 w-56 translate-y-1 rounded-xl border border-line bg-surface p-1 opacity-0 shadow-md transition-all duration-100;
+  }
+
+  [data-menu].menu-open .menu-panel {
+    @apply visible translate-y-0 opacity-100;
+  }
+
+  .menu-item {
+    @apply flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-fg transition-colors duration-100 hover:bg-raised;
+  }
+
+  .menu-divider {
+    @apply mx-1 my-1 h-px bg-line;
+  }
+
+  /* Click-to-insert example values next to form fields. */
+  .chip {
+    @apply cursor-pointer rounded-md border border-line bg-raised px-2 py-1 font-mono text-[11px] text-muted transition-colors duration-100 hover:border-line-strong hover:text-fg;
   }
 
   .btn-icon {

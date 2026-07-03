@@ -1,0 +1,98 @@
+{{define "content"}}
+<div class="mb-8 flex items-center gap-4">
+  {{if .Data.Target.PhotoMime}}
+  <img class="size-14 shrink-0 rounded-full object-cover" src="/avatar/{{.Data.Target.ID}}" alt="">
+  {{else}}
+  <span class="avatar-lg">{{initials .Data.Target.Name}}</span>
+  {{end}}
+  <div class="min-w-0">
+    <div class="flex items-center gap-2">
+      <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Target.Name}}</h1>
+      {{if .Data.Target.IsAdmin}}<span class="badge-accent">Admin</span>{{end}}
+      {{if not .Data.Target.Active}}<span class="badge">Deactivated</span>{{end}}
+      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else}}<span class="badge">Local</span>{{end}}
+    </div>
+    <p class="mt-0.5 font-mono text-xs text-faint">{{.Data.Target.Username}}</p>
+  </div>
+</div>
+
+<div class="space-y-4">
+  {{if .Data.Saved}}<div class="alert-success" role="status">Changes saved.</div>{{end}}
+  {{if .Data.PWSaved}}<div class="alert-success" role="status">Password reset.</div>{{end}}
+  {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
+
+  <form method="post" action="/admin/users/{{.Data.Target.ID}}" class="card space-y-5 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <h2 class="text-sm font-semibold">Account</h2>
+    {{if .Data.IsLDAP}}
+    <p class="text-xs text-muted">Identity (name, email, photo) is mirrored from the directory at each sign-in and cannot be edited here.</p>
+    <dl class="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
+      <div><dt class="dt">Name</dt><dd>{{.Data.Target.Name}}</dd></div>
+      <div><dt class="dt">Email</dt><dd>{{.Data.Target.Email}}</dd></div>
+      <div class="sm:col-span-2"><dt class="dt">Directory DN</dt><dd class="font-mono text-xs">{{deref .Data.Target.LdapDn}}</dd></div>
+    </dl>
+    {{else}}
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div>
+        <label class="label" for="name">Display name</label>
+        <input class="input" id="name" name="name" value="{{.Data.Target.Name}}" required>
+      </div>
+      <div>
+        <label class="label" for="email">Email</label>
+        <input class="input" id="email" name="email" type="email" value="{{.Data.Target.Email}}" required>
+      </div>
+    </div>
+    {{end}}
+    <div class="flex flex-wrap gap-6 border-t border-line pt-5">
+      <label class="flex cursor-pointer items-center gap-2 text-sm {{if .Data.Self}}opacity-60{{end}}">
+        <input type="checkbox" name="is_admin" class="accent-accent" {{if .Data.Target.IsAdmin}}checked{{end}}> Administrator
+      </label>
+      <label class="flex cursor-pointer items-center gap-2 text-sm {{if .Data.Self}}opacity-60{{end}}">
+        <input type="checkbox" name="active" class="accent-accent" {{if .Data.Target.Active}}checked{{end}}> Active
+      </label>
+    </div>
+    {{if .Data.Self}}<p class="text-xs text-muted">This is your own account — you cannot deactivate it or drop your administrator role.</p>{{end}}
+    <div class="flex justify-end border-t border-line pt-5">
+      <button type="submit" class="btn-primary">Save changes</button>
+    </div>
+  </form>
+
+  <div class="card p-6">
+    <h2 class="text-sm font-semibold">Groups</h2>
+    <div class="mt-3 flex flex-wrap gap-1.5">
+      {{range .Data.Groups}}<a href="/admin/groups/{{.ID}}" class="badge hover:bg-surface">{{.Name}}</a>{{else}}<span class="text-sm text-faint">No groups.</span>{{end}}
+    </div>
+  </div>
+
+  {{if not .Data.IsLDAP}}
+  <form method="post" action="/admin/users/{{.Data.Target.ID}}/password" class="card space-y-4 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <h2 class="text-sm font-semibold">Reset password</h2>
+    <div class="flex items-end gap-3">
+      <div class="flex-1">
+        <label class="label" for="password">New password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+      </div>
+      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Reset</button>
+    </div>
+  </form>
+  {{end}}
+
+  {{if not .Data.Self}}
+  <div class="card border-danger/25 p-6">
+    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <div class="mt-3 flex items-center justify-between gap-4">
+      <p class="text-sm text-muted">
+        Deleting revokes every session and token immediately.
+        {{if .Data.IsLDAP}}The shadow account will be recreated if the user signs in again while the directory is enabled.{{end}}
+      </p>
+      <form method="post" action="/admin/users/{{.Data.Target.ID}}/delete" class="shrink-0"
+            data-confirm="Delete {{.Data.Target.Username}}? This cannot be undone.">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn-danger">Delete</button>
+      </form>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}

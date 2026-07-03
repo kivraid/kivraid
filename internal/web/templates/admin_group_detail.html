@@ -1,0 +1,88 @@
+{{define "content"}}
+<div class="mb-8 flex items-center gap-4">
+  <span class="avatar-lg">{{initials .Data.Group.Name}}</span>
+  <div class="min-w-0">
+    <div class="flex items-center gap-2">
+      <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Group.Name}}</h1>
+      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else}}<span class="badge">Local</span>{{end}}
+    </div>
+    <p class="mt-0.5 text-xs text-faint">{{len .Data.Members}} member{{if ne (len .Data.Members) 1}}s{{end}}</p>
+  </div>
+</div>
+
+<div class="space-y-4">
+  {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
+
+  {{if .Data.IsLDAP}}
+  <div class="alert-success" role="note">This group is mirrored from the directory: its name and members are refreshed each time one of its users signs in, and cannot be edited here.</div>
+  {{else}}
+  <form method="post" action="/admin/groups/{{.Data.Group.ID}}" class="card flex items-end gap-3 p-4">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="flex-1">
+      <label class="label" for="name">Name</label>
+      <input class="input" id="name" name="name" value="{{.Data.Group.Name}}" required>
+    </div>
+    <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Rename</button>
+  </form>
+  {{end}}
+
+  <div class="card">
+    <div class="flex items-center justify-between gap-4 border-b border-line p-4">
+      <h2 class="text-sm font-semibold">Members</h2>
+      {{if and (not .Data.IsLDAP) .Data.NonMembers}}
+      <form method="post" action="/admin/groups/{{.Data.Group.ID}}/members" class="flex items-center gap-2">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <select name="user_id" class="input h-9 w-48" required>
+          <option value="" disabled selected>Add a member…</option>
+          {{range .Data.NonMembers}}
+          <option value="{{.ID}}">{{.Name}} ({{.Username}})</option>
+          {{end}}
+        </select>
+        <button type="submit" class="btn-ghost shrink-0">Add</button>
+      </form>
+      {{end}}
+    </div>
+    {{if .Data.Members}}
+    <div class="divide-y divide-line">
+      {{range .Data.Members}}
+      <div class="flex items-center gap-4 p-4">
+        {{if .PhotoMime}}
+        <img class="size-8 shrink-0 rounded-full object-cover" src="/avatar/{{.ID}}" alt="">
+        {{else}}
+        <span class="avatar">{{initials .Name}}</span>
+        {{end}}
+        <div class="min-w-0 flex-1">
+          <a href="/admin/users/{{.ID}}" class="truncate text-sm font-medium hover:underline">{{.Name}}</a>
+          <div class="mt-0.5 truncate text-xs text-faint">{{.Username}} · {{.Email}}</div>
+        </div>
+        {{if not $.Data.IsLDAP}}
+        <form method="post" action="/admin/groups/{{$.Data.Group.ID}}/members/remove" class="shrink-0">
+          <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+          <input type="hidden" name="user_id" value="{{.ID}}">
+          <button type="submit" class="btn-ghost">Remove</button>
+        </form>
+        {{end}}
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="p-6 text-sm text-faint">No members yet.</p>
+    {{end}}
+  </div>
+
+  <div class="card border-danger/25 p-6">
+    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <div class="mt-3 flex items-center justify-between gap-4">
+      <p class="text-sm text-muted">
+        Deleting removes the group and its memberships; applications restricted to it lose that binding.
+        {{if .Data.IsLDAP}}A directory group will be recreated on the next member sign-in.{{end}}
+      </p>
+      <form method="post" action="/admin/groups/{{.Data.Group.ID}}/delete" class="shrink-0"
+            data-confirm="Delete the group {{.Data.Group.Name}}?">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn-danger">Delete</button>
+      </form>
+    </div>
+  </div>
+</div>
+{{end}}

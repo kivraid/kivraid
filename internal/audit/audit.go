@@ -26,9 +26,16 @@ const (
 	ActionLdapCreate     = "ldap.create"
 	ActionLdapUpdate     = "ldap.update"
 	ActionLdapDelete     = "ldap.delete"
+	ActionLdapSync       = "ldap.sync"
 	ActionOIDCGrant      = "oidc.grant"
 	ActionOIDCDeny       = "oidc.deny"
 	ActionUserCreate     = "user.create"
+	ActionUserUpdate     = "user.update"
+	ActionUserDelete     = "user.delete"
+	ActionUserPWReset    = "user.password.reset"
+	ActionGroupCreate    = "group.create"
+	ActionGroupUpdate    = "group.update"
+	ActionGroupDelete    = "group.delete"
 )
 
 type Recorder struct {

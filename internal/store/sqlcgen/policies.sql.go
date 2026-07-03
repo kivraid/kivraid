@@ -90,7 +90,7 @@ func (q *Queries) ListAppPolicyGroupIDs(ctx context.Context, applicationID strin
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT id, name, created_at FROM groups ORDER BY name
+SELECT id, name, created_at, source, ldap_source_id FROM groups ORDER BY name
 `
 
 func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
@@ -102,7 +102,13 @@ func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
 	var items []Group
 	for rows.Next() {
 		var i Group
-		if err := rows.Scan(&i.ID, &i.Name, &i.CreatedAt); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.Source,
+			&i.LdapSourceID,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

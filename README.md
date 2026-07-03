@@ -35,9 +35,11 @@ downloaded automatically by `make` (no Node required).
 ```sh
 make build
 ./kivraid config init      # writes kivraid.yaml with a random secret_key
-./kivraid user add --username admin --email you@example.com --admin
 ./kivraid serve            # http://127.0.0.1:9000
 ```
+
+On first visit, Kivraid invites you to register the administrator
+account (a `user add` CLI is also available for scripted setups).
 
 ## Quickstart (Docker)
 
@@ -45,10 +47,10 @@ make build
 make docker
 docker volume create kivraid
 docker run --rm -v kivraid:/data kivraid config init --config /data/kivraid.yaml
-docker run --rm -v kivraid:/data kivraid user add --config /data/kivraid.yaml \
-    --username admin --email you@example.com --admin --password 'change-me-now'
 docker run -d --name kivraid -v kivraid:/data -p 9000:9000 kivraid
 ```
+
+Then open the instance and register the administrator account.
 
 The image is built `FROM scratch` and runs as an unprivileged user; all
 state lives in the `/data` volume.
@@ -88,10 +90,19 @@ Restrict who may sign in by binding groups in the application's
 ## LDAP directories
 
 Configure sources in **Admin → Directories**. Users authenticate by
-bind; profile and groups are read at login and mirrored into a local
-shadow row (never the password). Password write-back uses the RFC 3062
-Password Modify operation on the user's own connection, so the
-directory's ACLs stay in charge.
+bind; profile, groups and photo are read at login and mirrored into a
+local shadow row (never the password). The group filter supports both
+membership models — `{dn}` for groupOfNames/groupOfUniqueNames and
+`{username}` for posixGroup's `memberUid` — and the service bind can be
+anonymous if the directory allows unauthenticated searches. Password
+write-back uses the RFC 3062 Password Modify operation on the user's
+own connection, so the directory's ACLs stay in charge (and it keeps
+working with an anonymous service bind).
+
+Local users and groups are managed in **Admin → Users** and **Admin →
+Groups**; directory-sourced entries appear there too but stay read-only
+(only Kivraid-side flags like administrator/active can be changed on a
+directory user).
 
 Local fixtures for manual testing (OpenLDAP seeded with users, LLDAP):
 `docker compose -f fixtures/ldap/docker-compose.yml up -d` — connection

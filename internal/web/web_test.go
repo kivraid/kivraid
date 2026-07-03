@@ -22,24 +22,16 @@ import (
 	"github.com/lporcheron/kivraid/internal/store/storetest"
 )
 
-func buildTestServer(t *testing.T, forwardAuthDomains []string) (*httptest.Server, *store.Store) {
+// newServerForStore wires a full web server around an existing store.
+func newServerForStore(t *testing.T, st *store.Store, forwardAuthDomains []string) *httptest.Server {
 	t.Helper()
-	ctx := context.Background()
-
-	st := storetest.Open(t)
-
-	if _, err := local.NewSource(st).CreateUser(ctx,
-		"alice", "alice@example.com", "Alice Liddell", "s3cret-pass", false); err != nil {
-		t.Fatal(err)
-	}
-
 	cfg := config.Config{
 		BaseURL:     "http://localhost",
 		SecretKey:   strings.Repeat("k", 32),
 		ForwardAuth: config.ForwardAuth{Domains: forwardAuthDomains},
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
-	oidcProvider, oidcStorage, err := oidcserver.New(ctx, cfg, st, log)
+	oidcProvider, oidcStorage, err := oidcserver.New(context.Background(), cfg, st, log)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -52,10 +44,19 @@ func buildTestServer(t *testing.T, forwardAuthDomains []string) (*httptest.Serve
 	if err != nil {
 		t.Fatal(err)
 	}
-
 	ts := httptest.NewServer(srv.Handler())
 	t.Cleanup(ts.Close)
-	return ts, st
+	return ts
+}
+
+func buildTestServer(t *testing.T, forwardAuthDomains []string) (*httptest.Server, *store.Store) {
+	t.Helper()
+	st := storetest.Open(t)
+	if _, err := local.NewSource(st).CreateUser(context.Background(),
+		"alice", "alice@example.com", "Alice Liddell", "s3cret-pass", false); err != nil {
+		t.Fatal(err)
+	}
+	return newServerForStore(t, st, forwardAuthDomains), st
 }
 
 func newTestServer(t *testing.T) *httptest.Server {

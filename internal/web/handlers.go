@@ -32,6 +32,10 @@ type pageData struct {
 }
 
 func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
+	if s.needsSetup(r) {
+		http.Redirect(w, r, "/setup", http.StatusSeeOther)
+		return
+	}
 	if s.sessions.GetString(r.Context(), session.KeyUserID) != "" {
 		// Already authenticated: honor the next target (e.g. an OIDC flow
 		// resume) instead of bouncing to the portal.

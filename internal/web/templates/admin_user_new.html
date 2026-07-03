@@ -1,0 +1,41 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">New user</h1>
+  <p class="mt-1 text-sm text-muted">Creates a local account. Directory users appear automatically on their first sign-in.</p>
+</div>
+
+{{if .Data.Error}}
+<div class="alert-danger mb-4" role="alert">{{.Data.Error}}</div>
+{{end}}
+
+<form method="post" action="/admin/users" class="card space-y-5 p-6">
+  <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+    <div>
+      <label class="label" for="username">Username</label>
+      <input class="input" id="username" name="username" value="{{.Data.Form.Username}}" autocapitalize="none" spellcheck="false" required autofocus>
+    </div>
+    <div>
+      <label class="label" for="name">Display name</label>
+      <input class="input" id="name" name="name" value="{{.Data.Form.Name}}">
+    </div>
+  </div>
+  <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+    <div>
+      <label class="label" for="email">Email</label>
+      <input class="input" id="email" name="email" type="email" value="{{.Data.Form.Email}}" required>
+    </div>
+    <div>
+      <label class="label" for="password">Initial password</label>
+      <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
+    </div>
+  </div>
+  <label class="flex cursor-pointer items-center gap-2 text-sm">
+    <input type="checkbox" name="is_admin" class="accent-accent" {{if .Data.Form.IsAdmin}}checked{{end}}> Administrator
+  </label>
+  <div class="flex items-center justify-end gap-3 border-t border-line pt-5">
+    <a href="/admin/users" class="btn-ghost">Cancel</a>
+    <button type="submit" class="btn-primary">Create user</button>
+  </div>
+</form>
+{{end}}

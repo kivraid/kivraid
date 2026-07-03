@@ -1,0 +1,35 @@
+{{define "content"}}
+<div class="mb-8 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Users</h1>
+    <p class="mt-1 text-sm text-muted">Local accounts are fully managed here; directory users mirror their LDAP source.</p>
+  </div>
+  <a href="/admin/users/new" class="btn-primary shrink-0">New user</a>
+</div>
+
+<div class="card divide-y divide-line">
+  {{range .Data.Users}}
+  <a href="/admin/users/{{.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
+    {{if .PhotoMime}}
+    <img class="size-8 shrink-0 rounded-full object-cover" src="/avatar/{{.ID}}" alt="">
+    {{else}}
+    <span class="avatar">{{initials .Name}}</span>
+    {{end}}
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <span class="truncate text-sm font-medium">{{.Name}}</span>
+        {{if .IsAdmin}}<span class="badge-accent">Admin</span>{{end}}
+        {{if not .Active}}<span class="badge">Deactivated</span>{{end}}
+      </div>
+      <div class="mt-0.5 truncate text-xs text-faint">{{.Username}} · {{.Email}}</div>
+    </div>
+    {{if eq .Source "ldap"}}
+    <span class="badge shrink-0">{{with index $.Data.SourceNames (deref .LdapSourceID)}}{{.}}{{else}}LDAP{{end}}</span>
+    {{else}}
+    <span class="badge shrink-0">Local</span>
+    {{end}}
+    <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+  </a>
+  {{end}}
+</div>
+{{end}}

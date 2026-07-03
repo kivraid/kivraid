@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"net/url"
 	"strings"
 	"time"
@@ -72,11 +73,15 @@ func (m *Manager) Authenticate(ctx context.Context, username, password string) (
 	return sqlcgen.User{}, ErrBadCredentials
 }
 
+// maxPhotoSize bounds directory photos mirrored into the local store.
+const maxPhotoSize = 1 << 20
+
 type Entry struct {
 	DN       string
 	Username string
 	Email    string
 	Name     string
+	Photo    []byte
 	Groups   []string
 }
 
@@ -101,7 +106,7 @@ func (m *Manager) lookupAndBind(src sqlcgen.LdapSource, username, password strin
 	if err != nil {
 		return nil, err
 	}
-	entry.Groups, err = m.findGroups(conn, src, entry.DN)
+	entry.Groups, err = m.findGroups(conn, src, entry.DN, entry.Username)
 	if err != nil {
 		return nil, err
 	}
@@ -139,11 +144,17 @@ func (m *Manager) dial(src sqlcgen.LdapSource) (*goldap.Conn, error) {
 	return conn, nil
 }
 
-// Connect dials the source and binds with the service account.
+// Connect dials the source and binds with the service account. An empty
+// bind DN means anonymous: lookups run unauthenticated (the directory
+// must allow anonymous search). User authentication and password
+// write-back are unaffected — both bind as the user.
 func (m *Manager) Connect(src sqlcgen.LdapSource) (*goldap.Conn, error) {
 	conn, err := m.dial(src)
 	if err != nil {
 		return nil, err
+	}
+	if src.BindDn == "" {
+		return conn, nil
 	}
 	bindPassword, err := secrets.Open(m.sealKey, src.BindPasswordEnc)
 	if err != nil {
@@ -196,6 +207,101 @@ func (m *Manager) ChangePassword(ctx context.Context, user sqlcgen.User, current
 	return nil
 }
 
+// SyncResult summarizes a manual directory synchronization.
+type SyncResult struct {
+	Created int
+	Updated int
+	Skipped int
+	// Missing counts shadow users of this source that no longer match
+	// the directory; they are reported, never auto-deactivated.
+	Missing int
+}
+
+// SyncAll enumerates the directory (the user filter with {username}
+// replaced by a wildcard) and imports or refreshes every user and their
+// groups, without waiting for individual sign-ins.
+func (m *Manager) SyncAll(ctx context.Context, src sqlcgen.LdapSource) (SyncResult, error) {
+	var res SyncResult
+	conn, err := m.Connect(src)
+	if err != nil {
+		return res, err
+	}
+	defer conn.Close()
+
+	filter := strings.ReplaceAll(src.UserFilter, "{username}", "*")
+	attrs := []string{src.UsernameAttr, src.EmailAttr, src.NameAttr}
+	if src.PhotoAttr != "" {
+		attrs = append(attrs, src.PhotoAttr)
+	}
+	// Plain search; directories with more entries than their server-side
+	// size limit will need paged search support (fine for the target
+	// deployments so far).
+	found, err := conn.Search(goldap.NewSearchRequest(
+		src.BaseDn, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases,
+		0, 60, false, filter, attrs, nil,
+	))
+	if err != nil {
+		return res, fmt.Errorf("user enumeration: %w", err)
+	}
+
+	seen := map[string]bool{}
+	for _, e := range found.Entries {
+		entry := &Entry{
+			DN:       e.DN,
+			Username: strings.ToLower(e.GetAttributeValue(src.UsernameAttr)),
+			Email:    strings.ToLower(e.GetAttributeValue(src.EmailAttr)),
+			Name:     e.GetAttributeValue(src.NameAttr),
+		}
+		if entry.Username == "" {
+			res.Skipped++
+			continue
+		}
+		if entry.Name == "" {
+			entry.Name = entry.Username
+		}
+		if src.PhotoAttr != "" {
+			if photo := e.GetRawAttributeValue(src.PhotoAttr); len(photo) > 0 && len(photo) <= maxPhotoSize {
+				entry.Photo = photo
+			}
+		}
+		entry.Groups, err = m.findGroups(conn, src, entry.DN, entry.Username)
+		if err != nil {
+			return res, err
+		}
+		seen[entry.Username] = true
+
+		existed := true
+		if _, err := m.store.GetUserByUsername(ctx, entry.Username); errors.Is(err, sql.ErrNoRows) {
+			existed = false
+		}
+		if _, err := m.upsertShadowUser(ctx, src, entry); err != nil {
+			// Collisions and deactivated accounts are skipped, not fatal.
+			res.Skipped++
+			continue
+		}
+		if existed {
+			res.Updated++
+		} else {
+			res.Created++
+		}
+	}
+
+	// Report shadow users of this source that the directory no longer
+	// returns (renamed, removed, or excluded by the filter).
+	users, err := m.store.ListUsers(ctx)
+	if err != nil {
+		return res, err
+	}
+	for _, u := range users {
+		if u.Source == "ldap" && u.LdapSourceID != nil && *u.LdapSourceID == src.ID && !seen[u.Username] {
+			res.Missing++
+		}
+	}
+	m.log.Info("ldap sync", "source", src.Name,
+		"created", res.Created, "updated", res.Updated, "skipped", res.Skipped, "missing", res.Missing)
+	return res, nil
+}
+
 // FindUser searches the directory for username; exported for the admin
 // "test connection" action.
 func (m *Manager) FindUser(src sqlcgen.LdapSource, username string) (*Entry, error) {
@@ -208,17 +314,21 @@ func (m *Manager) FindUser(src sqlcgen.LdapSource, username string) (*Entry, err
 	if err != nil {
 		return nil, err
 	}
-	entry.Groups, err = m.findGroups(conn, src, entry.DN)
+	entry.Groups, err = m.findGroups(conn, src, entry.DN, entry.Username)
 	return entry, err
 }
 
 func (m *Manager) findUser(conn *goldap.Conn, src sqlcgen.LdapSource, username string) (*Entry, error) {
 	filter := strings.ReplaceAll(src.UserFilter, "{username}", goldap.EscapeFilter(username))
+	attrs := []string{src.UsernameAttr, src.EmailAttr, src.NameAttr}
+	if src.PhotoAttr != "" {
+		attrs = append(attrs, src.PhotoAttr)
+	}
 	res, err := conn.Search(goldap.NewSearchRequest(
 		src.BaseDn, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases,
 		2, int(dialTimeout/time.Second), false,
 		filter,
-		[]string{src.UsernameAttr, src.EmailAttr, src.NameAttr},
+		attrs,
 		nil,
 	))
 	if err != nil {
@@ -237,6 +347,11 @@ func (m *Manager) findUser(conn *goldap.Conn, src sqlcgen.LdapSource, username s
 		Email:    strings.ToLower(e.GetAttributeValue(src.EmailAttr)),
 		Name:     e.GetAttributeValue(src.NameAttr),
 	}
+	if src.PhotoAttr != "" {
+		if photo := e.GetRawAttributeValue(src.PhotoAttr); len(photo) > 0 && len(photo) <= maxPhotoSize {
+			entry.Photo = photo
+		}
+	}
 	if entry.Username == "" {
 		return nil, fmt.Errorf("entry %s has no %s attribute", e.DN, src.UsernameAttr)
 	}
@@ -246,11 +361,16 @@ func (m *Manager) findUser(conn *goldap.Conn, src sqlcgen.LdapSource, username s
 	return entry, nil
 }
 
-func (m *Manager) findGroups(conn *goldap.Conn, src sqlcgen.LdapSource, userDN string) ([]string, error) {
+// findGroups resolves the user's directory groups. The filter supports
+// two placeholders so both membership models work, together if needed:
+// {dn} for member/uniqueMember (groupOfNames, groupOfUniqueNames) and
+// {username} for memberUid (posixGroup).
+func (m *Manager) findGroups(conn *goldap.Conn, src sqlcgen.LdapSource, userDN, username string) ([]string, error) {
 	if src.GroupFilter == "" {
 		return nil, nil
 	}
 	filter := strings.ReplaceAll(src.GroupFilter, "{dn}", goldap.EscapeFilter(userDN))
+	filter = strings.ReplaceAll(filter, "{username}", goldap.EscapeFilter(username))
 	res, err := conn.Search(goldap.NewSearchRequest(
 		src.BaseDn, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases,
 		0, int(dialTimeout/time.Second), false,
@@ -271,10 +391,16 @@ func (m *Manager) findGroups(conn *goldap.Conn, src sqlcgen.LdapSource, userDN s
 }
 
 // upsertShadowUser creates or refreshes the local row mirroring the
-// directory identity, and replaces the user's group memberships with the
-// directory-derived ones.
+// directory identity (profile, photo), and syncs the user's memberships
+// in this source's groups.
 func (m *Manager) upsertShadowUser(ctx context.Context, src sqlcgen.LdapSource, entry *Entry) (sqlcgen.User, error) {
 	now := time.Now().UTC()
+
+	var photoMime *string
+	if len(entry.Photo) > 0 {
+		mime := http.DetectContentType(entry.Photo)
+		photoMime = &mime
+	}
 
 	user, err := m.store.GetUserByUsername(ctx, entry.Username)
 	switch {
@@ -296,6 +422,14 @@ func (m *Manager) upsertShadowUser(ctx context.Context, src sqlcgen.LdapSource, 
 		if err != nil {
 			return sqlcgen.User{}, err
 		}
+		if entry.Photo != nil {
+			if err := m.store.UpdateUserPhoto(ctx, sqlcgen.UpdateUserPhotoParams{
+				Photo: entry.Photo, PhotoMime: photoMime, UpdatedAt: now, ID: user.ID,
+			}); err != nil {
+				return sqlcgen.User{}, err
+			}
+			user.Photo, user.PhotoMime = entry.Photo, photoMime
+		}
 	case err != nil:
 		return sqlcgen.User{}, err
 	default:
@@ -311,22 +445,25 @@ func (m *Manager) upsertShadowUser(ctx context.Context, src sqlcgen.LdapSource, 
 		}
 		if err := m.store.UpdateUserLdapProfile(ctx, sqlcgen.UpdateUserLdapProfileParams{
 			Email: entry.Email, Name: entry.Name, LdapDn: &entry.DN,
+			Photo: entry.Photo, PhotoMime: photoMime,
 			UpdatedAt: now, ID: user.ID,
 		}); err != nil {
 			return sqlcgen.User{}, err
 		}
 		user.Email, user.Name, user.LdapDn = entry.Email, entry.Name, &entry.DN
+		user.Photo, user.PhotoMime = entry.Photo, photoMime
 	}
 
-	if err := m.syncGroups(ctx, user.ID, entry.Groups); err != nil {
+	if err := m.syncGroups(ctx, src, user.ID, entry.Groups); err != nil {
 		return sqlcgen.User{}, err
 	}
 	return user, nil
 }
 
-// syncGroups replaces the user's memberships with the directory groups,
-// creating Kivraid groups on first sight.
-func (m *Manager) syncGroups(ctx context.Context, userID string, names []string) error {
+// syncGroups mirrors the user's memberships in this source's groups:
+// only ldap-sourced groups belonging to src are touched, so memberships
+// in local groups (managed in the admin) survive directory logins.
+func (m *Manager) syncGroups(ctx context.Context, src sqlcgen.LdapSource, userID string, names []string) error {
 	tx, err := m.store.DB.BeginTx(ctx, nil)
 	if err != nil {
 		return err
@@ -334,18 +471,29 @@ func (m *Manager) syncGroups(ctx context.Context, userID string, names []string)
 	defer tx.Rollback()
 	q := m.store.Queries.WithTx(tx)
 
-	if err := q.DeleteUserGroups(ctx, userID); err != nil {
+	if err := q.DeleteUserGroupsFromSource(ctx, sqlcgen.DeleteUserGroupsFromSourceParams{
+		UserID: userID, LdapSourceID: &src.ID,
+	}); err != nil {
 		return err
 	}
 	for _, name := range names {
 		group, err := q.GetGroupByName(ctx, name)
 		if errors.Is(err, sql.ErrNoRows) {
 			group, err = q.CreateGroup(ctx, sqlcgen.CreateGroupParams{
-				ID: uuid.NewString(), Name: name, CreatedAt: time.Now().UTC(),
+				ID: uuid.NewString(), Name: name,
+				Source: "ldap", LdapSourceID: &src.ID,
+				CreatedAt: time.Now().UTC(),
 			})
 		}
 		if err != nil {
 			return err
+		}
+		// A same-named group owned by another source (or created locally
+		// in the admin) is not hijacked; the membership is skipped.
+		if group.Source != "ldap" || group.LdapSourceID == nil || *group.LdapSourceID != src.ID {
+			m.log.Warn("ldap group sync skipped: name owned by another source",
+				"group", name, "source", src.Name)
+			continue
 		}
 		if err := q.AddUserGroup(ctx, sqlcgen.AddUserGroupParams{UserID: userID, GroupID: group.ID}); err != nil {
 			return err

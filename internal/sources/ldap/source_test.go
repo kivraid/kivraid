@@ -30,6 +30,8 @@ const (
 	testBobDN      = "uid=bob,ou=people," + testBaseDN
 	testBobPW      = "bob-pass"
 	testSealSecret = "0123456789abcdef0123456789abcdef"
+	// JPEG magic bytes so content-type sniffing yields image/jpeg.
+	testAlicePhoto = "\xff\xd8\xff\xe0fake-jpeg-data"
 )
 
 // startFakeDirectory runs an in-process LDAP server that mimics a small
@@ -95,9 +97,10 @@ func startFakeDirectory(t *testing.T) string {
 		}
 		users := map[string]map[string][]string{
 			"alice": {
-				"uid":  {"alice"},
-				"mail": {"Alice@example.org"},
-				"cn":   {"Alice Directory"},
+				"uid":       {"alice"},
+				"mail":      {"Alice@example.org"},
+				"cn":        {"Alice Directory"},
+				"jpegPhoto": {testAlicePhoto},
 			},
 			"bob": {
 				"uid":  {"bob"},
@@ -106,7 +109,9 @@ func startFakeDirectory(t *testing.T) string {
 			},
 		}
 		for username, attrs := range users {
-			if m.Filter == fmt.Sprintf("(&(objectClass=person)(uid=%s))", username) {
+			// Exact lookup (login/test) or wildcard enumeration (SyncAll).
+			if m.Filter == fmt.Sprintf("(&(objectClass=person)(uid=%s))", username) ||
+				m.Filter == "(&(objectClass=person)(uid=*))" {
 				w.Write(r.NewSearchResponseEntry(
 					fmt.Sprintf("uid=%s,ou=people,%s", username, testBaseDN),
 					gldap.WithAttributes(attrs),
@@ -120,6 +125,13 @@ func startFakeDirectory(t *testing.T) string {
 					gldap.WithAttributes(map[string][]string{"cn": {g}}),
 				))
 			}
+		}
+		// posixGroup membership is by username, not DN.
+		if strings.Contains(m.Filter, "memberUid=alice") {
+			w.Write(r.NewSearchResponseEntry(
+				"cn=unix-users,ou=groups,"+testBaseDN,
+				gldap.WithAttributes(map[string][]string{"cn": {"unix-users"}}),
+			))
 		}
 		w.Write(r.NewSearchDoneResponse(gldap.WithResponseCode(gldap.ResultSuccess)))
 	})
@@ -160,7 +172,7 @@ func newTestManager(t *testing.T) (*Manager, *store.Store) {
 		ID: "src1", Name: "Test Directory", Url: "ldap://" + addr,
 		BindDn: testServiceDN, BindPasswordEnc: sealed, BaseDn: testBaseDN,
 		UserFilter:   "(&(objectClass=person)(uid={username}))",
-		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn",
+		UsernameAttr: "uid", EmailAttr: "mail", NameAttr: "cn", PhotoAttr: "jpegPhoto",
 		GroupFilter: "(&(objectClass=groupOfNames)(member={dn}))", GroupNameAttr: "cn",
 		PasswordWriteback: true,
 		Enabled:           true, Position: 0, CreatedAt: now, UpdatedAt: now,
@@ -252,6 +264,165 @@ func TestChangePasswordWriteback(t *testing.T) {
 	}
 	if err := m.ChangePassword(ctx, user, testAlicePW, "another-pass"); !errors.Is(err, ErrWritebackDisabled) {
 		t.Fatalf("want ErrWritebackDisabled, got %v", err)
+	}
+}
+
+func TestPhotoMirroredFromDirectory(t *testing.T) {
+	m, _ := newTestManager(t)
+	user, err := m.Authenticate(context.Background(), "alice", testAlicePW)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(user.Photo) != testAlicePhoto {
+		t.Fatal("photo not mirrored from the directory")
+	}
+	if user.PhotoMime == nil || *user.PhotoMime != "image/jpeg" {
+		t.Fatalf("photo mime: got %v", user.PhotoMime)
+	}
+}
+
+func TestPosixGroupMembership(t *testing.T) {
+	m, st := newTestManager(t)
+	ctx := context.Background()
+
+	// Combined filter covering both membership models.
+	if _, err := st.DB.Exec(`UPDATE ldap_sources SET group_filter = $1`,
+		"(|(&(objectClass=groupOfNames)(member={dn}))(&(objectClass=posixGroup)(memberUid={username})))"); err != nil {
+		t.Fatal(err)
+	}
+
+	user, err := m.Authenticate(ctx, "alice", testAlicePW)
+	if err != nil {
+		t.Fatal(err)
+	}
+	groups, err := st.ListUserGroups(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, len(groups))
+	for i, g := range groups {
+		names[i] = g.Name
+	}
+	if len(names) != 3 || names[0] != "dev" || names[1] != "infra" || names[2] != "unix-users" {
+		t.Fatalf("posix group not synced: %v", names)
+	}
+}
+
+func TestAnonymousBind(t *testing.T) {
+	m, st := newTestManager(t)
+	ctx := context.Background()
+
+	if _, err := st.DB.Exec(`UPDATE ldap_sources SET bind_dn = ''`); err != nil {
+		t.Fatal(err)
+	}
+
+	// Lookups run anonymously; the user bind still verifies the password.
+	if _, err := m.Authenticate(ctx, "alice", testAlicePW); err != nil {
+		t.Fatalf("anonymous-bind authenticate: %v", err)
+	}
+	if _, err := m.Authenticate(ctx, "alice", "wrong"); !errors.Is(err, ErrBadCredentials) {
+		t.Fatalf("want ErrBadCredentials, got %v", err)
+	}
+	// Write-back is unaffected: it binds as the user.
+	user, _ := m.Authenticate(ctx, "alice", testAlicePW)
+	if err := m.ChangePassword(ctx, user, testAlicePW, "another-pass-42"); err != nil {
+		t.Fatalf("write-back with anonymous source bind: %v", err)
+	}
+}
+
+func TestSyncPreservesLocalGroupMemberships(t *testing.T) {
+	m, st := newTestManager(t)
+	ctx := context.Background()
+
+	user, err := m.Authenticate(ctx, "alice", testAlicePW)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// An admin puts alice in a local group between two logins.
+	local, err := st.CreateGroup(ctx, sqlcgen.CreateGroupParams{
+		ID: "glocal", Name: "handpicked", Source: "local", CreatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddUserGroup(ctx, sqlcgen.AddUserGroupParams{UserID: user.ID, GroupID: local.ID}); err != nil {
+		t.Fatal(err)
+	}
+
+	// The next directory login must not wipe the local membership.
+	if _, err := m.Authenticate(ctx, "alice", testAlicePW); err != nil {
+		t.Fatal(err)
+	}
+	groups, err := st.ListUserGroups(ctx, user.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	names := make([]string, len(groups))
+	for i, g := range groups {
+		names[i] = g.Name
+	}
+	if len(names) != 3 || names[0] != "dev" || names[1] != "handpicked" || names[2] != "infra" {
+		t.Fatalf("local membership lost after sync: %v", names)
+	}
+}
+
+func TestSyncAll(t *testing.T) {
+	m, st := newTestManager(t)
+	ctx := context.Background()
+	src, err := st.GetLdapSource(ctx, "src1")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// First run imports the whole directory.
+	res, err := m.SyncAll(ctx, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Created != 2 || res.Updated != 0 || res.Skipped != 0 || res.Missing != 0 {
+		t.Fatalf("first sync: %+v", res)
+	}
+	alice, err := st.GetUserByUsername(ctx, "alice")
+	if err != nil || alice.Source != "ldap" {
+		t.Fatalf("alice not imported: %v", err)
+	}
+	groups, _ := st.ListUserGroups(ctx, alice.ID)
+	if len(groups) != 2 {
+		t.Fatalf("alice's groups not imported: %v", groups)
+	}
+	if string(alice.Photo) != testAlicePhoto {
+		t.Fatal("alice's photo not imported")
+	}
+
+	// Second run refreshes.
+	res, err = m.SyncAll(ctx, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Created != 0 || res.Updated != 2 {
+		t.Fatalf("second sync: %+v", res)
+	}
+
+	// A shadow user the directory no longer returns is reported missing,
+	// and a username collision is skipped, never hijacked.
+	now := time.Now().UTC()
+	srcID := "src1"
+	if _, err := st.CreateUser(ctx, sqlcgen.CreateUserParams{
+		ID: "ghost", Username: "ghost", Email: "ghost@example.org", Name: "Ghost",
+		Source: "ldap", LdapSourceID: &srcID, Active: true, CreatedAt: now, UpdatedAt: now,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := st.DB.Exec(`UPDATE users SET source = 'local' WHERE username = 'bob'`); err != nil {
+		t.Fatal(err)
+	}
+	res, err = m.SyncAll(ctx, src)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if res.Missing != 1 || res.Skipped != 1 || res.Updated != 1 {
+		t.Fatalf("third sync: %+v", res)
 	}
 }
 

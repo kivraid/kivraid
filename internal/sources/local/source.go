@@ -82,6 +82,20 @@ func (s *Source) ChangePassword(ctx context.Context, user sqlcgen.User, current,
 	})
 }
 
+// SetPassword replaces a local account's password without verifying the
+// current one. Admin-only path — the portal uses ChangePassword.
+func (s *Source) SetPassword(ctx context.Context, userID, newPassword string) error {
+	hash, err := HashPassword(newPassword)
+	if err != nil {
+		return err
+	}
+	return s.store.UpdateUserPassword(ctx, sqlcgen.UpdateUserPasswordParams{
+		PasswordHash: &hash,
+		UpdatedAt:    time.Now().UTC(),
+		ID:           userID,
+	})
+}
+
 // CreateUser creates a local account with the given password.
 func (s *Source) CreateUser(ctx context.Context, username, email, name, password string, isAdmin bool) (sqlcgen.User, error) {
 	hash, err := HashPassword(password)

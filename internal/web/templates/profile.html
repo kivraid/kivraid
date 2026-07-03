@@ -6,7 +6,11 @@
 
 <div class="card">
   <div class="flex items-center gap-4 border-b border-line p-6">
+    {{if .User.PhotoMime}}
+    <img class="size-14 shrink-0 rounded-full object-cover" src="/avatar/{{.User.ID}}" alt="">
+    {{else}}
     <span class="avatar-lg">{{initials .User.Name}}</span>
+    {{end}}
     <div class="min-w-0">
       <div class="flex items-center gap-2">
         <h2 class="truncate text-lg font-semibold tracking-tight">{{.User.Name}}</h2>
@@ -36,6 +40,27 @@
     </div>
   </dl>
 </div>
+
+{{if eq .User.Source "local"}}
+<div class="card mt-4 space-y-4 p-6">
+  <h2 class="text-sm font-semibold">Photo</h2>
+  <div class="flex items-center gap-4">
+    <form method="post" action="/profile/photo" enctype="multipart/form-data" class="flex flex-1 items-center gap-3">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required
+             class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
+      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Upload</button>
+    </form>
+    {{if .User.PhotoMime}}
+    <form method="post" action="/profile/photo/delete" class="shrink-0">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button type="submit" class="btn-ghost">Remove</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="text-xs text-muted">JPEG, PNG, WebP or GIF, up to 1 MB.</p>
+</div>
+{{end}}
 
 {{if .Data.CanChangePW}}
 <div class="mt-4 space-y-4">

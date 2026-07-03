@@ -1,0 +1,47 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">Groups</h1>
+  <p class="mt-1 text-sm text-muted">Local groups are managed here; directory groups mirror their LDAP source and are read-only.</p>
+</div>
+
+<div class="space-y-4">
+  {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
+
+  <form method="post" action="/admin/groups" class="card flex items-end gap-3 p-4">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="flex-1">
+      <label class="label" for="name">New local group</label>
+      <input class="input" id="name" name="name" placeholder="engineering" required>
+    </div>
+    <button type="submit" class="btn-primary shrink-0">Create</button>
+  </form>
+
+  {{if .Data.Groups}}
+  <div class="card divide-y divide-line">
+    {{range .Data.Groups}}
+    <a href="/admin/groups/{{.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
+      <span class="avatar">{{initials .Name}}</span>
+      <div class="min-w-0 flex-1">
+        <span class="truncate text-sm font-medium">{{.Name}}</span>
+        <div class="mt-0.5 text-xs text-faint">{{.MemberCount}} member{{if ne .MemberCount 1}}s{{end}}</div>
+      </div>
+      {{if eq .Source "ldap"}}
+      <span class="badge shrink-0">{{with index $.Data.SourceNames (deref .LdapSourceID)}}{{.}}{{else}}LDAP{{end}}</span>
+      {{else}}
+      <span class="badge shrink-0">Local</span>
+      {{end}}
+      <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
+    {{end}}
+  </div>
+  {{else}}
+  <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
+    <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+    <div>
+      <h2 class="text-sm font-semibold">No groups yet</h2>
+      <p class="mt-1 text-sm text-muted">Create a local group above, or connect a directory — its groups sync on user sign-in.</p>
+    </div>
+  </div>
+  {{end}}
+</div>
+{{end}}

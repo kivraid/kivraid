@@ -85,8 +85,14 @@ func NewServer(d Deps) (*Server, error) {
 
 	funcs := template.FuncMap{
 		"initials": initials,
+		"deref": func(p *string) string {
+			if p == nil {
+				return ""
+			}
+			return *p
+		},
 	}
-	standalone := []string{"login.html", "error.html"}
+	standalone := []string{"login.html", "error.html", "setup.html"}
 	for _, page := range standalone {
 		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page)
 		if err != nil {
@@ -98,6 +104,8 @@ func NewServer(d Deps) (*Server, error) {
 		"home.html", "profile.html", "sessions.html", "denied.html",
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
+		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
+		"admin_groups.html", "admin_group_detail.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -115,9 +123,14 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("GET /login", s.handleLoginPage)
 	web.HandleFunc("POST /login", s.handleLoginSubmit)
 	web.HandleFunc("POST /logout", s.handleLogout)
+	web.HandleFunc("GET /setup", s.handleSetupPage)
+	web.HandleFunc("POST /setup", s.handleSetupSubmit)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))
+	web.Handle("GET /avatar/{id}", s.requireAuth(http.HandlerFunc(s.handleAvatar)))
 	web.Handle("GET /profile", s.requireAuth(http.HandlerFunc(s.handleProfile)))
 	web.Handle("POST /profile/password", s.requireAuth(http.HandlerFunc(s.handleProfilePassword)))
+	web.Handle("POST /profile/photo", s.requireAuth(http.HandlerFunc(s.handleProfilePhoto)))
+	web.Handle("POST /profile/photo/delete", s.requireAuth(http.HandlerFunc(s.handleProfilePhotoDelete)))
 	web.Handle("GET /sessions", s.requireAuth(http.HandlerFunc(s.handleSessions)))
 	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
 	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))
@@ -135,10 +148,28 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/ldap", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapList)))
 	web.Handle("GET /admin/ldap/new", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapNew)))
 	web.Handle("POST /admin/ldap", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapCreate)))
+	web.Handle("POST /admin/ldap/test", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapTestDraft)))
 	web.Handle("GET /admin/ldap/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapEdit)))
 	web.Handle("POST /admin/ldap/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapUpdate)))
 	web.Handle("POST /admin/ldap/{id}/test", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapTest)))
+	web.Handle("POST /admin/ldap/{id}/sync", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapSync)))
 	web.Handle("POST /admin/ldap/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapDelete)))
+
+	web.Handle("GET /admin/users", s.requireAdmin(http.HandlerFunc(s.handleAdminUsers)))
+	web.Handle("GET /admin/users/new", s.requireAdmin(http.HandlerFunc(s.handleAdminUserNew)))
+	web.Handle("POST /admin/users", s.requireAdmin(http.HandlerFunc(s.handleAdminUserCreate)))
+	web.Handle("GET /admin/users/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDetail)))
+	web.Handle("POST /admin/users/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminUserUpdate)))
+	web.Handle("POST /admin/users/{id}/password", s.requireAdmin(http.HandlerFunc(s.handleAdminUserPassword)))
+	web.Handle("POST /admin/users/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDelete)))
+
+	web.Handle("GET /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroups)))
+	web.Handle("POST /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupCreate)))
+	web.Handle("GET /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDetail)))
+	web.Handle("POST /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupRename)))
+	web.Handle("POST /admin/groups/{id}/members", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupAddMember)))
+	web.Handle("POST /admin/groups/{id}/members/remove", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupRemoveMember)))
+	web.Handle("POST /admin/groups/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDelete)))
 
 	web.Handle("GET /admin/audit", s.requireAdmin(http.HandlerFunc(s.handleAdminAudit)))
 
