@@ -13,6 +13,18 @@
 <div class="space-y-4">
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
+  <form method="post" action="/admin/groups/{{.Data.Group.ID}}/role" class="card p-4">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="flex items-center justify-between gap-4">
+      <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+        <input type="checkbox" name="grants_admin" class="accent-accent" {{if .Data.Group.GrantsAdmin}}checked{{end}}>
+        Members are administrators
+      </label>
+      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Save</button>
+    </div>
+    <p class="mt-2 text-xs text-muted">Grants the Kivraid administrator role to every member{{if .Data.IsLDAP}} — since membership is synced from the directory, this lets you manage administrators from there{{end}}. Users keep their personal flag independently.</p>
+  </form>
+
   {{if .Data.IsLDAP}}
   <div class="alert-success" role="note">This group is mirrored from the directory: its name and members are refreshed each time one of its users signs in, and cannot be edited here.</div>
   {{else}}

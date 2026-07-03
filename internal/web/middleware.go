@@ -50,6 +50,16 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			s.serverError(w, r, err)
 			return
 		}
+		// The administrator role is effective, not just stored: membership
+		// in a granting group confers it for the duration of the request.
+		if !user.IsAdmin {
+			n, err := s.store.CountAdminGroupMemberships(r.Context(), user.ID)
+			if err != nil {
+				s.serverError(w, r, err)
+				return
+			}
+			user.IsAdmin = n > 0
+		}
 		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKeyUser, user)))
 	})
 }

@@ -22,7 +22,10 @@
     <a href="/admin/groups/{{.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
       <span class="avatar">{{initials .Name}}</span>
       <div class="min-w-0 flex-1">
-        <span class="truncate text-sm font-medium">{{.Name}}</span>
+        <div class="flex items-center gap-2">
+          <span class="truncate text-sm font-medium">{{.Name}}</span>
+          {{if .GrantsAdmin}}<span class="badge-accent">Grants admin</span>{{end}}
+        </div>
         <div class="mt-0.5 text-xs text-faint">{{.MemberCount}} member{{if ne .MemberCount 1}}s{{end}}</div>
       </div>
       {{if eq .Source "ldap"}}

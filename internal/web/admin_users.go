@@ -16,17 +16,19 @@ import (
 type adminUsersData struct {
 	Users       []sqlcgen.User
 	SourceNames map[string]string // ldap_source_id → source name
+	AdminVia    map[string]bool   // user IDs that are admins via a granting group
 }
 
 type adminUserDetailData struct {
-	Target     sqlcgen.User
-	IsLDAP     bool
-	SourceName string
-	Groups     []sqlcgen.Group
-	Error      string
-	Saved      bool
-	PWSaved    bool
-	Self       bool
+	Target      sqlcgen.User
+	IsLDAP      bool
+	SourceName  string
+	Groups      []sqlcgen.Group
+	AdminGroups []sqlcgen.Group // granting groups the user belongs to
+	Error       string
+	Saved       bool
+	PWSaved     bool
+	Self        bool
 }
 
 type adminUserNewData struct {
@@ -65,9 +67,18 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	viaIDs, err := s.store.ListAdminGroupMemberIDs(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	adminVia := make(map[string]bool, len(viaIDs))
+	for _, id := range viaIDs {
+		adminVia[id] = true
+	}
 	s.render(w, r, "admin_users.html", pageData{
 		Title: "Users", Active: "users", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminUsersData{Users: users, SourceNames: names},
+		User: currentUser(r), Data: adminUsersData{Users: users, SourceNames: names, AdminVia: adminVia},
 	})
 }
 
@@ -138,6 +149,11 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 		s.serverError(w, r, err)
 		return
 	}
+	adminGroups, err := s.store.ListUserAdminGroups(r.Context(), target.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	sourceName := ""
 	if target.LdapSourceID != nil {
 		if names, err := s.ldapSourceNames(r.Context()); err == nil {
@@ -149,7 +165,8 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 		User: currentUser(r),
 		Data: adminUserDetailData{
 			Target: target, IsLDAP: target.Source == "ldap", SourceName: sourceName,
-			Groups: groups, Error: errMsg, Saved: saved, PWSaved: pwSaved,
+			Groups: groups, AdminGroups: adminGroups,
+			Error: errMsg, Saved: saved, PWSaved: pwSaved,
 			Self: target.ID == currentUser(r).ID,
 		},
 	})

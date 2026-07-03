@@ -25,7 +25,7 @@ func (q *Queries) AddUserGroup(ctx context.Context, arg AddUserGroupParams) erro
 }
 
 const createGroup = `-- name: CreateGroup :one
-INSERT INTO groups (id, name, source, ldap_source_id, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, created_at, source, ldap_source_id
+INSERT INTO groups (id, name, source, ldap_source_id, created_at) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, created_at, source, ldap_source_id, grants_admin
 `
 
 type CreateGroupParams struct {
@@ -51,6 +51,7 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Group
 		&i.CreatedAt,
 		&i.Source,
 		&i.LdapSourceID,
+		&i.GrantsAdmin,
 	)
 	return i, err
 }
@@ -162,7 +163,7 @@ func (q *Queries) DeleteUserGroupsFromSource(ctx context.Context, arg DeleteUser
 }
 
 const getGroupByName = `-- name: GetGroupByName :one
-SELECT id, name, created_at, source, ldap_source_id FROM groups WHERE name = $1
+SELECT id, name, created_at, source, ldap_source_id, grants_admin FROM groups WHERE name = $1
 `
 
 func (q *Queries) GetGroupByName(ctx context.Context, name string) (Group, error) {
@@ -174,6 +175,7 @@ func (q *Queries) GetGroupByName(ctx context.Context, name string) (Group, error
 		&i.CreatedAt,
 		&i.Source,
 		&i.LdapSourceID,
+		&i.GrantsAdmin,
 	)
 	return i, err
 }

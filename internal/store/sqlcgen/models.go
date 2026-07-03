@@ -56,6 +56,7 @@ type Group struct {
 	CreatedAt    time.Time
 	Source       string
 	LdapSourceID *string
+	GrantsAdmin  bool
 }
 
 type LdapSource struct {

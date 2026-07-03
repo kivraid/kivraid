@@ -156,7 +156,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 }
 
 const listUserGroups = `-- name: ListUserGroups :many
-SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id
+SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin
 FROM groups g
 JOIN user_groups ug ON ug.group_id = g.id
 WHERE ug.user_id = $1
@@ -178,6 +178,7 @@ func (q *Queries) ListUserGroups(ctx context.Context, userID string) ([]Group, e
 			&i.CreatedAt,
 			&i.Source,
 			&i.LdapSourceID,
+			&i.GrantsAdmin,
 		); err != nil {
 			return nil, err
 		}

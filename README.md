@@ -102,7 +102,10 @@ working with an anonymous service bind).
 Local users and groups are managed in **Admin → Users** and **Admin →
 Groups**; directory-sourced entries appear there too but stay read-only
 (only Kivraid-side flags like administrator/active can be changed on a
-directory user).
+directory user). Any group — local or directory — can be flagged
+**"Members are administrators"**: the administrator role is then
+computed from membership on top of the per-user flag, so flagging a
+synced LDAP group lets the directory drive who administers Kivraid.
 
 Local fixtures for manual testing (OpenLDAP seeded with users, LLDAP):
 `docker compose -f fixtures/ldap/docker-compose.yml up -d` — connection

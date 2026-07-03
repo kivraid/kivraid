@@ -21,6 +21,20 @@ func (q *Queries) CountActiveAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countAdminGroupMemberships = `-- name: CountAdminGroupMemberships :one
+SELECT COUNT(*)
+FROM user_groups ug
+JOIN groups g ON g.id = ug.group_id
+WHERE ug.user_id = $1 AND g.grants_admin = TRUE
+`
+
+func (q *Queries) CountAdminGroupMemberships(ctx context.Context, userID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAdminGroupMemberships, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAccessTokensByUser = `-- name: DeleteAccessTokensByUser :exec
 DELETE FROM access_tokens WHERE user_id = $1
 `
@@ -58,7 +72,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT id, name, created_at, source, ldap_source_id FROM groups WHERE id = $1
+SELECT id, name, created_at, source, ldap_source_id, grants_admin FROM groups WHERE id = $1
 `
 
 func (q *Queries) GetGroup(ctx context.Context, id string) (Group, error) {
@@ -70,6 +84,7 @@ func (q *Queries) GetGroup(ctx context.Context, id string) (Group, error) {
 		&i.CreatedAt,
 		&i.Source,
 		&i.LdapSourceID,
+		&i.GrantsAdmin,
 	)
 	return i, err
 }
@@ -88,6 +103,36 @@ func (q *Queries) GetUserPhoto(ctx context.Context, id string) (GetUserPhotoRow,
 	var i GetUserPhotoRow
 	err := row.Scan(&i.Photo, &i.PhotoMime)
 	return i, err
+}
+
+const listAdminGroupMemberIDs = `-- name: ListAdminGroupMemberIDs :many
+SELECT DISTINCT ug.user_id
+FROM user_groups ug
+JOIN groups g ON g.id = ug.group_id
+WHERE g.grants_admin = TRUE
+`
+
+func (q *Queries) ListAdminGroupMemberIDs(ctx context.Context) ([]string, error) {
+	rows, err := q.db.QueryContext(ctx, listAdminGroupMemberIDs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var user_id string
+		if err := rows.Scan(&user_id); err != nil {
+			return nil, err
+		}
+		items = append(items, user_id)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listGroupMembers = `-- name: ListGroupMembers :many
@@ -137,7 +182,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID string) ([]User,
 }
 
 const listGroupsWithCounts = `-- name: ListGroupsWithCounts :many
-SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, COUNT(ug.user_id) AS member_count
+SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin, COUNT(ug.user_id) AS member_count
 FROM groups g
 LEFT JOIN user_groups ug ON ug.group_id = g.id
 GROUP BY g.id
@@ -150,6 +195,7 @@ type ListGroupsWithCountsRow struct {
 	CreatedAt    time.Time
 	Source       string
 	LdapSourceID *string
+	GrantsAdmin  bool
 	MemberCount  int64
 }
 
@@ -168,7 +214,46 @@ func (q *Queries) ListGroupsWithCounts(ctx context.Context) ([]ListGroupsWithCou
 			&i.CreatedAt,
 			&i.Source,
 			&i.LdapSourceID,
+			&i.GrantsAdmin,
 			&i.MemberCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUserAdminGroups = `-- name: ListUserAdminGroups :many
+SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin
+FROM groups g
+JOIN user_groups ug ON ug.group_id = g.id
+WHERE ug.user_id = $1 AND g.grants_admin = TRUE
+ORDER BY g.name
+`
+
+func (q *Queries) ListUserAdminGroups(ctx context.Context, userID string) ([]Group, error) {
+	rows, err := q.db.QueryContext(ctx, listUserAdminGroups, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Group
+	for rows.Next() {
+		var i Group
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.CreatedAt,
+			&i.Source,
+			&i.LdapSourceID,
+			&i.GrantsAdmin,
 		); err != nil {
 			return nil, err
 		}
@@ -250,6 +335,20 @@ type RenameGroupParams struct {
 
 func (q *Queries) RenameGroup(ctx context.Context, arg RenameGroupParams) error {
 	_, err := q.db.ExecContext(ctx, renameGroup, arg.Name, arg.ID)
+	return err
+}
+
+const updateGroupGrantsAdmin = `-- name: UpdateGroupGrantsAdmin :exec
+UPDATE groups SET grants_admin = $1 WHERE id = $2
+`
+
+type UpdateGroupGrantsAdminParams struct {
+	GrantsAdmin bool
+	ID          string
+}
+
+func (q *Queries) UpdateGroupGrantsAdmin(ctx context.Context, arg UpdateGroupGrantsAdminParams) error {
+	_, err := q.db.ExecContext(ctx, updateGroupGrantsAdmin, arg.GrantsAdmin, arg.ID)
 	return err
 }
 

@@ -8,7 +8,7 @@
   <div class="min-w-0">
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Target.Name}}</h1>
-      {{if .Data.Target.IsAdmin}}<span class="badge-accent">Admin</span>{{end}}
+      {{if or .Data.Target.IsAdmin .Data.AdminGroups}}<span class="badge-accent">Admin</span>{{end}}
       {{if not .Data.Target.Active}}<span class="badge">Deactivated</span>{{end}}
       {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else}}<span class="badge">Local</span>{{end}}
     </div>
@@ -51,6 +51,11 @@
         <input type="checkbox" name="active" class="accent-accent" {{if .Data.Target.Active}}checked{{end}}> Active
       </label>
     </div>
+    {{if .Data.AdminGroups}}
+    <p class="text-xs text-muted">Also administrator via group{{if gt (len .Data.AdminGroups) 1}}s{{end}}:
+      {{range $i, $g := .Data.AdminGroups}}{{if $i}}, {{end}}<a href="/admin/groups/{{$g.ID}}" class="underline">{{$g.Name}}</a>{{end}}
+      — the personal flag above is independent.</p>
+    {{end}}
     {{if .Data.Self}}<p class="text-xs text-muted">This is your own account — you cannot deactivate it or drop your administrator role.</p>{{end}}
     <div class="flex justify-end border-t border-line pt-5">
       <button type="submit" class="btn-primary">Save changes</button>

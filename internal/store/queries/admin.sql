@@ -50,3 +50,25 @@ ORDER BY u.username;
 
 -- name: RemoveUserGroup :exec
 DELETE FROM user_groups WHERE user_id = $1 AND group_id = $2;
+
+-- name: UpdateGroupGrantsAdmin :exec
+UPDATE groups SET grants_admin = $1 WHERE id = $2;
+
+-- name: CountAdminGroupMemberships :one
+SELECT COUNT(*)
+FROM user_groups ug
+JOIN groups g ON g.id = ug.group_id
+WHERE ug.user_id = $1 AND g.grants_admin = TRUE;
+
+-- name: ListUserAdminGroups :many
+SELECT g.*
+FROM groups g
+JOIN user_groups ug ON ug.group_id = g.id
+WHERE ug.user_id = $1 AND g.grants_admin = TRUE
+ORDER BY g.name;
+
+-- name: ListAdminGroupMemberIDs :many
+SELECT DISTINCT ug.user_id
+FROM user_groups ug
+JOIN groups g ON g.id = ug.group_id
+WHERE g.grants_admin = TRUE;

@@ -157,6 +157,68 @@ func TestAdminUsersGuards(t *testing.T) {
 	}
 }
 
+func TestGroupGrantsAdmin(t *testing.T) {
+	ts, st := buildTestServer(t, nil)
+	ctx := context.Background()
+
+	alice, err := st.GetUserByUsername(ctx, "alice")
+	if err != nil || alice.IsAdmin {
+		t.Fatalf("fixture: %v", err)
+	}
+	c := newClient(t)
+	login(t, c, ts.URL, "alice", "s3cret-pass")
+
+	// Not an admin: the admin section is forbidden.
+	resp, err := c.Get(ts.URL + "/admin/users")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("non-admin: want 403, got %d", resp.StatusCode)
+	}
+
+	// Membership in a granting group confers the role, no flag write.
+	group, err := st.CreateGroup(ctx, sqlcgen.CreateGroupParams{
+		ID: "gadm", Name: "ops", Source: "local", CreatedAt: time.Now().UTC(),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := st.UpdateGroupGrantsAdmin(ctx, sqlcgen.UpdateGroupGrantsAdminParams{
+		GrantsAdmin: true, ID: group.ID,
+	}); err != nil {
+		t.Fatal(err)
+	}
+	if err := st.AddUserGroup(ctx, sqlcgen.AddUserGroupParams{UserID: alice.ID, GroupID: group.ID}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = c.Get(ts.URL + "/admin/users")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		t.Fatalf("group-admin: want 200, got %d", resp.StatusCode)
+	}
+	if fresh, _ := st.GetUserByUsername(ctx, "alice"); fresh.IsAdmin {
+		t.Fatal("the personal flag must stay untouched (role is computed)")
+	}
+
+	// Leaving the group revokes the role instantly.
+	if err := st.RemoveUserGroup(ctx, sqlcgen.RemoveUserGroupParams{UserID: alice.ID, GroupID: group.ID}); err != nil {
+		t.Fatal(err)
+	}
+	resp, err = c.Get(ts.URL + "/admin/users")
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("after leaving the group: want 403, got %d", resp.StatusCode)
+	}
+}
+
 func TestAvatarEndpoint(t *testing.T) {
 	ts, st := buildTestServer(t, nil)
 	ctx := context.Background()

@@ -203,6 +203,29 @@ func (s *Server) handleAdminGroupRemoveMember(w http.ResponseWriter, r *http.Req
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
+// handleAdminGroupRole toggles whether the group grants the administrator
+// role to its members. Allowed on directory groups too: the flag is
+// Kivraid-side metadata, like the per-user flags.
+func (s *Server) handleAdminGroupRole(w http.ResponseWriter, r *http.Request) {
+	group, ok := s.loadGroup(w, r)
+	if !ok {
+		return
+	}
+	grants := r.PostFormValue("grants_admin") == "on"
+	if err := s.store.UpdateGroupGrantsAdmin(r.Context(), sqlcgen.UpdateGroupGrantsAdminParams{
+		GrantsAdmin: grants, ID: group.ID,
+	}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	detail := "no longer grants the administrator role"
+	if grants {
+		detail = "now grants the administrator role"
+	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, detail, clientIP(r))
+	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
+}
+
 func (s *Server) handleAdminGroupDelete(w http.ResponseWriter, r *http.Request) {
 	group, ok := s.loadGroup(w, r)
 	if !ok {
