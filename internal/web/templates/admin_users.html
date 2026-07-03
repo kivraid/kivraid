@@ -4,12 +4,16 @@
     <h1 class="text-2xl font-semibold tracking-tight">Users</h1>
     <p class="mt-1 text-sm text-muted">Local accounts are fully managed here; directory users mirror their LDAP source.</p>
   </div>
-  <a href="/admin/users/new" class="btn-primary shrink-0">New user</a>
+  <div class="flex shrink-0 items-center gap-3">
+    <input class="input w-56" type="search" placeholder="Filter users…"
+           data-list-filter="#users-list" data-list-empty="#users-empty" aria-label="Filter users">
+    <a href="/admin/users/new" class="btn-primary shrink-0">New user</a>
+  </div>
 </div>
 
-<div class="card divide-y divide-line">
+<div id="users-list" class="card divide-y divide-line">
   {{range .Data.Users}}
-  <a href="/admin/users/{{.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
+  <a href="/admin/users/{{.ID}}" data-list-item class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
     {{if .PhotoMime}}
     <img class="size-8 shrink-0 rounded-full object-cover" src="/avatar/{{.ID}}" alt="">
     {{else}}
@@ -32,4 +36,5 @@
   </a>
   {{end}}
 </div>
+<div id="users-empty" class="mt-4 text-center text-sm text-faint" hidden>No users match your filter.</div>
 {{end}}

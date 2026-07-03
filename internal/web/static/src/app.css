@@ -15,44 +15,58 @@
  * dark overrides on [data-theme=dark]. Semantic names only — templates
  * never reference raw colors.
  */
+/* Accent hue: violet (~293) for a distinct identity; neutrals carry a
+ * faint tint of it so the greys read cool and cohesive rather than flat. */
 :root {
   color-scheme: light;
 
-  --bg: oklch(98.5% 0 0);
+  --bg: oklch(98.8% 0.003 293);
   --surface: oklch(100% 0 0);
-  --raised: oklch(96.5% 0 0);
-  --line: oklch(92.2% 0 0);
-  --line-strong: oklch(87% 0 0);
-  --fg: oklch(20.5% 0 0);
-  --muted: oklch(52% 0 0);
-  --faint: oklch(68% 0 0);
-  --accent: oklch(51% 0.23 277);
-  --accent-hover: oklch(46% 0.23 277);
-  --accent-soft: oklch(95% 0.03 277);
+  --raised: oklch(96.7% 0.005 293);
+  --line: oklch(92.4% 0.006 293);
+  --line-strong: oklch(86.5% 0.009 293);
+  --fg: oklch(23% 0.02 293);
+  --muted: oklch(49% 0.02 293);
+  --faint: oklch(63% 0.02 293);
+  --accent: oklch(52% 0.25 293);
+  --accent-hover: oklch(47% 0.25 293);
+  --accent-soft: oklch(95% 0.035 293);
   --on-accent: oklch(100% 0 0);
   --danger: oklch(57.7% 0.245 27.3);
-  --danger-soft: oklch(96% 0.02 27);
-  --ring: oklch(51% 0.23 277 / 55%);
+  --danger-hover: oklch(52% 0.245 27.3);
+  --danger-soft: oklch(96.5% 0.02 27);
+  --ring: oklch(52% 0.25 293 / 40%);
+
+  --shadow-sm: 0 1px 2px oklch(25% 0.04 293 / 6%);
+  --shadow: 0 1px 3px oklch(25% 0.04 293 / 8%), 0 1px 2px oklch(25% 0.04 293 / 5%);
+  --shadow-md: 0 4px 12px oklch(25% 0.04 293 / 9%), 0 2px 4px oklch(25% 0.04 293 / 5%);
+  --shadow-lg: 0 14px 36px oklch(25% 0.05 293 / 15%), 0 4px 10px oklch(25% 0.04 293 / 8%);
 }
 
 [data-theme="dark"] {
   color-scheme: dark;
 
-  --bg: oklch(14.5% 0 0);
-  --surface: oklch(18.5% 0 0);
-  --raised: oklch(23% 0 0);
-  --line: oklch(27% 0 0);
-  --line-strong: oklch(33% 0 0);
-  --fg: oklch(93% 0 0);
-  --muted: oklch(65% 0 0);
-  --faint: oklch(50% 0 0);
-  --accent: oklch(65% 0.19 277);
-  --accent-hover: oklch(70% 0.17 277);
-  --accent-soft: oklch(26% 0.06 277);
-  --on-accent: oklch(100% 0 0);
+  --bg: oklch(15.5% 0.012 293);
+  --surface: oklch(19.5% 0.014 293);
+  --raised: oklch(24.5% 0.016 293);
+  --line: oklch(28.5% 0.018 293);
+  --line-strong: oklch(36% 0.02 293);
+  --fg: oklch(94% 0.008 293);
+  --muted: oklch(69% 0.018 293);
+  --faint: oklch(53% 0.018 293);
+  --accent: oklch(70% 0.19 293);
+  --accent-hover: oklch(75% 0.17 293);
+  --accent-soft: oklch(30% 0.08 293);
+  --on-accent: oklch(16% 0.03 293);
   --danger: oklch(68% 0.2 25);
-  --danger-soft: oklch(24% 0.05 25);
-  --ring: oklch(65% 0.19 277 / 60%);
+  --danger-hover: oklch(72% 0.2 25);
+  --danger-soft: oklch(26% 0.05 25);
+  --ring: oklch(70% 0.19 293 / 50%);
+
+  --shadow-sm: 0 1px 2px oklch(0% 0 0 / 30%);
+  --shadow: 0 1px 3px oklch(0% 0 0 / 40%);
+  --shadow-md: 0 4px 14px oklch(0% 0 0 / 45%);
+  --shadow-lg: 0 16px 40px oklch(0% 0 0 / 55%);
 }
 
 @theme inline {
@@ -70,7 +84,13 @@
   --color-accent-soft: var(--accent-soft);
   --color-on-accent: var(--on-accent);
   --color-danger: var(--danger);
+  --color-danger-hover: var(--danger-hover);
   --color-danger-soft: var(--danger-soft);
+
+  --shadow-xs: var(--shadow-sm);
+  --shadow-sm: var(--shadow);
+  --shadow-md: var(--shadow-md);
+  --shadow-lg: var(--shadow-lg);
 
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, sans-serif;
   --font-mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, monospace;
@@ -85,15 +105,61 @@
 
   body {
     @apply bg-bg font-sans text-fg antialiased;
+    font-feature-settings: "cv05", "ss01";
+  }
+
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.011em;
   }
 
   :focus-visible {
-    outline: 2px solid var(--ring);
+    outline: 2px solid var(--accent);
     outline-offset: 2px;
+    border-radius: 2px;
   }
 
   ::selection {
-    background: var(--accent-soft);
+    background: color-mix(in oklab, var(--accent) 22%, transparent);
+  }
+
+  /* Discreet scrollbars. */
+  * {
+    scrollbar-color: var(--line-strong) transparent;
+    scrollbar-width: thin;
+  }
+  ::-webkit-scrollbar {
+    width: 11px;
+    height: 11px;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 8px;
+    border: 3px solid var(--bg);
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--faint);
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  /* Enabled briefly by the theme toggle for a soft cross-fade (kept off
+   * at load so there is no flash of transitioning colors). */
+  .theme-transition,
+  .theme-transition *,
+  .theme-transition *::before,
+  .theme-transition *::after {
+    transition:
+      background-color 0.25s ease,
+      border-color 0.25s ease,
+      color 0.25s ease !important;
+  }
+
+  /* Tabular numerals wherever numbers should line up. */
+  .tabular {
+    font-variant-numeric: tabular-nums;
   }
 
   @media (prefers-reduced-motion: reduce) {
@@ -108,49 +174,98 @@
 
 @layer components {
   .card {
-    @apply rounded-xl border border-line bg-surface shadow-xs;
+    @apply rounded-xl border border-line bg-surface;
+    box-shadow: var(--shadow-sm);
   }
 
+  /* Buttons ---------------------------------------------------------------- */
   .btn,
   .btn-primary,
+  .btn-secondary,
   .btn-ghost,
-  .btn-danger {
-    @apply inline-flex h-9 cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-4 text-sm font-medium transition-colors duration-150 disabled:cursor-not-allowed disabled:opacity-50;
+  .btn-danger,
+  .btn-danger-soft {
+    @apply inline-flex h-9 cursor-pointer select-none items-center justify-center gap-2 rounded-lg px-3.5 text-sm font-medium;
+    transition:
+      background-color 0.15s,
+      border-color 0.15s,
+      color 0.15s,
+      box-shadow 0.15s,
+      transform 0.05s;
+  }
+  .btn:active,
+  .btn-primary:active,
+  .btn-secondary:active,
+  .btn-ghost:active,
+  .btn-danger:active,
+  .btn-danger-soft:active {
+    transform: translateY(0.5px) scale(0.985);
+  }
+  .btn:disabled,
+  .btn-primary:disabled,
+  .btn-secondary:disabled,
+  .btn-danger:disabled,
+  .btn-danger-soft:disabled {
+    @apply cursor-not-allowed opacity-50;
+    transform: none;
   }
 
   .btn-primary {
     @apply bg-accent text-on-accent hover:bg-accent-hover;
+    box-shadow: var(--shadow-sm);
   }
-
+  .btn-secondary {
+    @apply border border-line bg-surface text-fg hover:border-line-strong hover:bg-raised;
+    box-shadow: var(--shadow-sm);
+  }
   .btn-ghost {
     @apply text-muted hover:bg-raised hover:text-fg;
   }
-
   .btn-danger {
-    @apply bg-danger text-on-accent hover:opacity-90;
+    @apply bg-danger text-on-accent hover:bg-danger-hover;
+    box-shadow: var(--shadow-sm);
+  }
+  .btn-danger-soft {
+    @apply border border-danger/25 bg-danger-soft text-danger hover:border-danger/40;
   }
 
+  .btn-icon {
+    @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted;
+    transition:
+      background-color 0.15s,
+      color 0.15s,
+      transform 0.05s;
+  }
+  .btn-icon:hover {
+    @apply bg-raised text-fg;
+  }
+  .btn-icon:active {
+    transform: scale(0.94);
+  }
+
+  /* Navigation ------------------------------------------------------------- */
   .nav-link {
     @apply cursor-pointer rounded-lg px-3 py-1.5 text-sm font-medium text-muted transition-colors duration-150 hover:bg-raised hover:text-fg;
   }
-
   .nav-active {
     @apply bg-raised text-fg;
   }
 
   /* Dropdown menus (toggled by app.js on [data-menu] containers). */
   .menu-panel {
-    @apply invisible absolute right-0 top-full z-20 mt-2 w-56 translate-y-1 rounded-xl border border-line bg-surface p-1 opacity-0 shadow-md transition-all duration-100;
+    @apply invisible absolute right-0 top-full z-30 mt-2 w-56 origin-top-right scale-95 rounded-xl border border-line bg-surface p-1 opacity-0;
+    box-shadow: var(--shadow-lg);
+    transition:
+      opacity 0.12s ease,
+      transform 0.12s ease,
+      visibility 0.12s;
   }
-
   [data-menu].menu-open .menu-panel {
-    @apply visible translate-y-0 opacity-100;
+    @apply visible scale-100 opacity-100;
   }
-
   .menu-item {
     @apply flex w-full cursor-pointer items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm text-fg transition-colors duration-100 hover:bg-raised;
   }
-
   .menu-divider {
     @apply mx-1 my-1 h-px bg-line;
   }
@@ -160,64 +275,192 @@
     @apply cursor-pointer rounded-md border border-line bg-raised px-2 py-1 font-mono text-[11px] text-muted transition-colors duration-100 hover:border-line-strong hover:text-fg;
   }
 
-  .btn-icon {
-    @apply inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-muted transition-colors duration-150 hover:bg-raised hover:text-fg;
-  }
-
+  /* Form controls ---------------------------------------------------------- */
   .label {
     @apply mb-1.5 block text-[13px] font-medium text-fg;
   }
-
-  .input {
-    @apply h-9 w-full rounded-lg border border-line bg-surface px-3 text-sm text-fg shadow-xs transition-colors duration-150 placeholder:text-faint hover:border-line-strong;
+  .input,
+  .textarea,
+  .select {
+    @apply w-full rounded-lg border border-line bg-surface text-sm text-fg placeholder:text-faint;
+    box-shadow: var(--shadow-sm);
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .input,
+  .select {
+    @apply h-9 px-3;
+  }
+  .textarea {
+    @apply px-3 py-2;
+  }
+  .input:hover,
+  .textarea:hover,
+  .select:hover {
+    @apply border-line-strong;
+  }
+  .input:focus,
+  .textarea:focus,
+  .select:focus {
+    outline: none;
+    border-color: var(--accent);
+    box-shadow: 0 0 0 3px var(--ring);
+  }
+  .select {
+    @apply cursor-pointer appearance-none bg-no-repeat pr-9;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23888' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E");
+    background-position: right 0.6rem center;
   }
 
+  /* Badges & alerts -------------------------------------------------------- */
   .badge {
     @apply inline-flex items-center rounded-md border border-line bg-raised px-2 py-0.5 text-xs font-medium text-muted;
   }
-
   .badge-accent {
     @apply inline-flex items-center rounded-md border border-transparent bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent;
   }
-
   .alert-danger {
     @apply rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-2.5 text-sm text-danger;
   }
-
   .alert-success {
     @apply rounded-lg border border-accent/25 bg-accent-soft px-3.5 py-2.5 text-sm text-accent;
-  }
-
-  .textarea {
-    @apply w-full rounded-lg border border-line bg-surface px-3 py-2 text-sm text-fg shadow-xs transition-colors duration-150 placeholder:text-faint hover:border-line-strong;
   }
 
   .code-box {
     @apply block truncate rounded-lg border border-line bg-raised px-3 py-2 font-mono text-[13px];
   }
 
+  /* Back link above detail pages. */
+  .back-link {
+    @apply mb-4 inline-flex items-center gap-1 text-sm text-muted transition-colors hover:text-fg;
+  }
+
+  /* Inline spinner used for button loading states. */
+  .spinner {
+    @apply inline-block size-4 shrink-0 animate-spin rounded-full border-2 border-current border-t-transparent;
+  }
+
+  /* Data tables (audit log, etc.). */
+  .table {
+    @apply w-full text-left text-sm;
+  }
+  .table thead th {
+    @apply whitespace-nowrap px-4 py-2.5 text-[13px] font-medium text-muted;
+  }
+  .table tbody tr {
+    @apply border-t border-line transition-colors hover:bg-raised;
+  }
+  .table td {
+    @apply px-4 py-2.5 align-top;
+  }
+
+  /* Avatars ---------------------------------------------------------------- */
   .avatar {
     @apply inline-flex size-8 shrink-0 items-center justify-center rounded-full bg-accent-soft text-xs font-semibold text-accent;
   }
-
   .avatar-lg {
     @apply inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-lg font-semibold text-accent;
   }
-
   .dt {
     @apply mb-1 text-[13px] font-medium text-muted;
   }
 
-  /* Soft radial glow behind centered auth pages. */
+  /* Layered radial glow behind centered auth pages. */
   .aurora {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background: radial-gradient(
-      640px circle at 50% -10%,
-      color-mix(in oklab, var(--accent) 10%, transparent),
-      transparent 70%
-    );
+    background:
+      radial-gradient(
+        620px circle at 50% -12%,
+        color-mix(in oklab, var(--accent) 16%, transparent),
+        transparent 60%
+      ),
+      radial-gradient(
+        480px circle at 12% 8%,
+        color-mix(in oklab, var(--accent) 9%, transparent),
+        transparent 55%
+      ),
+      radial-gradient(
+        520px circle at 92% 12%,
+        color-mix(in oklab, oklch(62% 0.2 250) 8%, transparent),
+        transparent 55%
+      );
+  }
+
+  /* Auth card: a touch more presence than a plain card. */
+  .auth-card {
+    @apply rounded-2xl border border-line bg-surface;
+    box-shadow: var(--shadow-lg);
+  }
+
+  /* Modal dialog (native <dialog>, driven by app.js) ----------------------- */
+  .modal {
+    @apply m-auto w-[calc(100%-2rem)] max-w-md rounded-2xl border border-line bg-surface p-6 text-fg;
+    box-shadow: var(--shadow-lg);
+    opacity: 0;
+    transform: translateY(8px) scale(0.97);
+    transition:
+      opacity 0.16s ease,
+      transform 0.16s ease,
+      overlay 0.16s ease allow-discrete,
+      display 0.16s ease allow-discrete;
+  }
+  .modal[open] {
+    opacity: 1;
+    transform: none;
+  }
+  @starting-style {
+    .modal[open] {
+      opacity: 0;
+      transform: translateY(8px) scale(0.97);
+    }
+  }
+  .modal::backdrop {
+    background: oklch(20% 0.03 293 / 45%);
+    backdrop-filter: blur(2px);
+    opacity: 0;
+    transition:
+      opacity 0.16s ease,
+      overlay 0.16s ease allow-discrete,
+      display 0.16s ease allow-discrete;
+  }
+  .modal[open]::backdrop {
+    opacity: 1;
+  }
+  @starting-style {
+    .modal[open]::backdrop {
+      opacity: 0;
+    }
+  }
+
+  /* Toasts (transient confirmations, driven by app.js) --------------------- */
+  .toast-region {
+    @apply pointer-events-none fixed inset-x-0 bottom-0 z-40 flex flex-col items-center gap-2 p-4;
+  }
+  .toast {
+    @apply pointer-events-auto flex items-center gap-2.5 rounded-xl border border-line bg-surface px-4 py-2.5 text-sm font-medium text-fg;
+    box-shadow: var(--shadow-lg);
+    animation: toast-in 0.2s ease;
+  }
+  .toast[data-leaving] {
+    animation: toast-out 0.2s ease forwards;
+  }
+  .toast-dot {
+    @apply size-2 shrink-0 rounded-full;
+  }
+  @keyframes toast-in {
+    from {
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+    }
+  }
+  @keyframes toast-out {
+    to {
+      opacity: 0;
+      transform: translateY(10px) scale(0.97);
+    }
   }
 }

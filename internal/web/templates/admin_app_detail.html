@@ -1,4 +1,5 @@
 {{define "content"}}
+<a href="/admin/applications" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Applications</a>
 <div class="mb-8 flex items-center gap-4">
   {{if .Data.App.IconMime}}
   <img class="size-14 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
@@ -15,7 +16,7 @@
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div class="alert-success" role="status">Changes saved.</div>{{end}}
+  {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <form method="post" action="/admin/applications/{{.Data.App.ID}}" class="card space-y-5 p-6">
@@ -144,7 +145,8 @@
         <code class="code-box flex-1 select-none text-faint">••••••••••••••••••••••••</code>
         {{end}}
         <form method="post" action="/admin/applications/{{.Data.App.ID}}/rotate-secret" class="shrink-0"
-              data-confirm="Rotate the client secret? The application will stop authenticating until it is reconfigured with the new secret.">
+              data-confirm="The application will stop authenticating until it is reconfigured with the new secret."
+              data-confirm-title="Rotate client secret" data-confirm-label="Rotate secret">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button type="submit" class="btn-ghost">Rotate</button>
         </form>
@@ -168,7 +170,8 @@
     <div class="mt-3 flex items-center justify-between gap-4">
       <p class="text-sm text-muted">Deleting the application revokes its provider; signed-in users of the app are not logged out immediately, but no new logins will succeed.</p>
       <form method="post" action="/admin/applications/{{.Data.App.ID}}/delete" class="shrink-0"
-            data-confirm="Delete {{.Data.App.Name}}? This cannot be undone.">
+            data-confirm="Deleting {{.Data.App.Name}} revokes its provider; no new logins will succeed. This cannot be undone."
+            data-confirm-title="Delete application" data-confirm-variant="danger" data-confirm-label="Delete application">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn-danger">Delete</button>
       </form>

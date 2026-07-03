@@ -1,4 +1,5 @@
 {{define "content"}}
+<a href="/admin/groups" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Groups</a>
 <div class="mb-8 flex items-center gap-4">
   <span class="avatar-lg">{{initials .Data.Group.Name}}</span>
   <div class="min-w-0">
@@ -20,7 +21,7 @@
         <input type="checkbox" name="grants_admin" class="accent-accent" {{if .Data.Group.GrantsAdmin}}checked{{end}}>
         Members are administrators
       </label>
-      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Save</button>
+      <button type="submit" class="btn-secondary shrink-0">Save</button>
     </div>
     <p class="mt-2 text-xs text-muted">Grants the Kivraid administrator role to every member{{if .Data.IsLDAP}} — since membership is synced from the directory, this lets you manage administrators from there{{end}}. Users keep their personal flag independently.</p>
   </form>
@@ -34,7 +35,7 @@
       <label class="label" for="name">Name</label>
       <input class="input" id="name" name="name" value="{{.Data.Group.Name}}" required>
     </div>
-    <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Rename</button>
+    <button type="submit" class="btn-secondary shrink-0">Rename</button>
   </form>
   {{end}}
 
@@ -44,7 +45,7 @@
       {{if and (not .Data.IsLDAP) .Data.NonMembers}}
       <form method="post" action="/admin/groups/{{.Data.Group.ID}}/members" class="flex items-center gap-2">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <select name="user_id" class="input h-9 w-48" required>
+        <select name="user_id" class="select w-48" required>
           <option value="" disabled selected>Add a member…</option>
           {{range .Data.NonMembers}}
           <option value="{{.ID}}">{{.Name}} ({{.Username}})</option>
@@ -90,7 +91,8 @@
         {{if .Data.IsLDAP}}A directory group will be recreated on the next member sign-in.{{end}}
       </p>
       <form method="post" action="/admin/groups/{{.Data.Group.ID}}/delete" class="shrink-0"
-            data-confirm="Delete the group {{.Data.Group.Name}}?">
+            data-confirm="Deleting {{.Data.Group.Name}} removes the group and its memberships; applications restricted to it lose that binding."
+            data-confirm-title="Delete group" data-confirm-variant="danger" data-confirm-label="Delete group">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn-danger">Delete</button>
       </form>

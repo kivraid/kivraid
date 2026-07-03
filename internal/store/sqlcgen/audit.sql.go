@@ -10,6 +10,17 @@ import (
 	"time"
 )
 
+const countAudit = `-- name: CountAudit :one
+SELECT COUNT(*) FROM audit_log
+`
+
+func (q *Queries) CountAudit(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAudit)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAuditBefore = `-- name: DeleteAuditBefore :exec
 DELETE FROM audit_log WHERE ts < $1
 `
@@ -51,6 +62,46 @@ SELECT id, ts, actor, action, object, detail, ip FROM audit_log ORDER BY id DESC
 
 func (q *Queries) ListAudit(ctx context.Context, limit int32) ([]AuditLog, error) {
 	rows, err := q.db.QueryContext(ctx, listAudit, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLog
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ts,
+			&i.Actor,
+			&i.Action,
+			&i.Object,
+			&i.Detail,
+			&i.Ip,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditPage = `-- name: ListAuditPage :many
+SELECT id, ts, actor, action, object, detail, ip FROM audit_log ORDER BY id DESC LIMIT $1 OFFSET $2
+`
+
+type ListAuditPageParams struct {
+	Limit  int32
+	Offset int32
+}
+
+func (q *Queries) ListAuditPage(ctx context.Context, arg ListAuditPageParams) ([]AuditLog, error) {
+	rows, err := q.db.QueryContext(ctx, listAuditPage, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

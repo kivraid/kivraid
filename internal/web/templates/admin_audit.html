@@ -1,35 +1,53 @@
 {{define "content"}}
-<div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Activity</h1>
-  <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first (last 200).</p>
+<div class="mb-8 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Activity</h1>
+    <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first.</p>
+  </div>
+  {{if .Data.Entries}}
+  <input class="input w-56 shrink-0" type="search" placeholder="Filter shown rows…"
+         data-list-filter="#audit-rows" data-list-empty="#audit-empty" aria-label="Filter events">
+  {{end}}
 </div>
 
 {{if .Data.Entries}}
 <div class="card overflow-x-auto">
-  <table class="w-full text-left text-sm">
+  <table class="table">
     <thead>
-      <tr class="border-b border-line text-[13px] text-muted">
-        <th class="px-4 py-2.5 font-medium">Time</th>
-        <th class="px-4 py-2.5 font-medium">Actor</th>
-        <th class="px-4 py-2.5 font-medium">Action</th>
-        <th class="px-4 py-2.5 font-medium">Object</th>
-        <th class="px-4 py-2.5 font-medium">Detail</th>
-        <th class="px-4 py-2.5 font-medium">IP</th>
+      <tr class="border-b border-line">
+        <th>Time</th>
+        <th>Actor</th>
+        <th>Action</th>
+        <th>Object</th>
+        <th>Detail</th>
+        <th>IP</th>
       </tr>
     </thead>
-    <tbody class="divide-y divide-line">
+    <tbody id="audit-rows">
       {{range .Data.Entries}}
-      <tr>
-        <td class="whitespace-nowrap px-4 py-2.5 tabular-nums text-muted">{{.Ts.Format "Jan 2 15:04:05"}}</td>
-        <td class="px-4 py-2.5 font-medium">{{if .Actor}}{{.Actor}}{{else}}<span class="text-faint">—</span>{{end}}</td>
-        <td class="px-4 py-2.5"><span class="badge font-mono">{{.Action}}</span></td>
-        <td class="px-4 py-2.5">{{if .Object}}{{.Object}}{{else}}<span class="text-faint">—</span>{{end}}</td>
-        <td class="px-4 py-2.5 text-muted">{{.Detail}}</td>
-        <td class="px-4 py-2.5 font-mono text-xs text-faint">{{.Ip}}</td>
+      <tr data-list-item>
+        <td class="tabular whitespace-nowrap text-muted">{{.Ts.Format "Jan 2 15:04:05"}}</td>
+        <td class="whitespace-nowrap font-medium">{{if .Actor}}{{.Actor}}{{else}}<span class="text-faint">—</span>{{end}}</td>
+        <td><span class="badge font-mono">{{.Action}}</span></td>
+        <td>{{if .Object}}{{.Object}}{{else}}<span class="text-faint">—</span>{{end}}</td>
+        <td class="text-muted">{{.Detail}}</td>
+        <td class="whitespace-nowrap font-mono text-xs text-faint">{{.Ip}}</td>
       </tr>
       {{end}}
     </tbody>
   </table>
+  <div id="audit-empty" class="px-4 py-10 text-center text-sm text-faint" hidden>No events match your filter.</div>
+</div>
+
+<div class="mt-4 flex items-center justify-between gap-4 text-sm text-muted">
+  <span class="tabular">Showing {{.Data.RangeStart}}–{{.Data.RangeEnd}} of {{.Data.Total}}</span>
+  {{if gt .Data.Pages 1}}
+  <div class="flex items-center gap-2">
+    {{if .Data.PrevPage}}<a href="?page={{.Data.PrevPage}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
+    <span class="tabular px-1">Page {{.Data.Page}} / {{.Data.Pages}}</span>
+    {{if .Data.NextPage}}<a href="?page={{.Data.NextPage}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+  </div>
+  {{end}}
 </div>
 {{else}}
 <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">

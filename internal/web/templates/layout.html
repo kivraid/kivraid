@@ -18,16 +18,16 @@
           <span class="hidden sm:inline">Kivraid</span>
         </a>
         <nav class="flex items-center gap-1">
-          <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}">Home</a>
-          <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}">Profile</a>
-          <a href="/sessions" class="nav-link {{if eq .Active "sessions"}}nav-active{{end}}">Sessions</a>
+          <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}" {{if eq .Active "home"}}aria-current="page"{{end}}>Home</a>
+          <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}" {{if eq .Active "profile"}}aria-current="page"{{end}}>Profile</a>
+          <a href="/sessions" class="nav-link {{if eq .Active "sessions"}}nav-active{{end}}" {{if eq .Active "sessions"}}aria-current="page"{{end}}>Sessions</a>
         </nav>
       </div>
 
       <div class="flex shrink-0 items-center gap-1.5">
         {{if .User.IsAdmin}}
         <div class="relative" data-menu>
-          <button type="button" data-menu-button
+          <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false"
                   class="nav-link flex items-center gap-1 {{if or (eq .Active "apps") (eq .Active "ldap") (eq .Active "users") (eq .Active "groups") (eq .Active "audit")}}nav-active{{end}}">
             Admin
             <svg class="size-3.5 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
@@ -44,7 +44,7 @@
         {{end}}
 
         <div class="relative" data-menu>
-          <button type="button" data-menu-button class="flex cursor-pointer items-center gap-2 rounded-lg p-1 pr-1.5 transition-colors hover:bg-raised" aria-label="Account menu">
+          <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false" class="flex cursor-pointer items-center gap-2 rounded-lg p-1 pr-1.5 transition-colors hover:bg-raised" aria-label="Account menu">
             {{if .User.PhotoMime}}
             <img class="size-8 rounded-full object-cover" src="/avatar/{{.User.ID}}" alt="">
             {{else}}
@@ -76,7 +76,7 @@
       </div>
     </div>
   </header>
-  <main class="mx-auto w-full max-w-3xl px-6 py-10">
+  <main class="mx-auto w-full max-w-3xl px-6 py-8">
     {{block "content" .}}{{end}}
   </main>
 </body>
@@ -95,7 +95,7 @@
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" required
              class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
-      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Upload</button>
+      <button type="submit" class="btn-secondary shrink-0">Upload</button>
     </form>
     {{if .Data.App.IconMime}}
     <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon/delete" class="shrink-0">
@@ -110,7 +110,8 @@
 
 {{define "logo"}}
 <svg width="{{.}}" height="{{.}}" viewBox="0 0 24 24" aria-hidden="true">
-  <rect width="24" height="24" rx="6" class="fill-accent"/>
-  <path d="M8.5 6.5v11M15.5 7l-5.5 5 5.5 5" fill="none" stroke="var(--on-accent)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
+  <rect width="24" height="24" rx="7" class="fill-accent"/>
+  <circle cx="12" cy="10" r="3" fill="var(--on-accent)"/>
+  <path d="M10 11.4 H14 L13 17.4 H11 Z" fill="var(--on-accent)"/>
 </svg>
 {{end}}

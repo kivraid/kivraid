@@ -1,11 +1,12 @@
 {{define "content"}}
+<a href="/admin/ldap" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Directories</a>
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">{{if .Data.IsNew}}New directory{{else}}{{.Data.Form.Name}}{{end}}</h1>
   <p class="mt-1 text-sm text-muted">LDAP user source — works with OpenLDAP and LLDAP.</p>
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div class="alert-success" role="status">Directory saved.</div>{{end}}
+  {{if .Data.Saved}}<div data-flash="Directory saved." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   {{with .Data.SyncResult}}
@@ -129,7 +130,7 @@
         <label class="label" for="test_username">Username <span class="font-normal text-faint">(optional)</span></label>
         <input class="input" id="test_username" name="test_username" placeholder="alice">
       </div>
-      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised" formnovalidate
+      <button type="submit" class="btn-secondary shrink-0" formnovalidate
               formaction="{{if .Data.IsNew}}/admin/ldap/test{{else}}/admin/ldap/{{.Data.ID}}/test{{end}}">
         Test connection
       </button>
@@ -148,7 +149,7 @@
       <p class="text-sm text-muted">Users and groups sync automatically each time someone signs in. Run a full synchronization to import everyone now, or to refresh profiles, photos and groups in one go.</p>
       <form method="post" action="/admin/ldap/{{.Data.ID}}/sync" class="shrink-0">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn border border-line hover:bg-raised">Sync now</button>
+        <button type="submit" class="btn-secondary">Sync now</button>
       </form>
     </div>
   </div>
@@ -158,7 +159,8 @@
     <div class="mt-3 flex items-center justify-between gap-4">
       <p class="text-sm text-muted">Deleting the directory keeps its shadow users but they will no longer be able to sign in.</p>
       <form method="post" action="/admin/ldap/{{.Data.ID}}/delete" class="shrink-0"
-            data-confirm="Delete this directory? Its users will no longer be able to sign in.">
+            data-confirm="Its shadow users are kept but will no longer be able to sign in."
+            data-confirm-title="Delete directory" data-confirm-variant="danger" data-confirm-label="Delete directory">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn-danger">Delete</button>
       </form>

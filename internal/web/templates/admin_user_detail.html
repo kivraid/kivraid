@@ -1,4 +1,5 @@
 {{define "content"}}
+<a href="/admin/users" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Users</a>
 <div class="mb-8 flex items-center gap-4">
   {{if .Data.Target.PhotoMime}}
   <img class="size-14 shrink-0 rounded-full object-cover" src="/avatar/{{.Data.Target.ID}}" alt="">
@@ -17,8 +18,8 @@
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div class="alert-success" role="status">Changes saved.</div>{{end}}
-  {{if .Data.PWSaved}}<div class="alert-success" role="status">Password reset.</div>{{end}}
+  {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.PWSaved}}<div data-flash="Password reset." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <form method="post" action="/admin/users/{{.Data.Target.ID}}" class="card space-y-5 p-6">
@@ -78,7 +79,7 @@
         <label class="label" for="password">New password</label>
         <input class="input" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required>
       </div>
-      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Reset</button>
+      <button type="submit" class="btn-secondary shrink-0">Reset</button>
     </div>
   </form>
   {{end}}
@@ -92,7 +93,8 @@
         {{if .Data.IsLDAP}}The shadow account will be recreated if the user signs in again while the directory is enabled.{{end}}
       </p>
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/delete" class="shrink-0"
-            data-confirm="Delete {{.Data.Target.Username}}? This cannot be undone.">
+            data-confirm="Deleting {{.Data.Target.Username}} revokes every session and token immediately. This cannot be undone."
+            data-confirm-title="Delete user" data-confirm-variant="danger" data-confirm-label="Delete user">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <button type="submit" class="btn-danger">Delete</button>
       </form>

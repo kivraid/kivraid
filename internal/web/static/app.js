@@ -11,10 +11,32 @@
 document.addEventListener("DOMContentLoaded", () => {
   for (const btn of document.querySelectorAll("[data-theme-toggle]")) {
     btn.addEventListener("click", () => {
-      const next =
-        document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-      document.documentElement.dataset.theme = next;
+      const root = document.documentElement;
+      const next = root.dataset.theme === "dark" ? "light" : "dark";
+      // Soft cross-fade, enabled only for the duration of the switch.
+      root.classList.add("theme-transition");
+      root.dataset.theme = next;
       localStorage.setItem("kivraid-theme", next);
+      setTimeout(() => root.classList.remove("theme-transition"), 300);
+    });
+  }
+
+  // Instant client-side filtering of lists. An [data-list-filter] input
+  // hides sibling-scoped [data-list-item] rows that do not match.
+  for (const input of document.querySelectorAll("[data-list-filter]")) {
+    const list = document.querySelector(input.dataset.listFilter);
+    if (!list) continue;
+    const items = [...list.querySelectorAll("[data-list-item]")];
+    const empty = document.querySelector(input.dataset.listEmpty);
+    input.addEventListener("input", () => {
+      const q = input.value.trim().toLowerCase();
+      let shown = 0;
+      for (const item of items) {
+        const match = item.textContent.toLowerCase().includes(q);
+        item.hidden = !match;
+        if (match) shown++;
+      }
+      if (empty) empty.hidden = shown !== 0;
     });
   }
 
@@ -123,14 +145,116 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 });
 
-// Confirmation guard for destructive forms (CSP forbids inline handlers).
+// Transient toast notifications (bottom-center), driven by [data-flash]
+// elements the server renders and by client-side actions.
+function showToast(message, variant) {
+  let region = document.getElementById("toast-region");
+  if (!region) {
+    region = document.createElement("div");
+    region.id = "toast-region";
+    region.className = "toast-region";
+    document.body.append(region);
+  }
+  const toast = document.createElement("div");
+  toast.className = "toast";
+  toast.setAttribute("role", "status");
+  const dot = document.createElement("span");
+  dot.className = "toast-dot";
+  dot.style.background =
+    variant === "danger" ? "var(--danger)" : "var(--accent)";
+  toast.append(dot, document.createTextNode(message));
+  region.append(toast);
+  setTimeout(() => {
+    toast.dataset.leaving = "";
+    toast.addEventListener("animationend", () => toast.remove());
+  }, 3200);
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  for (const el of document.querySelectorAll("[data-flash]")) {
+    showToast(el.dataset.flash, el.dataset.variant);
+    el.remove();
+  }
+});
+
+// Confirmation modal for destructive forms: a form carrying data-confirm
+// opens a proper dialog instead of the native confirm() popup. On confirm
+// the original form is submitted directly (which does not re-fire submit,
+// so the guard is not re-entered). CSP forbids inline handlers, hence the
+// delegated listener.
+const confirmState = { form: null };
+
+function ensureConfirmDialog() {
+  let dlg = document.getElementById("confirm-dialog");
+  if (dlg) return dlg;
+  dlg = document.createElement("dialog");
+  dlg.id = "confirm-dialog";
+  dlg.className = "modal";
+  dlg.innerHTML = `
+    <h2 data-confirm-title class="text-base font-semibold tracking-tight"></h2>
+    <p data-confirm-body class="mt-2 text-sm text-muted"></p>
+    <div class="mt-6 flex justify-end gap-3">
+      <button type="button" data-confirm-cancel class="btn-secondary">Cancel</button>
+      <button type="button" data-confirm-ok class="btn-primary"></button>
+    </div>`;
+  document.body.append(dlg);
+
+  const close = () => dlg.close();
+  dlg.querySelector("[data-confirm-cancel]").addEventListener("click", close);
+  dlg.addEventListener("cancel", (e) => {
+    // Esc: let the dialog close without submitting.
+    e.preventDefault();
+    close();
+  });
+  // Click on the backdrop (outside the content) cancels.
+  dlg.addEventListener("click", (e) => {
+    if (e.target === dlg) close();
+  });
+  dlg.querySelector("[data-confirm-ok]").addEventListener("click", () => {
+    const form = confirmState.form;
+    dlg.close();
+    if (form) form.submit();
+  });
+  return dlg;
+}
+
 document.addEventListener("submit", (e) => {
-  const msg = e.target.dataset && e.target.dataset.confirm;
-  if (msg && !confirm(msg)) e.preventDefault();
+  const form = e.target;
+  if (!form.dataset || !form.dataset.confirm) return;
+  e.preventDefault();
+  confirmState.form = form;
+  const dlg = ensureConfirmDialog();
+  const danger = form.dataset.confirmVariant === "danger";
+  dlg.querySelector("[data-confirm-title]").textContent =
+    form.dataset.confirmTitle || "Please confirm";
+  dlg.querySelector("[data-confirm-body]").textContent = form.dataset.confirm;
+  const ok = dlg.querySelector("[data-confirm-ok]");
+  ok.textContent = form.dataset.confirmLabel || "Confirm";
+  ok.className = danger ? "btn-danger" : "btn-primary";
+  dlg.showModal();
+  dlg.querySelector("[data-confirm-cancel]").focus();
+});
+
+// Loading state: on a real submit (not one a confirm dialog intercepted),
+// disable the triggering button and show a spinner so slow actions (LDAP
+// test/sync, saves) feel responsive and double-submits are prevented.
+document.addEventListener("submit", (e) => {
+  if (e.defaultPrevented) return;
+  const btn = e.submitter;
+  if (!btn || btn.dataset.noSpinner !== undefined) return;
+  const label = btn.textContent.trim();
+  btn.disabled = true;
+  btn.dataset.width = btn.offsetWidth; // avoid a width jump
+  btn.style.minWidth = btn.offsetWidth + "px";
+  btn.innerHTML = `<span class="spinner"></span><span class="sr-only">${label}</span>`;
 });
 
 // Dropdown menus: a [data-menu-button] toggles its [data-menu] container;
 // clicking anywhere else (or pressing Escape) closes every open menu.
+function syncMenuAria(menu) {
+  const btn = menu.querySelector("[data-menu-button]");
+  if (btn) btn.setAttribute("aria-expanded", menu.classList.contains("menu-open"));
+}
 document.addEventListener("click", (e) => {
   const btn = e.target.closest("[data-menu-button]");
   for (const menu of document.querySelectorAll("[data-menu]")) {
@@ -138,12 +262,14 @@ document.addEventListener("click", (e) => {
     else if (!e.target.closest(".menu-panel") || !menu.contains(e.target)) {
       menu.classList.remove("menu-open");
     }
+    syncMenuAria(menu);
   }
 });
 document.addEventListener("keydown", (e) => {
   if (e.key === "Escape") {
     for (const menu of document.querySelectorAll("[data-menu]")) {
       menu.classList.remove("menu-open");
+      syncMenuAria(menu);
     }
   }
 });

@@ -49,7 +49,7 @@
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required
              class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
-      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Upload</button>
+      <button type="submit" class="btn-secondary shrink-0">Upload</button>
     </form>
     {{if .User.PhotoMime}}
     <form method="post" action="/profile/photo/delete" class="shrink-0">
@@ -64,7 +64,7 @@
 
 {{if .Data.CanChangePW}}
 <div class="mt-4 space-y-4">
-  {{if .Data.PWSuccess}}<div class="alert-success" role="status">Your password has been changed.</div>{{end}}
+  {{if .Data.PWSuccess}}<div data-flash="Your password has been changed." data-variant="success" hidden></div>{{end}}
   {{if .Data.PWError}}<div class="alert-danger" role="alert">{{.Data.PWError}}</div>{{end}}
 
   <form method="post" action="/profile/password" class="card space-y-5 p-6">

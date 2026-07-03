@@ -6,9 +6,10 @@
   </div>
   {{if .Data.Others}}
   <form method="post" action="/sessions/revoke-others" class="shrink-0"
-        data-confirm="Sign out {{.Data.Others}} other session(s)?">
+        data-confirm="This signs out {{.Data.Others}} other session(s). They will need to sign in again."
+        data-confirm-title="Sign out other sessions" data-confirm-variant="danger" data-confirm-label="Sign out others">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button type="submit" class="btn border border-line text-danger hover:bg-danger-soft">Sign out other sessions</button>
+    <button type="submit" class="btn-danger-soft">Sign out other sessions</button>
   </form>
   {{end}}
 </div>
