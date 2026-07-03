@@ -18,6 +18,7 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/lporcheron/kivraid/internal/mfa"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/ratelimit"
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
@@ -39,6 +40,7 @@ type Server struct {
 	sessions  *scs.SessionManager
 	oidc      http.Handler
 	oidcStore *oidcserver.Storage
+	mfa       *mfa.Manager
 	audit     *audit.Recorder
 	log       *slog.Logger
 
@@ -59,6 +61,7 @@ type Deps struct {
 	OIDC      http.Handler
 	OIDCStore *oidcserver.Storage
 	LDAP      *ldap.Manager
+	MFA       *mfa.Manager
 	Audit     *audit.Recorder
 	Log       *slog.Logger
 }
@@ -75,6 +78,7 @@ func NewServer(d Deps) (*Server, error) {
 		sessions:  d.Sessions,
 		oidc:      d.OIDC,
 		oidcStore: d.OIDCStore,
+		mfa:       d.MFA,
 		audit:     d.Audit,
 		log:       d.Log,
 		// 10 attempts/minute per IP, 5 failures/minute per username.
@@ -92,7 +96,7 @@ func NewServer(d Deps) (*Server, error) {
 			return *p
 		},
 	}
-	standalone := []string{"login.html", "error.html", "setup.html"}
+	standalone := []string{"login.html", "login_mfa.html", "error.html", "setup.html"}
 	for _, page := range standalone {
 		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page)
 		if err != nil {
@@ -102,6 +106,7 @@ func NewServer(d Deps) (*Server, error) {
 	}
 	withLayout := []string{
 		"home.html", "profile.html", "sessions.html", "denied.html",
+		"mfa_enroll.html", "mfa_recovery.html",
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
 		"admin_proxy_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
@@ -123,6 +128,8 @@ func (s *Server) Handler() http.Handler {
 	web := http.NewServeMux()
 	web.HandleFunc("GET /login", s.handleLoginPage)
 	web.HandleFunc("POST /login", s.handleLoginSubmit)
+	web.HandleFunc("GET /login/mfa", s.handleMFAChallengePage)
+	web.HandleFunc("POST /login/mfa", s.handleMFAChallengeSubmit)
 	web.HandleFunc("POST /logout", s.handleLogout)
 	web.HandleFunc("GET /setup", s.handleSetupPage)
 	web.HandleFunc("POST /setup", s.handleSetupSubmit)
@@ -133,6 +140,11 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /profile/password", s.requireAuth(http.HandlerFunc(s.handleProfilePassword)))
 	web.Handle("POST /profile/photo", s.requireAuth(http.HandlerFunc(s.handleProfilePhoto)))
 	web.Handle("POST /profile/photo/delete", s.requireAuth(http.HandlerFunc(s.handleProfilePhotoDelete)))
+	web.Handle("POST /profile/mfa/begin", s.requireAuth(http.HandlerFunc(s.handleMFABegin)))
+	web.Handle("GET /profile/mfa/qr", s.requireAuth(http.HandlerFunc(s.handleMFAQR)))
+	web.Handle("POST /profile/mfa/enable", s.requireAuth(http.HandlerFunc(s.handleMFAEnable)))
+	web.Handle("POST /profile/mfa/disable", s.requireAuth(http.HandlerFunc(s.handleMFADisable)))
+	web.Handle("POST /profile/mfa/recovery", s.requireAuth(http.HandlerFunc(s.handleMFARegenerateRecovery)))
 	web.Handle("GET /sessions", s.requireAuth(http.HandlerFunc(s.handleSessions)))
 	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
 	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))
@@ -165,6 +177,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/users/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDetail)))
 	web.Handle("POST /admin/users/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminUserUpdate)))
 	web.Handle("POST /admin/users/{id}/password", s.requireAdmin(http.HandlerFunc(s.handleAdminUserPassword)))
+	web.Handle("POST /admin/users/{id}/mfa/reset", s.requireAdmin(http.HandlerFunc(s.handleAdminUserMFAReset)))
 	web.Handle("POST /admin/users/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDelete)))
 
 	web.Handle("GET /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroups)))

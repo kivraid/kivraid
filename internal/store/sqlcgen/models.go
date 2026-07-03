@@ -5,6 +5,7 @@
 package sqlcgen
 
 import (
+	"database/sql"
 	"time"
 )
 
@@ -87,6 +88,14 @@ type LdapSource struct {
 	PhotoAttr         string
 }
 
+type MfaRecoveryCode struct {
+	ID        string
+	UserID    string
+	CodeHash  string
+	UsedAt    sql.NullTime
+	CreatedAt time.Time
+}
+
 type Provider struct {
 	ID                     string
 	ApplicationID          string
@@ -131,20 +140,22 @@ type SigningKey struct {
 }
 
 type User struct {
-	ID           string
-	Username     string
-	Email        string
-	Name         string
-	PasswordHash *string
-	Source       string
-	IsAdmin      bool
-	Active       bool
-	CreatedAt    time.Time
-	UpdatedAt    time.Time
-	LdapSourceID *string
-	LdapDn       *string
-	Photo        []byte
-	PhotoMime    *string
+	ID            string
+	Username      string
+	Email         string
+	Name          string
+	PasswordHash  *string
+	Source        string
+	IsAdmin       bool
+	Active        bool
+	CreatedAt     time.Time
+	UpdatedAt     time.Time
+	LdapSourceID  *string
+	LdapDn        *string
+	Photo         []byte
+	PhotoMime     *string
+	TotpSecretEnc []byte
+	TotpEnabled   bool
 }
 
 type UserGroup struct {

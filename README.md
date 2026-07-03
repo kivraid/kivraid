@@ -16,8 +16,12 @@ SQLite database**: no Python, no PostgreSQL, no Redis, no workers.
 - **User sources** — local accounts (Argon2id) and live LDAP directories
   (OpenLDAP, LLDAP): bind authentication, group sync, and self-service
   password change written back via RFC 3062.
+- **Two-factor authentication** — optional TOTP (authenticator apps)
+  with single-use recovery codes, for local and directory users alike;
+  admins can reset a locked-out user.
 - **User portal** — application launcher, profile, password change,
-  session list with revocation. Light and dark, fast, no SPA.
+  two-factor enrollment, session list with revocation. Light and dark,
+  fast, no SPA.
 - **Admin** — application wizard (OIDC or forward-auth), client secret
   displayed and rotatable, editable token lifetimes, uploadable icons
   and descriptions, group-based access policies, directory management

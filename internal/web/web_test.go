@@ -13,6 +13,7 @@ import (
 	"testing"
 
 	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/lporcheron/kivraid/internal/mfa"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/session"
@@ -39,6 +40,7 @@ func newServerForStore(t *testing.T, st *store.Store, forwardAuthDomains []strin
 		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false),
 		OIDC: oidcProvider, OIDCStore: oidcStorage,
 		LDAP: ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
+		MFA:  mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets")),
 		Log:  log,
 	})
 	if err != nil {

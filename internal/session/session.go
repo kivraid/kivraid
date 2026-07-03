@@ -23,6 +23,14 @@ const (
 	KeyIP        = "ip"
 	KeyUserAgent = "ua"
 	KeyLoginAt   = "loginAt"
+	// KeyPendingMFA holds the user ID that passed the password step but
+	// still owes a TOTP code; it grants no access on its own. KeyPendingNext
+	// carries the post-login redirect target.
+	KeyPendingMFA  = "pendingMFA"
+	KeyPendingNext = "pendingNext"
+	// KeyMFAEnroll holds a not-yet-confirmed TOTP secret during profile
+	// enrollment.
+	KeyMFAEnroll = "mfaEnroll"
 )
 
 func NewManager(db *sql.DB, driver string, secureCookies bool) *scs.SessionManager {

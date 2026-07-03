@@ -62,6 +62,37 @@
 </div>
 {{end}}
 
+<div class="card mt-4 space-y-4 p-6">
+  <div>
+    <h2 class="text-sm font-semibold">Two-factor authentication</h2>
+    <p class="mt-1 text-xs text-muted">A time-based code from an authenticator app, required at each sign-in.</p>
+  </div>
+  {{if .Data.MFAEnabled}}
+  <div class="flex flex-wrap items-center gap-2 text-sm">
+    <span class="badge-accent">Enabled</span>
+    <span class="text-muted">{{.Data.RecoveryRemaining}} recovery code{{if ne .Data.RecoveryRemaining 1}}s{{end}} left</span>
+  </div>
+  <form method="post" action="/profile/mfa/recovery" class="space-y-3 border-t border-line pt-4">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div>
+      <label class="label" for="mfa_code">Current authenticator code</label>
+      <input class="input font-mono sm:w-48" id="mfa_code" name="code"
+             inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required>
+      <p class="mt-1.5 text-xs text-muted">Enter a current code to regenerate recovery codes or turn two-factor off.</p>
+    </div>
+    <div class="flex flex-wrap gap-3">
+      <button type="submit" class="btn-secondary">Regenerate recovery codes</button>
+      <button type="submit" formaction="/profile/mfa/disable" class="btn-danger-soft">Disable two-factor</button>
+    </div>
+  </form>
+  {{else}}
+  <form method="post" action="/profile/mfa/begin">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <button type="submit" class="btn-primary">Enable two-factor</button>
+  </form>
+  {{end}}
+</div>
+
 {{if .Data.CanChangePW}}
 <div class="mt-4 space-y-4">
   {{if .Data.PWSuccess}}<div data-flash="Your password has been changed." data-variant="success" hidden></div>{{end}}

@@ -11,6 +11,7 @@ import (
 	"errors"
 	"flag"
 	"fmt"
+	"io"
 	"log/slog"
 	"net/http"
 	"os"
@@ -20,13 +21,12 @@ import (
 	"syscall"
 	"time"
 
-	// Sets GOMEMLIMIT from the cgroup memory limit so the GC respects the
-	// container's budget on small hosts (no-op outside a limited cgroup).
-	_ "github.com/KimMachineGun/automemlimit"
+	"github.com/KimMachineGun/automemlimit/memlimit"
 	"golang.org/x/term"
 
 	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/lporcheron/kivraid/internal/mfa"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/session"
@@ -104,6 +104,15 @@ func serve(args []string) error {
 	}
 	log := newLogger(cfg.LogLevel)
 
+	// Set GOMEMLIMIT from the cgroup memory limit so the GC respects the
+	// container's budget. Silently ignored where there is no cgroup limit
+	// (bare metal), which is expected, not an error.
+	if lim, err := memlimit.SetGoMemLimitWithOpts(
+		memlimit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))),
+	); err == nil {
+		log.Debug("GOMEMLIMIT set from cgroup", "bytes", lim)
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
@@ -144,6 +153,7 @@ func serve(args []string) error {
 
 	sessions := session.NewManager(st.DB, st.Driver, strings.HasPrefix(cfg.BaseURL, "https://"))
 	ldapManager := ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log)
+	mfaManager := mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets"))
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,
 		Store:     st,
@@ -151,6 +161,7 @@ func serve(args []string) error {
 		OIDC:      oidcProvider,
 		OIDCStore: oidcStorage,
 		LDAP:      ldapManager,
+		MFA:       mfaManager,
 		Log:       log,
 	})
 	if err != nil {

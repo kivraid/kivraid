@@ -93,17 +93,92 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// A fresh token on privilege change prevents session fixation.
-	if err := s.sessions.RenewToken(r.Context()); err != nil {
-		s.serverError(w, r, err)
+	// Password/bind succeeded. If TOTP is enrolled, hold the session in a
+	// pending state (no access) and require the second factor.
+	if user.TotpEnabled {
+		if err := s.sessions.RenewToken(r.Context()); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		s.sessions.Put(r.Context(), session.KeyPendingMFA, user.ID)
+		s.sessions.Put(r.Context(), session.KeyPendingNext, next)
+		http.Redirect(w, r, "/login/mfa", http.StatusSeeOther)
 		return
 	}
+
+	s.completeLogin(r, user, next)
+	http.Redirect(w, r, next, http.StatusSeeOther)
+}
+
+// completeLogin establishes a full authenticated session. A fresh token
+// on privilege change prevents session fixation.
+func (s *Server) completeLogin(r *http.Request, user sqlcgen.User, next string) {
+	s.sessions.RenewToken(r.Context())
 	s.sessions.Put(r.Context(), session.KeyUserID, user.ID)
 	s.sessions.Put(r.Context(), session.KeyIP, clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
-	s.audit.Record(r.Context(), user.Username, audit.ActionLogin, "", "source="+user.Source, ip)
+	s.audit.Record(r.Context(), user.Username, audit.ActionLogin, "", "source="+user.Source, clientIP(r))
 	s.log.Info("user logged in", "user", user.Username, "source", user.Source)
+}
+
+// handleMFAChallengePage shows the second-factor prompt for a session that
+// passed the password step.
+func (s *Server) handleMFAChallengePage(w http.ResponseWriter, r *http.Request) {
+	if s.sessions.GetString(r.Context(), session.KeyPendingMFA) == "" {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	s.render(w, r, "login_mfa.html", loginData{CSRF: s.csrfToken(r.Context())})
+}
+
+func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request) {
+	pendingID := s.sessions.GetString(r.Context(), session.KeyPendingMFA)
+	if pendingID == "" {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	user, err := s.store.GetUserByID(r.Context(), pendingID)
+	if err != nil || !user.Active {
+		s.sessions.Destroy(r.Context())
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	ip := clientIP(r)
+	if s.userLimiter.Blocked(user.Username) {
+		s.audit.Record(r.Context(), user.Username, audit.ActionLoginThrottled, "", "mfa", ip)
+		w.WriteHeader(http.StatusTooManyRequests)
+		s.render(w, r, "login_mfa.html", loginData{
+			CSRF: s.csrfToken(r.Context()), Error: "Too many attempts. Please wait a minute and try again.",
+		})
+		return
+	}
+
+	code := r.PostFormValue("code")
+	ok := s.mfa.ValidateForUser(user, code)
+	if !ok {
+		// Fall back to a single-use recovery code.
+		used, err := s.mfa.ConsumeRecoveryCode(r.Context(), user.ID, code)
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		ok = used
+	}
+	if !ok {
+		s.userLimiter.Allow(user.Username)
+		s.audit.Record(r.Context(), user.Username, audit.ActionLoginFailed, "", "mfa", ip)
+		w.WriteHeader(http.StatusUnauthorized)
+		s.render(w, r, "login_mfa.html", loginData{
+			CSRF: s.csrfToken(r.Context()), Error: "Invalid code. Try again or use a recovery code.",
+		})
+		return
+	}
+
+	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
+	s.sessions.Remove(r.Context(), session.KeyPendingMFA)
+	s.sessions.Remove(r.Context(), session.KeyPendingNext)
+	s.completeLogin(r, user, next)
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
@@ -136,10 +211,12 @@ func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 }
 
 type profileData struct {
-	Groups      []sqlcgen.Group
-	CanChangePW bool
-	PWError     string
-	PWSuccess   bool
+	Groups            []sqlcgen.Group
+	CanChangePW       bool
+	PWError           string
+	PWSuccess         bool
+	MFAEnabled        bool
+	RecoveryRemaining int64
 }
 
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
@@ -152,16 +229,25 @@ func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlc
 		s.serverError(w, r, err)
 		return
 	}
+	var recovery int64
+	if user.TotpEnabled {
+		if recovery, err = s.mfa.RemainingRecoveryCodes(r.Context(), user.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
 	s.render(w, r, "profile.html", pageData{
 		Title:  "Profile",
 		Active: "profile",
 		CSRF:   s.csrfToken(r.Context()),
 		User:   user,
 		Data: profileData{
-			Groups:      groups,
-			CanChangePW: s.canChangePassword(r, user),
-			PWError:     pwError,
-			PWSuccess:   pwSuccess,
+			Groups:            groups,
+			CanChangePW:       s.canChangePassword(r, user),
+			PWError:           pwError,
+			PWSuccess:         pwSuccess,
+			MFAEnabled:        user.TotpEnabled,
+			RecoveryRemaining: recovery,
 		},
 	})
 }

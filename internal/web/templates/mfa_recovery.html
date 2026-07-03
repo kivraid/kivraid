@@ -1,0 +1,28 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">
+    {{if .Data.New}}New recovery codes{{else}}Two-factor is on{{end}}
+  </h1>
+  <p class="mt-1 text-sm text-muted">Store these recovery codes somewhere safe. Each one works once if you lose access to your authenticator.</p>
+</div>
+
+<div class="space-y-4">
+  <div class="alert-danger" role="alert">
+    These codes are shown <strong>only once</strong>. Copy or print them now — you won't see them again.
+  </div>
+
+  <div class="card p-6">
+    <div class="grid grid-cols-2 gap-2 font-mono text-sm sm:grid-cols-2">
+      {{range .Data.Codes}}
+      <div class="rounded-lg border border-line bg-raised px-3 py-2 text-center tracking-wider">{{.}}</div>
+      {{end}}
+    </div>
+    <button type="button" class="btn-secondary mt-4" data-copy="{{range $i, $c := .Data.Codes}}{{if $i}}
+{{end}}{{$c}}{{end}}">Copy all</button>
+  </div>
+
+  <div class="flex justify-end">
+    <a href="/profile" class="btn-primary">Done</a>
+  </div>
+</div>
+{{end}}
