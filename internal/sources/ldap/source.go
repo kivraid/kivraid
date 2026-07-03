@@ -233,15 +233,19 @@ func (m *Manager) SyncAll(ctx context.Context, src sqlcgen.LdapSource) (SyncResu
 	if src.PhotoAttr != "" {
 		attrs = append(attrs, src.PhotoAttr)
 	}
-	// Plain search; directories with more entries than their server-side
-	// size limit will need paged search support (fine for the target
-	// deployments so far).
-	found, err := conn.Search(goldap.NewSearchRequest(
+	// Paged search (RFC 2696) so directories larger than the server's size
+	// limit are fully enumerated. Falls back to a plain search for the rare
+	// server that does not support the paging control.
+	req := goldap.NewSearchRequest(
 		src.BaseDn, goldap.ScopeWholeSubtree, goldap.NeverDerefAliases,
 		0, 60, false, filter, attrs, nil,
-	))
+	)
+	found, err := conn.SearchWithPaging(req, 500)
 	if err != nil {
-		return res, fmt.Errorf("user enumeration: %w", err)
+		m.log.Warn("ldap paged search failed, retrying without paging", "source", src.Name, "err", err)
+		if found, err = conn.Search(req); err != nil {
+			return res, fmt.Errorf("user enumeration: %w", err)
+		}
 	}
 
 	seen := map[string]bool{}

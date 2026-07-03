@@ -14,8 +14,9 @@ SQLite database**: no Python, no PostgreSQL, no Redis, no workers.
   or Caddy, registered as first-class applications with their own group
   access policy ([docs/forward-auth.md](docs/forward-auth.md)).
 - **User sources** — local accounts (Argon2id) and live LDAP directories
-  (OpenLDAP, LLDAP): bind authentication, group sync, and self-service
-  password change written back via RFC 3062.
+  (OpenLDAP, LLDAP): bind authentication, group sync (paged, RFC 2696, so
+  large directories enumerate fully), and self-service password change
+  written back via RFC 3062.
 - **Two-factor authentication** — optional TOTP (authenticator apps)
   with single-use recovery codes, for local and directory users alike;
   admins can reset a locked-out user.
