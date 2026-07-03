@@ -93,6 +93,43 @@
   {{end}}
 </div>
 
+{{if .Data.PasskeysEnabled}}
+<div class="card mt-4 space-y-4 p-6" data-passkeys>
+  <div>
+    <h2 class="text-sm font-semibold">Passkeys</h2>
+    <p class="mt-1 text-xs text-muted">Sign in without a password using your device's biometrics or a security key. A passkey satisfies both password and two-factor.</p>
+  </div>
+  {{if .Data.Passkeys}}
+  <ul class="divide-y divide-line border-y border-line">
+    {{range .Data.Passkeys}}
+    <li class="flex items-center justify-between gap-3 py-3">
+      <div class="min-w-0">
+        <p class="truncate text-sm font-medium">{{.Name}}</p>
+        <p class="text-xs text-muted">Added {{.CreatedAt.Format "Jan 2, 2006"}}{{if .LastUsedAt.Valid}} · last used {{.LastUsedAt.Time.Format "Jan 2, 2006"}}{{end}}</p>
+      </div>
+      <form method="post" action="/profile/passkeys/{{.ID}}/delete"
+            data-confirm="Remove this passkey? You'll no longer be able to sign in with it."
+            data-confirm-title="Remove passkey" data-confirm-variant="danger" data-confirm-label="Remove">
+        <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+        <button type="submit" class="btn-ghost">Remove</button>
+      </form>
+    </li>
+    {{end}}
+  </ul>
+  {{else}}
+  <p class="text-sm text-muted">No passkeys registered yet.</p>
+  {{end}}
+  <div class="flex flex-wrap items-end gap-3 border-t border-line pt-4">
+    <div class="min-w-48 flex-1">
+      <label class="label" for="passkey_name">Passkey name</label>
+      <input class="input" id="passkey_name" data-passkey-name placeholder="e.g. MacBook Touch ID" maxlength="60">
+    </div>
+    <button type="button" class="btn-secondary" data-passkey-add>Add passkey</button>
+  </div>
+  <p data-passkey-error class="alert-danger" role="alert" hidden></p>
+</div>
+{{end}}
+
 {{if .Data.CanChangePW}}
 <div class="mt-4 space-y-4">
   {{if .Data.PWSuccess}}<div data-flash="Your password has been changed." data-variant="success" hidden></div>{{end}}

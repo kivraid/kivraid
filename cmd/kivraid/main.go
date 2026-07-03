@@ -34,6 +34,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 	"github.com/lporcheron/kivraid/internal/web"
+	"github.com/lporcheron/kivraid/internal/webauthn"
 )
 
 // version is stamped at build time via -ldflags "-X main.version=...".
@@ -154,6 +155,10 @@ func serve(args []string) error {
 	sessions := session.NewManager(st.DB, st.Driver, strings.HasPrefix(cfg.BaseURL, "https://"))
 	ldapManager := ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log)
 	mfaManager := mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets"))
+	webauthnManager, err := webauthn.New(st, cfg.BaseURL)
+	if err != nil {
+		return err
+	}
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,
 		Store:     st,
@@ -162,6 +167,7 @@ func serve(args []string) error {
 		OIDCStore: oidcStorage,
 		LDAP:      ldapManager,
 		MFA:       mfaManager,
+		WebAuthn:  webauthnManager,
 		Log:       log,
 	})
 	if err != nil {

@@ -31,6 +31,11 @@ const (
 	// KeyMFAEnroll holds a not-yet-confirmed TOTP secret during profile
 	// enrollment.
 	KeyMFAEnroll = "mfaEnroll"
+	// KeyWebAuthnReg and KeyWebAuthnLogin hold the opaque WebAuthn session
+	// data (challenge state) between the begin and finish steps of a passkey
+	// registration or passwordless login ceremony.
+	KeyWebAuthnReg   = "waReg"
+	KeyWebAuthnLogin = "waLogin"
 )
 
 func NewManager(db *sql.DB, driver string, secureCookies bool) *scs.SessionManager {

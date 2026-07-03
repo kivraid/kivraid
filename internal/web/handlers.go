@@ -217,6 +217,8 @@ type profileData struct {
 	PWSuccess         bool
 	MFAEnabled        bool
 	RecoveryRemaining int64
+	Passkeys          []sqlcgen.WebauthnCredential
+	PasskeysEnabled   bool
 }
 
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
@@ -236,6 +238,13 @@ func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlc
 			return
 		}
 	}
+	var passkeys []sqlcgen.WebauthnCredential
+	if s.webauthn != nil {
+		if passkeys, err = s.webauthn.List(r.Context(), user.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
 	s.render(w, r, "profile.html", pageData{
 		Title:  "Profile",
 		Active: "profile",
@@ -248,6 +257,8 @@ func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlc
 			PWSuccess:         pwSuccess,
 			MFAEnabled:        user.TotpEnabled,
 			RecoveryRemaining: recovery,
+			Passkeys:          passkeys,
+			PasskeysEnabled:   s.webauthn != nil,
 		},
 	})
 }

@@ -87,7 +87,13 @@ func (s *Server) csrfProtect(next http.Handler) http.Handler {
 			return
 		}
 		want := s.sessions.GetString(r.Context(), session.KeyCSRF)
-		got := r.PostFormValue("_csrf")
+		// Form posts carry the token in a hidden field; fetch-based callers
+		// (WebAuthn ceremonies, which send a JSON body) use the header so the
+		// request body is left intact for the handler to parse.
+		got := r.Header.Get("X-CSRF-Token")
+		if got == "" {
+			got = r.PostFormValue("_csrf")
+		}
 		if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
 			http.Error(w, "invalid CSRF token", http.StatusForbidden)
 			return

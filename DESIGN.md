@@ -40,9 +40,6 @@ minimal) is a default pick, easy to re-skin later via design tokens.
 - Outposts (LDAP server emulation, RADIUS, proxy deployed separately).
 - SCIM provisioning, invitations, self-registration (later, maybe).
 - Multi-tenancy.
-- MFA (TOTP, then WebAuthn/passkeys) — deliberately postponed to a
-  fast-follow after v1; the login pipeline keeps an explicit MFA slot so
-  it can land without restructuring.
 
 ## Decisions
 
@@ -159,10 +156,14 @@ Fixed sequence, configurable via settings (not a flow graph):
 1. Identify (username or email; sources tried in configured order:
    local first, then LDAP sources).
 2. Password (local: Argon2id verify; LDAP: user bind).
-3. MFA slot — empty in v1 (TOTP is the first fast-follow, then
-   WebAuthn/passkeys); the pipeline keeps the step so MFA lands without
-   restructuring sessions or flows.
+3. MFA step — TOTP (authenticator apps) with single-use recovery codes,
+   held in a pending session until the second factor is verified.
 4. Session established (server-side session, cookie holds only the ID).
+
+A discoverable **passkey (WebAuthn)** is an alternative to the whole
+pipeline: being phishing-resistant it authenticates the user outright,
+bypassing both the password and the TOTP step. Passkeys are resident/
+discoverable so login is usernameless.
 
 ## Architecture
 
@@ -199,7 +200,8 @@ internal/
 | HTTP router | stdlib `net/http` (Go 1.22+ patterns) | No framework needed. |
 | Sessions | `alexedwards/scs` (SQLite/Postgres store) | Server-side, revocable — required for the "view/revoke my sessions" feature. |
 | Password hashing | `golang.org/x/crypto/argon2` (Argon2id) | |
-| TOTP | `pquerna/otp` | Post-v1 fast-follow. |
+| TOTP | `pquerna/otp` | Authenticator-app second factor + recovery codes. |
+| Passkeys | `go-webauthn/webauthn` | Discoverable/resident credentials; passwordless, phishing-resistant login. Public keys stored in `webauthn_credentials`. |
 | Templates | stdlib `html/template` | `templ` is nice but adds codegen; revisit if templates get painful. |
 | CSS | Tailwind v4 standalone CLI | Build-time only (no Node); output embedded via `go:embed`. |
 
@@ -254,7 +256,7 @@ group cache, MFA enrollment, session ownership) — but never their password.
    docs.
 7. **M6 — Postgres**: pgx store implementation, dual-engine CI.
 
-Post-v1 fast-follows: TOTP, WebAuthn/passkeys, then (maybe) SAML and
+Delivered post-v1: TOTP and WebAuthn/passkeys. Possible later: SAML,
 invitations/self-registration.
 
 ## Security notes (must-hold invariants)

@@ -24,6 +24,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
+	"github.com/lporcheron/kivraid/internal/webauthn"
 )
 
 //go:embed templates/*.html
@@ -41,6 +42,7 @@ type Server struct {
 	oidc      http.Handler
 	oidcStore *oidcserver.Storage
 	mfa       *mfa.Manager
+	webauthn  *webauthn.Manager
 	audit     *audit.Recorder
 	log       *slog.Logger
 
@@ -62,6 +64,7 @@ type Deps struct {
 	OIDCStore *oidcserver.Storage
 	LDAP      *ldap.Manager
 	MFA       *mfa.Manager
+	WebAuthn  *webauthn.Manager
 	Audit     *audit.Recorder
 	Log       *slog.Logger
 }
@@ -79,6 +82,7 @@ func NewServer(d Deps) (*Server, error) {
 		oidc:      d.OIDC,
 		oidcStore: d.OIDCStore,
 		mfa:       d.MFA,
+		webauthn:  d.WebAuthn,
 		audit:     d.Audit,
 		log:       d.Log,
 		// 10 attempts/minute per IP, 5 failures/minute per username.
@@ -130,6 +134,8 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("POST /login", s.handleLoginSubmit)
 	web.HandleFunc("GET /login/mfa", s.handleMFAChallengePage)
 	web.HandleFunc("POST /login/mfa", s.handleMFAChallengeSubmit)
+	web.HandleFunc("POST /login/passkey/begin", s.handlePasskeyLoginBegin)
+	web.HandleFunc("POST /login/passkey/finish", s.handlePasskeyLoginFinish)
 	web.HandleFunc("POST /logout", s.handleLogout)
 	web.HandleFunc("GET /setup", s.handleSetupPage)
 	web.HandleFunc("POST /setup", s.handleSetupSubmit)
@@ -145,6 +151,9 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /profile/mfa/enable", s.requireAuth(http.HandlerFunc(s.handleMFAEnable)))
 	web.Handle("POST /profile/mfa/disable", s.requireAuth(http.HandlerFunc(s.handleMFADisable)))
 	web.Handle("POST /profile/mfa/recovery", s.requireAuth(http.HandlerFunc(s.handleMFARegenerateRecovery)))
+	web.Handle("POST /profile/passkeys/begin", s.requireAuth(http.HandlerFunc(s.handlePasskeyRegisterBegin)))
+	web.Handle("POST /profile/passkeys/finish", s.requireAuth(http.HandlerFunc(s.handlePasskeyRegisterFinish)))
+	web.Handle("POST /profile/passkeys/{id}/delete", s.requireAuth(http.HandlerFunc(s.handlePasskeyDelete)))
 	web.Handle("GET /sessions", s.requireAuth(http.HandlerFunc(s.handleSessions)))
 	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
 	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))

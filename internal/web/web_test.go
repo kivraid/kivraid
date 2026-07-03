@@ -21,6 +21,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
 	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/lporcheron/kivraid/internal/webauthn"
 )
 
 // newServerForStore wires a full web server around an existing store.
@@ -36,12 +37,17 @@ func newServerForStore(t *testing.T, st *store.Store, forwardAuthDomains []strin
 	if err != nil {
 		t.Fatal(err)
 	}
+	waManager, err := webauthn.New(st, cfg.BaseURL)
+	if err != nil {
+		t.Fatal(err)
+	}
 	srv, err := NewServer(Deps{
 		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false),
 		OIDC: oidcProvider, OIDCStore: oidcStorage,
-		LDAP: ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
-		MFA:  mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets")),
-		Log:  log,
+		LDAP:     ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
+		MFA:      mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets")),
+		WebAuthn: waManager,
+		Log:      log,
 	})
 	if err != nil {
 		t.Fatal(err)

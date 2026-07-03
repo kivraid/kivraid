@@ -273,3 +273,147 @@ document.addEventListener("keydown", (e) => {
     }
   }
 });
+
+// ---- WebAuthn / passkeys ----
+// The server speaks base64url over JSON; the browser API speaks
+// ArrayBuffers. These helpers translate between the two.
+function b64urlToBuf(s) {
+  const pad = "=".repeat((4 - (s.length % 4)) % 4);
+  const bin = atob((s + pad).replace(/-/g, "+").replace(/_/g, "/"));
+  const buf = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+  return buf.buffer;
+}
+function bufToB64url(buf) {
+  let bin = "";
+  for (const b of new Uint8Array(buf)) bin += String.fromCharCode(b);
+  return btoa(bin).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
+}
+function csrfToken() {
+  return document.querySelector('meta[name="csrf-token"]')?.content || "";
+}
+async function waPost(url, body) {
+  return fetch(url, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "X-CSRF-Token": csrfToken(),
+    },
+    body: body === undefined ? undefined : JSON.stringify(body),
+  });
+}
+// A cancelled or timed-out ceremony is a user choice, not an error to shout.
+function isCeremonyCancel(err) {
+  return (
+    err &&
+    (err.name === "NotAllowedError" ||
+      err.name === "AbortError" ||
+      err.name === "InvalidStateError")
+  );
+}
+
+async function registerPasskey(name) {
+  const begin = await waPost("/profile/passkeys/begin");
+  if (!begin.ok) throw new Error("Could not start registration.");
+  const opts = (await begin.json()).publicKey;
+  opts.challenge = b64urlToBuf(opts.challenge);
+  opts.user.id = b64urlToBuf(opts.user.id);
+  for (const c of opts.excludeCredentials || []) c.id = b64urlToBuf(c.id);
+  const cred = await navigator.credentials.create({ publicKey: opts });
+  const finish = await waPost(
+    "/profile/passkeys/finish?name=" + encodeURIComponent(name),
+    {
+      id: cred.id,
+      rawId: bufToB64url(cred.rawId),
+      type: cred.type,
+      clientExtensionResults: cred.getClientExtensionResults(),
+      response: {
+        clientDataJSON: bufToB64url(cred.response.clientDataJSON),
+        attestationObject: bufToB64url(cred.response.attestationObject),
+      },
+    },
+  );
+  if (!finish.ok) throw new Error("The passkey could not be registered.");
+}
+
+async function loginWithPasskey(next) {
+  const begin = await waPost("/login/passkey/begin");
+  if (!begin.ok) throw new Error("Could not start passkey sign-in.");
+  const opts = (await begin.json()).publicKey;
+  opts.challenge = b64urlToBuf(opts.challenge);
+  for (const c of opts.allowCredentials || []) c.id = b64urlToBuf(c.id);
+  const cred = await navigator.credentials.get({ publicKey: opts });
+  const finish = await waPost(
+    "/login/passkey/finish?next=" + encodeURIComponent(next || ""),
+    {
+      id: cred.id,
+      rawId: bufToB64url(cred.rawId),
+      type: cred.type,
+      clientExtensionResults: cred.getClientExtensionResults(),
+      response: {
+        clientDataJSON: bufToB64url(cred.response.clientDataJSON),
+        authenticatorData: bufToB64url(cred.response.authenticatorData),
+        signature: bufToB64url(cred.response.signature),
+        userHandle: cred.response.userHandle
+          ? bufToB64url(cred.response.userHandle)
+          : null,
+      },
+    },
+  );
+  if (!finish.ok) throw new Error("That passkey wasn't recognized.");
+  const data = await finish.json();
+  window.location.href = data.next || "/";
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  const supported =
+    typeof window.PublicKeyCredential !== "undefined" &&
+    !!navigator.credentials;
+
+  // Login page: reveal the passkey option only when the browser can use it.
+  const loginBox = document.querySelector("[data-passkey-login]");
+  const loginBtn = document.querySelector("[data-passkey-login-btn]");
+  if (loginBox && loginBtn && supported) {
+    loginBox.hidden = false;
+    const err = document.querySelector("[data-passkey-error]");
+    loginBtn.addEventListener("click", async () => {
+      if (err) err.hidden = true;
+      loginBtn.disabled = true;
+      try {
+        await loginWithPasskey(loginBtn.dataset.next);
+      } catch (e) {
+        if (!isCeremonyCancel(e) && err) {
+          err.textContent = e.message || "Passkey sign-in failed.";
+          err.hidden = false;
+        }
+        loginBtn.disabled = false;
+      }
+    });
+  }
+
+  // Profile page: register a new passkey.
+  const addBtn = document.querySelector("[data-passkey-add]");
+  if (addBtn && supported) {
+    const nameInput = document.querySelector("[data-passkey-name]");
+    const err = document.querySelector("[data-passkeys] [data-passkey-error]");
+    addBtn.addEventListener("click", async () => {
+      if (err) err.hidden = true;
+      const name = (nameInput?.value || "").trim() || "Passkey";
+      addBtn.disabled = true;
+      try {
+        await registerPasskey(name);
+        showToast("Passkey added.");
+        setTimeout(() => window.location.reload(), 600);
+      } catch (e) {
+        if (!isCeremonyCancel(e) && err) {
+          err.textContent = e.message || "Could not add passkey.";
+          err.hidden = false;
+        }
+        addBtn.disabled = false;
+      }
+    });
+  } else if (addBtn) {
+    addBtn.disabled = true;
+    addBtn.title = "This browser does not support passkeys.";
+  }
+});

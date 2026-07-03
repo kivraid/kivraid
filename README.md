@@ -20,9 +20,12 @@ SQLite database**: no Python, no PostgreSQL, no Redis, no workers.
 - **Two-factor authentication** — optional TOTP (authenticator apps)
   with single-use recovery codes, for local and directory users alike;
   admins can reset a locked-out user.
+- **Passkeys (WebAuthn)** — register device biometrics or a security key
+  and sign in passwordless; a discoverable passkey is phishing-resistant
+  and stands in for both password and second factor.
 - **User portal** — application launcher, profile, password change,
-  two-factor enrollment, session list with revocation. Light and dark,
-  fast, no SPA.
+  two-factor and passkey enrollment, session list with revocation. Light
+  and dark, fast, no SPA.
 - **Admin** — application wizard (OIDC or forward-auth), client secret
   displayed and rotatable, editable token lifetimes, uploadable icons
   and descriptions, group-based access policies, directory management
@@ -143,5 +146,4 @@ make css-watch      # rebuild CSS on template changes
 make test           # run tests
 ```
 
-See [DESIGN.md](DESIGN.md) for architecture decisions and the roadmap
-(next: Postgres support, TOTP, WebAuthn).
+See [DESIGN.md](DESIGN.md) for architecture decisions and the roadmap.

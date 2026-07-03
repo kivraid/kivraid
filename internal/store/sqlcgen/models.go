@@ -162,3 +162,13 @@ type UserGroup struct {
 	UserID  string
 	GroupID string
 }
+
+type WebauthnCredential struct {
+	ID           string
+	UserID       string
+	CredentialID string
+	Name         string
+	Data         string
+	CreatedAt    time.Time
+	LastUsedAt   sql.NullTime
+}
