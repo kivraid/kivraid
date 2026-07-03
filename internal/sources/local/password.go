@@ -8,20 +8,48 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"runtime"
 	"strings"
 
 	"golang.org/x/crypto/argon2"
 )
 
-// Argon2id parameters, per OWASP recommendations (m=64 MiB, t=3, p=2 is a
-// safe interactive-login profile as of 2026).
+// Argon2id parameters: OWASP's lighter recommended profile (m=19 MiB,
+// t=2, p=1). Still strong, but far friendlier on a small host than the
+// 64 MiB profile — each hash costs argonMemory KiB of RAM. Existing
+// hashes store their own parameters, so old (heavier) hashes keep
+// verifying after this default changes.
 const (
-	argonMemory  = 64 * 1024
-	argonTime    = 3
-	argonThreads = 2
+	argonMemory  = 19 * 1024
+	argonTime    = 2
+	argonThreads = 1
 	argonKeyLen  = 32
 	argonSaltLen = 16
 )
+
+// hashSem bounds concurrent Argon2id computations so a burst of logins
+// cannot exhaust memory: peak stays ~cap(hashSem) × argonMemory instead
+// of unbounded. Login is not throughput-critical, so a small cap is fine
+// (it also dampens brute-force). Sized to the CPUs, capped at 4.
+var hashSem = make(chan struct{}, hashConcurrency())
+
+func hashConcurrency() int {
+	n := runtime.GOMAXPROCS(0)
+	if n > 4 {
+		n = 4
+	}
+	if n < 1 {
+		n = 1
+	}
+	return n
+}
+
+// argon2Key runs argon2.IDKey under the concurrency limiter.
+func argon2Key(password, salt []byte, time, memory uint32, threads uint8, keyLen uint32) []byte {
+	hashSem <- struct{}{}
+	defer func() { <-hashSem }()
+	return argon2.IDKey(password, salt, time, memory, threads, keyLen)
+}
 
 var ErrInvalidHash = errors.New("invalid argon2id hash encoding")
 
@@ -32,7 +60,7 @@ func HashPassword(password string) (string, error) {
 	if _, err := rand.Read(salt); err != nil {
 		return "", err
 	}
-	key := argon2.IDKey([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
+	key := argon2Key([]byte(password), salt, argonTime, argonMemory, argonThreads, argonKeyLen)
 	return fmt.Sprintf("$argon2id$v=%d$m=%d,t=%d,p=%d$%s$%s",
 		argon2.Version, argonMemory, argonTime, argonThreads,
 		base64.RawStdEncoding.EncodeToString(salt),
@@ -67,6 +95,6 @@ func VerifyPassword(hash, password string) (bool, error) {
 	if err != nil {
 		return false, ErrInvalidHash
 	}
-	got := argon2.IDKey([]byte(password), salt, time, memory, threads, uint32(len(want)))
+	got := argon2Key([]byte(password), salt, time, memory, threads, uint32(len(want)))
 	return subtle.ConstantTimeCompare(got, want) == 1, nil
 }

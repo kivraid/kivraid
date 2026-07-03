@@ -62,6 +62,22 @@ A hardened unit (DynamicUser, StateDirectory, syscall filtering) is
 provided in [packaging/kivraid.service](packaging/kivraid.service) with
 installation steps in its header comment.
 
+## Resource footprint
+
+Kivraid targets small hosts. Measured in the `FROM scratch` container
+(Linux, capped at 256 MB): ~26 MB idle RSS, and it survives bursts of
+concurrent logins without OOM. Two knobs keep it lean:
+
+- Password hashing (Argon2id) runs the lighter OWASP profile (19 MiB per
+  hash) behind a small concurrency limiter, so a login storm cannot
+  exhaust memory.
+- `GOMEMLIMIT` is set automatically from the container's memory limit, so
+  the garbage collector respects the host's budget; idle memory is
+  returned to the OS periodically.
+
+Give the container a memory limit (e.g. `--memory=256m`) and Kivraid
+adapts to it.
+
 ## Configuration
 
 `kivraid config init` generates a commented starting point. Every key

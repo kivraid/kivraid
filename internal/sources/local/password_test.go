@@ -10,7 +10,7 @@ func TestHashVerifyRoundtrip(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(hash, "$argon2id$v=19$m=65536,t=3,p=2$") {
+	if !strings.HasPrefix(hash, "$argon2id$v=19$m=19456,t=2,p=1$") {
 		t.Fatalf("unexpected hash format: %s", hash)
 	}
 

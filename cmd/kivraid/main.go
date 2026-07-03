@@ -15,10 +15,14 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"strings"
 	"syscall"
 	"time"
 
+	// Sets GOMEMLIMIT from the cgroup memory limit so the GC respects the
+	// container's budget on small hosts (no-op outside a limited cgroup).
+	_ "github.com/KimMachineGun/automemlimit"
 	"golang.org/x/term"
 
 	"github.com/lporcheron/kivraid/internal/audit"
@@ -130,6 +134,10 @@ func serve(args []string) error {
 				if err := st.DeleteAuditBefore(ctx, time.Now().UTC().AddDate(0, 0, -90)); err != nil {
 					log.Warn("audit cleanup", "err", err)
 				}
+				// Return heap freed since the last tick (e.g. after a
+				// login burst) to the OS instead of waiting for the lazy
+				// scavenger, keeping idle RSS low.
+				debug.FreeOSMemory()
 			}
 		}
 	}()
