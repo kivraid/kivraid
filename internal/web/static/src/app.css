@@ -71,6 +71,8 @@
 
 @theme inline {
   --color-*: initial;
+  --color-white: #fff;
+  --color-black: #000;
   --color-bg: var(--bg);
   --color-surface: var(--surface);
   --color-raised: var(--raised);
@@ -366,34 +368,60 @@
     @apply mb-1 text-[13px] font-medium text-muted;
   }
 
-  /* Layered radial glow behind centered auth pages. */
+  /* Immersive mesh-gradient backdrop for the centered auth pages: a full
+   * saturated wash of color blobs plus a faint grain, theme-aware and
+   * fully self-contained (no external image, CSP-clean). */
   .aurora {
     position: fixed;
     inset: 0;
     z-index: -1;
     pointer-events: none;
-    background:
-      radial-gradient(
-        620px circle at 50% -12%,
-        color-mix(in oklab, var(--accent) 16%, transparent),
-        transparent 60%
-      ),
-      radial-gradient(
-        480px circle at 12% 8%,
-        color-mix(in oklab, var(--accent) 9%, transparent),
-        transparent 55%
-      ),
-      radial-gradient(
-        520px circle at 92% 12%,
-        color-mix(in oklab, oklch(62% 0.2 250) 8%, transparent),
-        transparent 55%
-      );
+    background-color: oklch(62% 0.16 293);
+    background-image:
+      radial-gradient(60rem 60rem at 12% 6%, oklch(70% 0.2 293), transparent 55%),
+      radial-gradient(55rem 55rem at 88% 0%, oklch(66% 0.19 255), transparent 52%),
+      radial-gradient(58rem 58rem at 92% 96%, oklch(66% 0.2 330), transparent 55%),
+      radial-gradient(52rem 52rem at 4% 100%, oklch(64% 0.2 275), transparent 55%),
+      radial-gradient(46rem 46rem at 50% 120%, oklch(72% 0.17 320), transparent 55%);
+  }
+  [data-theme="dark"] .aurora {
+    background-color: oklch(24% 0.09 293);
+    background-image:
+      radial-gradient(60rem 60rem at 12% 6%, oklch(42% 0.16 293), transparent 55%),
+      radial-gradient(55rem 55rem at 88% 0%, oklch(38% 0.15 255), transparent 52%),
+      radial-gradient(58rem 58rem at 92% 96%, oklch(40% 0.16 330), transparent 55%),
+      radial-gradient(52rem 52rem at 4% 100%, oklch(38% 0.15 275), transparent 55%),
+      radial-gradient(46rem 46rem at 50% 120%, oklch(44% 0.14 320), transparent 55%);
+  }
+  /* Fine grain overlay to avoid banding and add texture. */
+  .aurora::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    opacity: 0.35;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+    mix-blend-mode: soft-light;
   }
 
   /* Auth card: a touch more presence than a plain card. */
   .auth-card {
     @apply rounded-2xl border border-line bg-surface;
     box-shadow: var(--shadow-lg);
+  }
+
+  /* Chrome sitting directly on the coloured mesh (outside the card):
+   * always light so it reads on the saturated backdrop in either theme. */
+  .aurora-toggle {
+    @apply fixed right-4 top-4 inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/15 hover:text-white;
+  }
+  .aurora-title {
+    @apply text-xl font-semibold tracking-tight text-white;
+  }
+  .aurora-sub {
+    @apply mt-1 text-sm text-white/70;
+  }
+  .aurora-foot {
+    @apply text-xs text-white/60;
   }
 
   /* Modal dialog (native <dialog>, driven by app.js) ----------------------- */

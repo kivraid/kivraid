@@ -20,8 +20,8 @@
           <path d="M10 11.4 H14 L13 17.4 H11 Z" fill="var(--on-accent)"/>
         </svg>
         <div class="text-center">
-          <h1 class="text-xl font-semibold tracking-tight">Two-factor authentication</h1>
-          <p class="mt-1 text-sm text-muted">Enter the 6-digit code from your authenticator app.</p>
+          <h1 class="aurora-title">Two-factor authentication</h1>
+          <p class="aurora-sub">Enter the 6-digit code from your authenticator app.</p>
         </div>
       </div>
 
@@ -42,7 +42,7 @@
 
       <form method="post" action="/logout" class="mt-4 text-center">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="text-xs text-faint hover:text-fg">Cancel and sign out</button>
+        <button type="submit" class="aurora-foot hover:text-white">Cancel and sign out</button>
       </form>
     </div>
   </main>

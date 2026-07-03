@@ -98,7 +98,7 @@ func serve(args []string) error {
 	cfgPath := fs.String("config", "kivraid.yaml", "path to the configuration file")
 	fs.Parse(args)
 
-	cfg, err := config.Load(*cfgPath)
+	cfg, err := loadOrCreateConfig(*cfgPath)
 	if err != nil {
 		return err
 	}
@@ -253,7 +253,16 @@ func configInit(args []string) error {
 	if _, err := os.Stat(*cfgPath); err == nil {
 		return fmt.Errorf("%s already exists, refusing to overwrite", *cfgPath)
 	}
+	if err := writeDefaultConfig(*cfgPath); err != nil {
+		return err
+	}
+	fmt.Printf("wrote %s\n", *cfgPath)
+	return nil
+}
 
+// writeDefaultConfig writes a fresh configuration (with a random
+// secret_key) to path.
+func writeDefaultConfig(path string) error {
 	secret := make([]byte, 32)
 	if _, err := rand.Read(secret); err != nil {
 		return err
@@ -278,12 +287,24 @@ database:
 
 log_level: info
 `, hex.EncodeToString(secret))
+	return os.WriteFile(path, []byte(content), 0o600)
+}
 
-	if err := os.WriteFile(*cfgPath, []byte(content), 0o600); err != nil {
-		return err
+// loadOrCreateConfig loads the config, generating one on first run so no
+// separate "config init" step is required. When a config file is absent
+// but KIVRAID_SECRET_KEY is set (typical container setup), it runs from
+// environment overrides alone without writing a file.
+func loadOrCreateConfig(path string) (config.Config, error) {
+	if _, err := os.Stat(path); errors.Is(err, os.ErrNotExist) {
+		if os.Getenv("KIVRAID_SECRET_KEY") != "" {
+			return config.Load("")
+		}
+		if err := writeDefaultConfig(path); err != nil {
+			return config.Config{}, fmt.Errorf("generate config: %w", err)
+		}
+		fmt.Fprintf(os.Stderr, "no config found; generated %s with a fresh secret_key\n", path)
 	}
-	fmt.Printf("wrote %s\n", *cfgPath)
-	return nil
+	return config.Load(path)
 }
 
 func promptPassword() (string, error) {

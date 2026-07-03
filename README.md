@@ -39,23 +39,25 @@ downloaded automatically by `make` (no Node required).
 
 ```sh
 make build
-./kivraid config init      # writes kivraid.yaml with a random secret_key
 ./kivraid serve            # http://127.0.0.1:9000
 ```
 
-On first visit, Kivraid invites you to register the administrator
-account (a `user add` CLI is also available for scripted setups).
+On first run Kivraid generates `kivraid.yaml` (with a random
+`secret_key`) if it is missing — no separate init step. Then open the
+instance and register the administrator account on first visit. A
+`config init` command and a `user add` CLI are also available for
+scripted setups.
 
 ## Quickstart (Docker)
 
 ```sh
 make docker
 docker volume create kivraid
-docker run --rm -v kivraid:/data kivraid config init --config /data/kivraid.yaml
 docker run -d --name kivraid -v kivraid:/data -p 9000:9000 kivraid
 ```
 
-Then open the instance and register the administrator account.
+The config is generated in the volume on first run. Then open the
+instance and register the administrator account.
 
 The image is built `FROM scratch` and runs as an unprivileged user; all
 state lives in the `/data` volume.
