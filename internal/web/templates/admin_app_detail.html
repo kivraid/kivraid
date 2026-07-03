@@ -1,6 +1,10 @@
 {{define "content"}}
 <div class="mb-8 flex items-center gap-4">
-  <span class="avatar-lg">{{initials .Data.App.Name}}</span>
+  {{if .Data.App.IconMime}}
+  <img class="size-14 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
+  {{else}}
+  <span class="avatar-lg rounded-xl">{{initials .Data.App.Name}}</span>
+  {{end}}
   <div class="min-w-0">
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.App.Name}}</h1>
@@ -28,6 +32,10 @@
       </div>
     </div>
     <div>
+      <label class="label" for="description">Description <span class="font-normal text-faint">(optional)</span></label>
+      <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="Shown in the launcher">
+    </div>
+    <div>
       <label class="label" for="launch_url">Launch URL <span class="font-normal text-faint">(optional)</span></label>
       <input class="input" id="launch_url" name="launch_url" value="{{.Data.Form.LaunchURL}}">
     </div>
@@ -41,26 +49,76 @@
     </div>
 
     <div class="border-t border-line pt-5">
+      <h2 class="label">Client type</h2>
+      <div class="space-y-2">
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+          <input type="radio" name="client_type" value="confidential" class="mt-0.5 accent-accent" {{if not .Data.Form.Public}}checked{{end}}>
+          <span>
+            <span class="block text-sm font-medium">Confidential</span>
+            <span class="block text-xs text-muted">Server-side application that can keep a client secret (most web apps).</span>
+          </span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+          <input type="radio" name="client_type" value="public" class="mt-0.5 accent-accent" {{if .Data.Form.Public}}checked{{end}}>
+          <span>
+            <span class="block text-sm font-medium">Public · PKCE</span>
+            <span class="block text-xs text-muted">SPA, mobile or CLI that cannot keep a secret; PKCE is enforced.</span>
+          </span>
+        </label>
+      </div>
+      <p class="mt-2 text-xs text-muted">Switching to public deletes the client secret; switching back to confidential issues a fresh one. The application must be reconfigured either way.</p>
+    </div>
+
+    <div class="border-t border-line pt-5">
       <h2 class="text-sm font-semibold">Access</h2>
       {{if .Data.Groups}}
-      <p class="mb-3 mt-1 text-xs text-muted">Restrict sign-in to members of the checked groups. Nothing checked means every authenticated user may sign in.</p>
-      <div class="flex flex-wrap gap-x-6 gap-y-2">
-        {{range .Data.Groups}}
-        <label class="flex cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" name="policy_groups" value="{{.ID}}" class="accent-accent" {{if index $.Data.Bound .ID}}checked{{end}}>
-          {{.Name}}
-        </label>
-        {{end}}
+      <p class="mb-3 mt-1 text-xs text-muted">Restrict sign-in to members of these groups. Leave empty to let every authenticated user sign in.</p>
+      <div data-tagselect>
+        <div class="flex flex-wrap gap-1.5 empty:hidden" data-tags>
+          {{range .Data.Groups}}{{if index $.Data.Bound .ID}}
+          <span class="chip flex items-center gap-1.5" data-tag data-name="{{.Name}}">
+            {{.Name}}
+            <input type="hidden" name="policy_groups" value="{{.ID}}">
+            <button type="button" data-tag-remove class="cursor-pointer text-faint hover:text-fg" aria-label="Remove {{.Name}}">&times;</button>
+          </span>
+          {{end}}{{end}}
+        </div>
+        <input class="input mt-2 sm:w-1/2" list="policy-groups-dl" placeholder="Type to add a group…"
+               autocomplete="off" data-tag-input data-tag-name="policy_groups">
+        <datalist id="policy-groups-dl">
+          {{range .Data.Groups}}{{if not (index $.Data.Bound .ID)}}<option value="{{.Name}}" data-id="{{.ID}}"></option>{{end}}{{end}}
+        </datalist>
       </div>
       {{else}}
       <p class="mt-1 text-xs text-muted">No groups exist yet — every authenticated user may sign in. Groups appear here once created (e.g. synced from a directory).</p>
       {{end}}
     </div>
 
+    <div class="border-t border-line pt-5">
+      <h2 class="text-sm font-semibold">Token lifetimes</h2>
+      <p class="mb-3 mt-1 text-xs text-muted">In seconds. Defaults: access 300 (5 min), refresh 2592000 (30 days), ID token 3600 (1 hour).</p>
+      <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+        <div>
+          <label class="label" for="access_ttl">Access token</label>
+          <input class="input" id="access_ttl" name="access_ttl" type="number" min="1" value="{{.Data.Form.AccessTTL}}">
+        </div>
+        <div>
+          <label class="label" for="refresh_ttl">Refresh token</label>
+          <input class="input" id="refresh_ttl" name="refresh_ttl" type="number" min="1" value="{{.Data.Form.RefreshTTL}}">
+        </div>
+        <div>
+          <label class="label" for="id_ttl">ID token</label>
+          <input class="input" id="id_ttl" name="id_ttl" type="number" min="1" value="{{.Data.Form.IDTTL}}">
+        </div>
+      </div>
+    </div>
+
     <div class="flex justify-end border-t border-line pt-5">
       <button type="submit" class="btn-primary">Save changes</button>
     </div>
   </form>
+
+  {{template "iconcard" .}}
 
   <div class="card space-y-5 p-6">
     <h2 class="text-sm font-semibold">Credentials</h2>
@@ -75,14 +133,25 @@
     <div>
       <div class="dt">Client secret</div>
       <div class="flex items-center gap-2">
+        {{if .Data.ClientSecret}}
+        <input class="code-box flex-1" type="password" readonly value="{{.Data.ClientSecret}}" data-secret>
+        <button type="button" class="btn-icon shrink-0" data-secret-toggle aria-label="Show secret">
+          <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+        </button>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.ClientSecret}}">Copy</button>
+        {{else}}
         <code class="code-box flex-1 select-none text-faint">••••••••••••••••••••••••</code>
+        {{end}}
         <form method="post" action="/admin/applications/{{.Data.App.ID}}/rotate-secret" class="shrink-0"
               data-confirm="Rotate the client secret? The application will stop authenticating until it is reconfigured with the new secret.">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
           <button type="submit" class="btn-ghost">Rotate</button>
         </form>
       </div>
-      <p class="mt-1.5 text-xs text-muted">The secret is stored hashed and cannot be displayed again.</p>
+      {{if not .Data.ClientSecret}}
+      <p class="mt-1.5 text-xs text-muted">This secret predates encrypted storage and cannot be displayed — rotate it to get a visible one.</p>
+      {{end}}
     </div>
     {{end}}
     <div>

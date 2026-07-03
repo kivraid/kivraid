@@ -8,10 +8,14 @@
 <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {{range .Data.Apps}}
   <a href="{{.LaunchUrl}}" class="card group flex items-center gap-4 p-5 transition-all duration-150 hover:-translate-y-0.5 hover:shadow-md">
-    <span class="avatar-lg">{{initials .Name}}</span>
+    {{if .IconMime}}
+    <img class="size-11 shrink-0 rounded-xl object-cover" src="/appicon/{{.ID}}" alt="">
+    {{else}}
+    <span class="avatar-lg rounded-xl">{{initials .Name}}</span>
+    {{end}}
     <div class="min-w-0 flex-1">
       <div class="truncate text-sm font-semibold">{{.Name}}</div>
-      <div class="mt-0.5 truncate text-xs text-faint">{{.LaunchUrl}}</div>
+      <div class="mt-0.5 truncate text-xs text-faint">{{if .Description}}{{.Description}}{{else}}{{.LaunchUrl}}{{end}}</div>
     </div>
     <svg class="size-4 shrink-0 text-faint opacity-0 transition-opacity group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M7 7h10v10"/></svg>
   </a>

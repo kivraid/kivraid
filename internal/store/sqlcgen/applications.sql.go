@@ -7,22 +7,26 @@ package sqlcgen
 
 import (
 	"context"
+	"database/sql"
 	"time"
 )
 
 const createApplication = `-- name: CreateApplication :one
-INSERT INTO applications (id, name, slug, launch_url, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, name, slug, launch_url, created_at, updated_at
+INSERT INTO applications (id, name, slug, kind, description, launch_url, proxy_hosts, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts
 `
 
 type CreateApplicationParams struct {
-	ID        string
-	Name      string
-	Slug      string
-	LaunchUrl string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          string
+	Name        string
+	Slug        string
+	Kind        string
+	Description string
+	LaunchUrl   string
+	ProxyHosts  string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
 }
 
 func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error) {
@@ -30,7 +34,10 @@ func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationPa
 		arg.ID,
 		arg.Name,
 		arg.Slug,
+		arg.Kind,
+		arg.Description,
 		arg.LaunchUrl,
+		arg.ProxyHosts,
 		arg.CreatedAt,
 		arg.UpdatedAt,
 	)
@@ -42,16 +49,21 @@ func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationPa
 		&i.LaunchUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
+		&i.Description,
+		&i.Icon,
+		&i.IconMime,
+		&i.ProxyHosts,
 	)
 	return i, err
 }
 
 const createProvider = `-- name: CreateProvider :one
-INSERT INTO providers (id, application_id, client_id, client_secret_hash, redirect_uris,
-                       post_logout_redirect_uris, public, access_token_ttl_seconds,
+INSERT INTO providers (id, application_id, client_id, client_secret_hash, client_secret_enc,
+                       redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds,
                        refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+RETURNING id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at, client_secret_enc
 `
 
 type CreateProviderParams struct {
@@ -59,6 +71,7 @@ type CreateProviderParams struct {
 	ApplicationID          string
 	ClientID               string
 	ClientSecretHash       *string
+	ClientSecretEnc        []byte
 	RedirectUris           string
 	PostLogoutRedirectUris string
 	Public                 bool
@@ -75,6 +88,7 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 		arg.ApplicationID,
 		arg.ClientID,
 		arg.ClientSecretHash,
+		arg.ClientSecretEnc,
 		arg.RedirectUris,
 		arg.PostLogoutRedirectUris,
 		arg.Public,
@@ -98,6 +112,7 @@ func (q *Queries) CreateProvider(ctx context.Context, arg CreateProviderParams) 
 		&i.IDTokenTtlSeconds,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ClientSecretEnc,
 	)
 	return i, err
 }
@@ -112,7 +127,7 @@ func (q *Queries) DeleteApplication(ctx context.Context, id string) error {
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, name, slug, launch_url, created_at, updated_at FROM applications WHERE id = $1
+SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts FROM applications WHERE id = $1
 `
 
 func (q *Queries) GetApplication(ctx context.Context, id string) (Application, error) {
@@ -125,12 +140,33 @@ func (q *Queries) GetApplication(ctx context.Context, id string) (Application, e
 		&i.LaunchUrl,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Kind,
+		&i.Description,
+		&i.Icon,
+		&i.IconMime,
+		&i.ProxyHosts,
 	)
 	return i, err
 }
 
+const getApplicationIcon = `-- name: GetApplicationIcon :one
+SELECT icon, icon_mime FROM applications WHERE id = $1
+`
+
+type GetApplicationIconRow struct {
+	Icon     []byte
+	IconMime *string
+}
+
+func (q *Queries) GetApplicationIcon(ctx context.Context, id string) (GetApplicationIconRow, error) {
+	row := q.db.QueryRowContext(ctx, getApplicationIcon, id)
+	var i GetApplicationIconRow
+	err := row.Scan(&i.Icon, &i.IconMime)
+	return i, err
+}
+
 const getProviderByApplication = `-- name: GetProviderByApplication :one
-SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at FROM providers WHERE application_id = $1
+SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at, client_secret_enc FROM providers WHERE application_id = $1
 `
 
 func (q *Queries) GetProviderByApplication(ctx context.Context, applicationID string) (Provider, error) {
@@ -149,12 +185,13 @@ func (q *Queries) GetProviderByApplication(ctx context.Context, applicationID st
 		&i.IDTokenTtlSeconds,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ClientSecretEnc,
 	)
 	return i, err
 }
 
 const getProviderByClientID = `-- name: GetProviderByClientID :one
-SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at FROM providers WHERE client_id = $1
+SELECT id, application_id, client_id, client_secret_hash, redirect_uris, post_logout_redirect_uris, public, access_token_ttl_seconds, refresh_token_ttl_seconds, id_token_ttl_seconds, created_at, updated_at, client_secret_enc FROM providers WHERE client_id = $1
 `
 
 func (q *Queries) GetProviderByClientID(ctx context.Context, clientID string) (Provider, error) {
@@ -173,31 +210,33 @@ func (q *Queries) GetProviderByClientID(ctx context.Context, clientID string) (P
 		&i.IDTokenTtlSeconds,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ClientSecretEnc,
 	)
 	return i, err
 }
 
-const listApplicationsWithProviders = `-- name: ListApplicationsWithProviders :many
-SELECT applications.id, applications.name, applications.slug, applications.launch_url, applications.created_at, applications.updated_at, providers.id, providers.application_id, providers.client_id, providers.client_secret_hash, providers.redirect_uris, providers.post_logout_redirect_uris, providers.public, providers.access_token_ttl_seconds, providers.refresh_token_ttl_seconds, providers.id_token_ttl_seconds, providers.created_at, providers.updated_at
-FROM applications
-JOIN providers ON providers.application_id = applications.id
-ORDER BY applications.name
+const listApplicationsAdmin = `-- name: ListApplicationsAdmin :many
+SELECT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, p.client_id, p.public
+FROM applications a
+LEFT JOIN providers p ON p.application_id = a.id
+ORDER BY a.name
 `
 
-type ListApplicationsWithProvidersRow struct {
+type ListApplicationsAdminRow struct {
 	Application Application
-	Provider    Provider
+	ClientID    *string
+	Public      sql.NullBool
 }
 
-func (q *Queries) ListApplicationsWithProviders(ctx context.Context) ([]ListApplicationsWithProvidersRow, error) {
-	rows, err := q.db.QueryContext(ctx, listApplicationsWithProviders)
+func (q *Queries) ListApplicationsAdmin(ctx context.Context) ([]ListApplicationsAdminRow, error) {
+	rows, err := q.db.QueryContext(ctx, listApplicationsAdmin)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListApplicationsWithProvidersRow
+	var items []ListApplicationsAdminRow
 	for rows.Next() {
-		var i ListApplicationsWithProvidersRow
+		var i ListApplicationsAdminRow
 		if err := rows.Scan(
 			&i.Application.ID,
 			&i.Application.Name,
@@ -205,18 +244,52 @@ func (q *Queries) ListApplicationsWithProviders(ctx context.Context) ([]ListAppl
 			&i.Application.LaunchUrl,
 			&i.Application.CreatedAt,
 			&i.Application.UpdatedAt,
-			&i.Provider.ID,
-			&i.Provider.ApplicationID,
-			&i.Provider.ClientID,
-			&i.Provider.ClientSecretHash,
-			&i.Provider.RedirectUris,
-			&i.Provider.PostLogoutRedirectUris,
-			&i.Provider.Public,
-			&i.Provider.AccessTokenTtlSeconds,
-			&i.Provider.RefreshTokenTtlSeconds,
-			&i.Provider.IDTokenTtlSeconds,
-			&i.Provider.CreatedAt,
-			&i.Provider.UpdatedAt,
+			&i.Application.Kind,
+			&i.Application.Description,
+			&i.Application.Icon,
+			&i.Application.IconMime,
+			&i.Application.ProxyHosts,
+			&i.ClientID,
+			&i.Public,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listProxyApplications = `-- name: ListProxyApplications :many
+SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts FROM applications WHERE kind = 'proxy' ORDER BY name
+`
+
+func (q *Queries) ListProxyApplications(ctx context.Context) ([]Application, error) {
+	rows, err := q.db.QueryContext(ctx, listProxyApplications)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Application
+	for rows.Next() {
+		var i Application
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.LaunchUrl,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.Kind,
+			&i.Description,
+			&i.Icon,
+			&i.IconMime,
+			&i.ProxyHosts,
 		); err != nil {
 			return nil, err
 		}
@@ -232,22 +305,49 @@ func (q *Queries) ListApplicationsWithProviders(ctx context.Context) ([]ListAppl
 }
 
 const updateApplication = `-- name: UpdateApplication :exec
-UPDATE applications SET name = $1, slug = $2, launch_url = $3, updated_at = $4 WHERE id = $5
+UPDATE applications
+SET name = $1, slug = $2, description = $3, launch_url = $4, proxy_hosts = $5, updated_at = $6
+WHERE id = $7
 `
 
 type UpdateApplicationParams struct {
-	Name      string
-	Slug      string
-	LaunchUrl string
-	UpdatedAt time.Time
-	ID        string
+	Name        string
+	Slug        string
+	Description string
+	LaunchUrl   string
+	ProxyHosts  string
+	UpdatedAt   time.Time
+	ID          string
 }
 
 func (q *Queries) UpdateApplication(ctx context.Context, arg UpdateApplicationParams) error {
 	_, err := q.db.ExecContext(ctx, updateApplication,
 		arg.Name,
 		arg.Slug,
+		arg.Description,
 		arg.LaunchUrl,
+		arg.ProxyHosts,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const updateApplicationIcon = `-- name: UpdateApplicationIcon :exec
+UPDATE applications SET icon = $1, icon_mime = $2, updated_at = $3 WHERE id = $4
+`
+
+type UpdateApplicationIconParams struct {
+	Icon      []byte
+	IconMime  *string
+	UpdatedAt time.Time
+	ID        string
+}
+
+func (q *Queries) UpdateApplicationIcon(ctx context.Context, arg UpdateApplicationIconParams) error {
+	_, err := q.db.ExecContext(ctx, updateApplicationIcon,
+		arg.Icon,
+		arg.IconMime,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -255,12 +355,19 @@ func (q *Queries) UpdateApplication(ctx context.Context, arg UpdateApplicationPa
 }
 
 const updateProviderRedirects = `-- name: UpdateProviderRedirects :exec
-UPDATE providers SET redirect_uris = $1, post_logout_redirect_uris = $2, updated_at = $3 WHERE id = $4
+UPDATE providers
+SET redirect_uris = $1, post_logout_redirect_uris = $2,
+    access_token_ttl_seconds = $3, refresh_token_ttl_seconds = $4, id_token_ttl_seconds = $5,
+    updated_at = $6
+WHERE id = $7
 `
 
 type UpdateProviderRedirectsParams struct {
 	RedirectUris           string
 	PostLogoutRedirectUris string
+	AccessTokenTtlSeconds  int64
+	RefreshTokenTtlSeconds int64
+	IDTokenTtlSeconds      int64
 	UpdatedAt              time.Time
 	ID                     string
 }
@@ -269,6 +376,9 @@ func (q *Queries) UpdateProviderRedirects(ctx context.Context, arg UpdateProvide
 	_, err := q.db.ExecContext(ctx, updateProviderRedirects,
 		arg.RedirectUris,
 		arg.PostLogoutRedirectUris,
+		arg.AccessTokenTtlSeconds,
+		arg.RefreshTokenTtlSeconds,
+		arg.IDTokenTtlSeconds,
 		arg.UpdatedAt,
 		arg.ID,
 	)
@@ -276,16 +386,45 @@ func (q *Queries) UpdateProviderRedirects(ctx context.Context, arg UpdateProvide
 }
 
 const updateProviderSecret = `-- name: UpdateProviderSecret :exec
-UPDATE providers SET client_secret_hash = $1, updated_at = $2 WHERE id = $3
+UPDATE providers SET client_secret_hash = $1, client_secret_enc = $2, updated_at = $3 WHERE id = $4
 `
 
 type UpdateProviderSecretParams struct {
 	ClientSecretHash *string
+	ClientSecretEnc  []byte
 	UpdatedAt        time.Time
 	ID               string
 }
 
 func (q *Queries) UpdateProviderSecret(ctx context.Context, arg UpdateProviderSecretParams) error {
-	_, err := q.db.ExecContext(ctx, updateProviderSecret, arg.ClientSecretHash, arg.UpdatedAt, arg.ID)
+	_, err := q.db.ExecContext(ctx, updateProviderSecret,
+		arg.ClientSecretHash,
+		arg.ClientSecretEnc,
+		arg.UpdatedAt,
+		arg.ID,
+	)
+	return err
+}
+
+const updateProviderType = `-- name: UpdateProviderType :exec
+UPDATE providers SET public = $1, client_secret_hash = $2, client_secret_enc = $3, updated_at = $4 WHERE id = $5
+`
+
+type UpdateProviderTypeParams struct {
+	Public           bool
+	ClientSecretHash *string
+	ClientSecretEnc  []byte
+	UpdatedAt        time.Time
+	ID               string
+}
+
+func (q *Queries) UpdateProviderType(ctx context.Context, arg UpdateProviderTypeParams) error {
+	_, err := q.db.ExecContext(ctx, updateProviderType,
+		arg.Public,
+		arg.ClientSecretHash,
+		arg.ClientSecretEnc,
+		arg.UpdatedAt,
+		arg.ID,
+	)
 	return err
 }

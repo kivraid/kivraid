@@ -124,7 +124,7 @@ func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
 }
 
 const listLaunchableApplications = `-- name: ListLaunchableApplications :many
-SELECT DISTINCT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at
+SELECT DISTINCT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts
 FROM applications a
 LEFT JOIN app_policies p ON p.application_id = a.id
 WHERE a.launch_url != ''
@@ -149,6 +149,11 @@ func (q *Queries) ListLaunchableApplications(ctx context.Context, userID string)
 			&i.LaunchUrl,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Kind,
+			&i.Description,
+			&i.Icon,
+			&i.IconMime,
+			&i.ProxyHosts,
 		); err != nil {
 			return nil, err
 		}

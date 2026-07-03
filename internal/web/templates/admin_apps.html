@@ -11,13 +11,19 @@
 <div class="card divide-y divide-line">
   {{range .Data.Apps}}
   <a href="/admin/applications/{{.Application.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
-    <span class="avatar">{{initials .Application.Name}}</span>
+    {{if .Application.IconMime}}
+    <img class="size-8 shrink-0 rounded-lg object-cover" src="/appicon/{{.Application.ID}}" alt="">
+    {{else}}
+    <span class="avatar rounded-lg">{{initials .Application.Name}}</span>
+    {{end}}
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
         <span class="truncate text-sm font-medium">{{.Application.Name}}</span>
-        {{if .Provider.Public}}<span class="badge">Public · PKCE</span>{{else}}<span class="badge">Confidential</span>{{end}}
+        {{if eq .Application.Kind "proxy"}}<span class="badge">Forward auth</span>{{end}}
       </div>
-      <div class="mt-0.5 truncate font-mono text-xs text-faint">{{.Provider.ClientID}}</div>
+      <div class="mt-0.5 truncate font-mono text-xs text-faint">
+        {{if eq .Application.Kind "proxy"}}forward auth{{else}}{{with .ClientID}}{{.}}{{end}}{{end}}
+      </div>
     </div>
     <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
   </a>

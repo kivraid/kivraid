@@ -11,16 +11,17 @@ SQLite database**: no Python, no PostgreSQL, no Redis, no workers.
   refresh token rotation, discovery, JWKS (ES256, keys encrypted at
   rest), userinfo, introspection, revocation, RP-initiated logout.
 - **Forward auth** — protect apps without native SSO via Traefik, nginx
-  or Caddy ([docs/forward-auth.md](docs/forward-auth.md)).
+  or Caddy, registered as first-class applications with their own group
+  access policy ([docs/forward-auth.md](docs/forward-auth.md)).
 - **User sources** — local accounts (Argon2id) and live LDAP directories
   (OpenLDAP, LLDAP): bind authentication, group sync, and self-service
   password change written back via RFC 3062.
 - **User portal** — application launcher, profile, password change,
   session list with revocation. Light and dark, fast, no SPA.
-- **Admin** — application wizard mirroring Authentik's
-  provider/application split (secret shown once, stored hashed),
-  group-based access policies, directory management with connection
-  test, audit trail.
+- **Admin** — application wizard (OIDC or forward-auth), client secret
+  displayed and rotatable, editable token lifetimes, uploadable icons
+  and descriptions, group-based access policies, directory management
+  with connection test, audit trail.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP,
   login rate limiting, append-only audit log, all secrets hashed or
   encrypted at rest.

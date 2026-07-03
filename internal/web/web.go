@@ -103,6 +103,7 @@ func NewServer(d Deps) (*Server, error) {
 	withLayout := []string{
 		"home.html", "profile.html", "sessions.html", "denied.html",
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
+		"admin_proxy_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
 		"admin_groups.html", "admin_group_detail.html",
@@ -127,6 +128,7 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("POST /setup", s.handleSetupSubmit)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))
 	web.Handle("GET /avatar/{id}", s.requireAuth(http.HandlerFunc(s.handleAvatar)))
+	web.Handle("GET /appicon/{id}", s.requireAuth(http.HandlerFunc(s.handleAppIcon)))
 	web.Handle("GET /profile", s.requireAuth(http.HandlerFunc(s.handleProfile)))
 	web.Handle("POST /profile/password", s.requireAuth(http.HandlerFunc(s.handleProfilePassword)))
 	web.Handle("POST /profile/photo", s.requireAuth(http.HandlerFunc(s.handleProfilePhoto)))
@@ -143,6 +145,8 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/applications/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminAppDetail)))
 	web.Handle("POST /admin/applications/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminAppUpdate)))
 	web.Handle("POST /admin/applications/{id}/rotate-secret", s.requireAdmin(http.HandlerFunc(s.handleAdminAppRotateSecret)))
+	web.Handle("POST /admin/applications/{id}/icon", s.requireAdmin(http.HandlerFunc(s.handleAppIconUpload)))
+	web.Handle("POST /admin/applications/{id}/icon/delete", s.requireAdmin(http.HandlerFunc(s.handleAppIconDelete)))
 	web.Handle("POST /admin/applications/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminAppDelete)))
 
 	web.Handle("GET /admin/ldap", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapList)))

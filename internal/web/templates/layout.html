@@ -82,6 +82,32 @@
 </body>
 </html>
 
+{{define "iconcard"}}
+<div class="card space-y-4 p-6">
+  <h2 class="text-sm font-semibold">Icon</h2>
+  <div class="flex items-center gap-4">
+    {{if .Data.App.IconMime}}
+    <img class="size-12 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
+    {{else}}
+    <span class="avatar-lg rounded-xl">{{initials .Data.App.Name}}</span>
+    {{end}}
+    <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon" enctype="multipart/form-data" class="flex flex-1 items-center gap-3">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" required
+             class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
+      <button type="submit" class="btn shrink-0 border border-line hover:bg-raised">Upload</button>
+    </form>
+    {{if .Data.App.IconMime}}
+    <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon/delete" class="shrink-0">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button type="submit" class="btn-ghost">Remove</button>
+    </form>
+    {{end}}
+  </div>
+  <p class="text-xs text-muted">Shown in the launcher. JPEG, PNG, WebP or GIF, up to 1 MB.</p>
+</div>
+{{end}}
+
 {{define "logo"}}
 <svg width="{{.}}" height="{{.}}" viewBox="0 0 24 24" aria-hidden="true">
   <rect width="24" height="24" rx="6" class="fill-accent"/>

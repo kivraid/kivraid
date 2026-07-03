@@ -20,6 +20,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 
+	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/store"
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
@@ -35,17 +36,38 @@ const (
 type Storage struct {
 	store *store.Store
 	key   *signingKey
+	// clientSecretKey encrypts OAuth client secrets at rest so the admin
+	// can display them again.
+	clientSecretKey [32]byte
 }
 
 var _ op.Storage = (*Storage)(nil)
 var _ op.CanSetUserinfoFromRequest = (*Storage)(nil)
 
-func NewStorage(ctx context.Context, st *store.Store, sealKey [32]byte) (*Storage, error) {
+func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [32]byte) (*Storage, error) {
 	key, err := loadOrCreateSigningKey(ctx, st, sealKey)
 	if err != nil {
 		return nil, fmt.Errorf("signing key: %w", err)
 	}
-	return &Storage{store: st, key: key}, nil
+	return &Storage{store: st, key: key, clientSecretKey: clientSecretKey}, nil
+}
+
+// SealClientSecret encrypts a client secret for storage.
+func (s *Storage) SealClientSecret(secret string) ([]byte, error) {
+	return secrets.Seal(s.clientSecretKey, []byte(secret))
+}
+
+// OpenClientSecret decrypts a stored client secret; empty when absent
+// (legacy hashed-only rows) or undecryptable.
+func (s *Storage) OpenClientSecret(sealed []byte) string {
+	if len(sealed) == 0 {
+		return ""
+	}
+	plain, err := secrets.Open(s.clientSecretKey, sealed)
+	if err != nil {
+		return ""
+	}
+	return string(plain)
 }
 
 func notFound(err error) error {
@@ -372,6 +394,14 @@ func (s *Storage) AuthorizeClientIDSecret(ctx context.Context, clientID, clientS
 	provider, err := s.store.GetProviderByClientID(ctx, clientID)
 	if err != nil {
 		return notFound(err)
+	}
+	// Current secrets are encrypted at rest; rows created before the
+	// switch only carry a hash and keep verifying until rotated.
+	if stored := s.OpenClientSecret(provider.ClientSecretEnc); stored != "" {
+		if subtle.ConstantTimeCompare([]byte(clientSecret), []byte(stored)) != 1 {
+			return oidc.ErrInvalidClient().WithDescription("invalid client secret")
+		}
+		return nil
 	}
 	if provider.ClientSecretHash == nil {
 		return oidc.ErrInvalidClient().WithDescription("client has no secret")

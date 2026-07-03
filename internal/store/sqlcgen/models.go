@@ -25,12 +25,17 @@ type AppPolicy struct {
 }
 
 type Application struct {
-	ID        string
-	Name      string
-	Slug      string
-	LaunchUrl string
-	CreatedAt time.Time
-	UpdatedAt time.Time
+	ID          string
+	Name        string
+	Slug        string
+	LaunchUrl   string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Kind        string
+	Description string
+	Icon        []byte
+	IconMime    *string
+	ProxyHosts  string
 }
 
 type AuditLog struct {
@@ -95,6 +100,7 @@ type Provider struct {
 	IDTokenTtlSeconds      int64
 	CreatedAt              time.Time
 	UpdatedAt              time.Time
+	ClientSecretEnc        []byte
 }
 
 type RefreshToken struct {

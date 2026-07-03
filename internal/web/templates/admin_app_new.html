@@ -1,15 +1,35 @@
 {{define "content"}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">New application</h1>
-  <p class="mt-1 text-sm text-muted">Registers the application and its OIDC provider in one step.</p>
+  <p class="mt-1 text-sm text-muted">Register an application to put it behind Kivraid.</p>
 </div>
 
 {{if .Data.Error}}
 <div class="alert-danger mb-4" role="alert">{{.Data.Error}}</div>
 {{end}}
 
-<form method="post" action="/admin/applications" class="card space-y-5 p-6">
+<form method="post" action="/admin/applications" class="card space-y-5 p-6" data-appform>
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
+
+  <fieldset>
+    <legend class="label">Integration</legend>
+    <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
+      <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+        <input type="radio" name="kind" value="oidc" class="mt-0.5 accent-accent" data-kind checked>
+        <span>
+          <span class="block text-sm font-medium">OpenID Connect</span>
+          <span class="block text-xs text-muted">Apps that speak OIDC natively (Grafana, Gitea, Nextcloud…).</span>
+        </span>
+      </label>
+      <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+        <input type="radio" name="kind" value="proxy" class="mt-0.5 accent-accent" data-kind>
+        <span>
+          <span class="block text-sm font-medium">Forward auth</span>
+          <span class="block text-xs text-muted">Apps with no SSO, protected through your reverse proxy.</span>
+        </span>
+      </label>
+    </div>
+  </fieldset>
 
   <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
     <div>
@@ -23,37 +43,52 @@
   </div>
 
   <div>
+    <label class="label" for="description">Description <span class="font-normal text-faint">(optional)</span></label>
+    <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="Metrics dashboards">
+  </div>
+
+  <div>
     <label class="label" for="launch_url">Launch URL <span class="font-normal text-faint">(optional)</span></label>
     <input class="input" id="launch_url" name="launch_url" value="{{.Data.Form.LaunchURL}}" placeholder="https://grafana.example.com">
     <p class="mt-1.5 text-xs text-muted">Shown in the user portal's application launcher.</p>
   </div>
 
-  <div>
-    <label class="label" for="redirect_uris">Redirect URIs</label>
-    <textarea class="textarea font-mono" id="redirect_uris" name="redirect_uris" rows="3" required
-              placeholder="https://grafana.example.com/login/generic_oauth">{{.Data.Form.RedirectURIs}}</textarea>
-    <p class="mt-1.5 text-xs text-muted">One per line, exact match.</p>
+  <div data-kind-oidc class="space-y-5">
+    <div>
+      <label class="label" for="redirect_uris">Redirect URIs</label>
+      <textarea class="textarea font-mono" id="redirect_uris" name="redirect_uris" rows="3"
+                placeholder="https://grafana.example.com/login/generic_oauth">{{.Data.Form.RedirectURIs}}</textarea>
+      <p class="mt-1.5 text-xs text-muted">One per line, exact match.</p>
+    </div>
+    <fieldset>
+      <legend class="label">Client type</legend>
+      <div class="space-y-2">
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+          <input type="radio" name="client_type" value="confidential" class="mt-0.5 accent-accent" {{if not .Data.Form.Public}}checked{{end}}>
+          <span>
+            <span class="block text-sm font-medium">Confidential</span>
+            <span class="block text-xs text-muted">Server-side application that can keep a client secret (most web apps).</span>
+          </span>
+        </label>
+        <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+          <input type="radio" name="client_type" value="public" class="mt-0.5 accent-accent" {{if .Data.Form.Public}}checked{{end}}>
+          <span>
+            <span class="block text-sm font-medium">Public · PKCE</span>
+            <span class="block text-xs text-muted">SPA, mobile or CLI that cannot keep a secret; PKCE is enforced.</span>
+          </span>
+        </label>
+      </div>
+    </fieldset>
   </div>
 
-  <fieldset>
-    <legend class="label">Client type</legend>
-    <div class="space-y-2">
-      <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
-        <input type="radio" name="client_type" value="confidential" class="mt-0.5 accent-accent" {{if not .Data.Form.Public}}checked{{end}}>
-        <span>
-          <span class="block text-sm font-medium">Confidential</span>
-          <span class="block text-xs text-muted">Server-side application that can keep a client secret (most web apps).</span>
-        </span>
-      </label>
-      <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
-        <input type="radio" name="client_type" value="public" class="mt-0.5 accent-accent" {{if .Data.Form.Public}}checked{{end}}>
-        <span>
-          <span class="block text-sm font-medium">Public · PKCE</span>
-          <span class="block text-xs text-muted">SPA, mobile or CLI that cannot keep a secret; PKCE is enforced.</span>
-        </span>
-      </label>
+  <div data-kind-proxy class="hidden space-y-5">
+    <div>
+      <label class="label" for="proxy_hosts">Protected hosts</label>
+      <textarea class="textarea font-mono" id="proxy_hosts" name="proxy_hosts" rows="3"
+                placeholder="jellyfin.home.example.com">{{.Data.Form.ProxyHosts}}</textarea>
+      <p class="mt-1.5 text-xs text-muted">One host per line. Your reverse proxy asks Kivraid at <code>/outpost/auth</code>; requests for these hosts are matched to this application to enforce its access policy. See <code>docs/forward-auth.md</code>.</p>
     </div>
-  </fieldset>
+  </div>
 
   <div class="flex items-center justify-end gap-3 border-t border-line pt-5">
     <a href="/admin/applications" class="btn-ghost">Cancel</a>

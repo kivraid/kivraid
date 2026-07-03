@@ -90,10 +90,22 @@ app.example.com {
 }
 ```
 
+## Per-application authorization
+
+Register a **forward-auth application** in Admin → Applications (choose
+the "Forward auth" integration) and list its protected hosts. When a
+request's `X-Forwarded-Host` matches one of them, Kivraid enforces that
+application's group access policy: members who fail it get `403`, so the
+protected app never sees an unauthorized user. An application with no
+policy allows any authenticated user. Give it a launch URL to make it
+appear in the user portal's launcher.
+
+The `forward_auth.domains` config still governs which hosts may be used
+as post-login redirect targets (open-redirect protection); a registered
+proxy application's hosts are trusted for that too.
+
 ## Notes
 
-- Forward auth currently checks *authentication* only; group-based
-  authorization per protected domain is planned.
 - The identity headers are only trustworthy when set by the proxy —
   make sure the upstream application cannot receive them directly from
   clients.

@@ -1,19 +1,24 @@
 package web
 
 import (
+	"context"
 	"net"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
 
 // handleForwardAuth is the auth_request-style endpoint for reverse
 // proxies (Traefik forwardAuth, nginx auth_request, Caddy forward_auth).
 // Authenticated requests get 200 plus identity headers the proxy can
 // copy upstream; anonymous browser requests are redirected to the login
-// page when the target host is allowlisted, 401 otherwise.
+// page when the target host is allowlisted, 401 otherwise. When a proxy
+// application is registered for the host, its group access policy is
+// enforced (403 for members who fail it).
 func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 	userID := s.sessions.GetString(r.Context(), session.KeyUserID)
 	if userID == "" {
@@ -25,6 +30,25 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 		s.forwardAuthDeny(w, r)
 		return
 	}
+
+	// If a proxy application is registered for the requested host, enforce
+	// its group access policy (empty policy = any authenticated user).
+	if app, matched, err := s.matchProxyApp(r.Context(), r.Header.Get("X-Forwarded-Host")); err != nil {
+		s.serverError(w, r, err)
+		return
+	} else if matched {
+		allowed, err := s.userCanAccessApp(r.Context(), app.ID, user.ID)
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		if !allowed {
+			s.audit.Record(r.Context(), user.Username, audit.ActionOIDCDeny, app.Slug, "forward-auth", clientIP(r))
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+	}
+
 	groups, err := s.store.ListUserGroups(r.Context(), user.ID)
 	if err != nil {
 		s.serverError(w, r, err)
@@ -57,15 +81,20 @@ func (s *Server) forwardAuthDeny(w http.ResponseWriter, r *http.Request) {
 	http.Error(w, "unauthorized", http.StatusUnauthorized)
 }
 
-// forwardHostAllowed reports whether host matches the configured
-// forward-auth domains (".suffix" entries match subdomains and the bare
-// domain; others match exactly).
-func (s *Server) forwardHostAllowed(host string) bool {
-	hostname := host
+// normalizeHost lowercases host and strips any port.
+func normalizeHost(host string) string {
 	if h, _, err := net.SplitHostPort(host); err == nil {
-		hostname = h
+		host = h
 	}
-	hostname = strings.ToLower(hostname)
+	return strings.ToLower(host)
+}
+
+// forwardHostAllowed reports whether host may be a post-login redirect
+// target: it must match a configured forward-auth domain (".suffix"
+// entries match subdomains and the bare domain; others match exactly) or
+// a registered proxy application's host.
+func (s *Server) forwardHostAllowed(host string) bool {
+	hostname := normalizeHost(host)
 	for _, d := range s.cfg.ForwardAuth.Domains {
 		d = strings.ToLower(d)
 		if strings.HasPrefix(d, ".") {
@@ -76,7 +105,30 @@ func (s *Server) forwardHostAllowed(host string) bool {
 			return true
 		}
 	}
+	if _, matched, err := s.matchProxyApp(context.Background(), host); err == nil && matched {
+		return true
+	}
 	return false
+}
+
+// matchProxyApp returns the proxy application registered for host, if any.
+func (s *Server) matchProxyApp(ctx context.Context, host string) (sqlcgen.Application, bool, error) {
+	hostname := normalizeHost(host)
+	if hostname == "" {
+		return sqlcgen.Application{}, false, nil
+	}
+	apps, err := s.store.ListProxyApplications(ctx)
+	if err != nil {
+		return sqlcgen.Application{}, false, err
+	}
+	for _, app := range apps {
+		for _, h := range decodeList(app.ProxyHosts) {
+			if normalizeHost(h) == hostname {
+				return app, true, nil
+			}
+		}
+	}
+	return sqlcgen.Application{}, false, nil
 }
 
 // safeNext returns next when it is a same-site path or an absolute URL

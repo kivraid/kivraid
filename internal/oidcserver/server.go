@@ -27,7 +27,9 @@ func CallbackPath(authRequestID string) string {
 // an http.Handler covering discovery, authorize, token, userinfo, keys,
 // revocation and end_session under the issuer root.
 func New(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*op.Provider, *Storage, error) {
-	storage, err := NewStorage(ctx, st, secrets.DeriveKey(cfg.SecretKey, "signing-keys"))
+	storage, err := NewStorage(ctx, st,
+		secrets.DeriveKey(cfg.SecretKey, "signing-keys"),
+		secrets.DeriveKey(cfg.SecretKey, "client-secrets"))
 	if err != nil {
 		return nil, nil, err
 	}

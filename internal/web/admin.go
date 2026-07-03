@@ -7,8 +7,11 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"net/url"
+	"slices"
+	"strconv"
 	"strings"
 	"time"
 
@@ -36,14 +39,20 @@ func (s *Server) requireAdmin(next http.Handler) http.Handler {
 type appForm struct {
 	Name           string
 	Slug           string
+	Kind           string // "oidc" or "proxy"
+	Description    string
 	LaunchURL      string
 	RedirectURIs   string
 	PostLogoutURIs string
+	ProxyHosts     string
 	Public         bool
+	AccessTTL      int64
+	RefreshTTL     int64
+	IDTTL          int64
 }
 
 type adminAppsData struct {
-	Apps []sqlcgen.ListApplicationsWithProvidersRow
+	Apps []sqlcgen.ListApplicationsAdminRow
 }
 
 type adminAppFormData struct {
@@ -60,18 +69,19 @@ type adminAppSecretData struct {
 }
 
 type adminAppDetailData struct {
-	App      sqlcgen.Application
-	Provider sqlcgen.Provider
-	Form     appForm
-	Issuer   string
-	Error    string
-	Saved    bool
-	Groups   []sqlcgen.Group
-	Bound    map[string]bool
+	App          sqlcgen.Application
+	Provider     sqlcgen.Provider
+	Form         appForm
+	Issuer       string
+	Error        string
+	Saved        bool
+	Groups       []sqlcgen.Group
+	Bound        map[string]bool
+	ClientSecret string // decrypted; empty for legacy hashed-only rows
 }
 
 func (s *Server) handleAdminApps(w http.ResponseWriter, r *http.Request) {
-	apps, err := s.store.ListApplicationsWithProviders(r.Context())
+	apps, err := s.store.ListApplicationsAdmin(r.Context())
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -90,16 +100,48 @@ func (s *Server) handleAdminAppNew(w http.ResponseWriter, r *http.Request) {
 }
 
 func parseAppForm(r *http.Request) appForm {
-	return appForm{
+	f := appForm{
 		Name:           strings.TrimSpace(r.PostFormValue("name")),
 		Slug:           strings.TrimSpace(r.PostFormValue("slug")),
+		Kind:           r.PostFormValue("kind"),
+		Description:    strings.TrimSpace(r.PostFormValue("description")),
 		LaunchURL:      strings.TrimSpace(r.PostFormValue("launch_url")),
 		RedirectURIs:   r.PostFormValue("redirect_uris"),
 		PostLogoutURIs: r.PostFormValue("post_logout_uris"),
+		ProxyHosts:     r.PostFormValue("proxy_hosts"),
 		Public:         r.PostFormValue("client_type") == "public",
+		AccessTTL:      parseTTL(r.PostFormValue("access_ttl"), 300),
+		RefreshTTL:     parseTTL(r.PostFormValue("refresh_ttl"), 30*24*3600),
+		IDTTL:          parseTTL(r.PostFormValue("id_ttl"), 3600),
 	}
+	if f.Kind != "proxy" {
+		f.Kind = "oidc"
+	}
+	return f
 }
 
+// parseTTL reads a positive seconds value, falling back to def.
+func parseTTL(raw string, def int64) int64 {
+	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
+	if err != nil || n <= 0 {
+		return def
+	}
+	return n
+}
+
+// parseHostList reads one host[:port] per line.
+func parseHostList(raw string) []string {
+	var out []string
+	for _, line := range strings.Split(raw, "\n") {
+		if line = strings.TrimSpace(line); line != "" {
+			out = append(out, strings.ToLower(line))
+		}
+	}
+	return out
+}
+
+// validate checks common fields and, for OIDC apps, the redirect URIs.
+// Proxy apps validate their hosts via validateProxy.
 func (f *appForm) validate() (redirects, postLogout []string, err error) {
 	if f.Name == "" {
 		return nil, nil, errors.New("Name is required.")
@@ -116,6 +158,12 @@ func (f *appForm) validate() (redirects, postLogout []string, err error) {
 		if _, perr := url.ParseRequestURI(f.LaunchURL); perr != nil {
 			return nil, nil, errors.New("Launch URL must be a valid absolute URL.")
 		}
+	}
+	if f.Kind == "proxy" {
+		if len(parseHostList(f.ProxyHosts)) == 0 {
+			return nil, nil, errors.New("At least one protected host is required.")
+		}
+		return nil, nil, nil
 	}
 	redirects, err = parseURIList(f.RedirectURIs)
 	if err != nil {
@@ -193,15 +241,6 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	clientID := randomHex(20)
-	var secret string
-	var secretHash *string
-	if !form.Public {
-		secret = randomHex(32)
-		h := oidcserver.HashToken(secret)
-		secretHash = &h
-	}
-
 	now := time.Now().UTC()
 	tx, err := s.store.DB.BeginTx(r.Context(), nil)
 	if err != nil {
@@ -211,9 +250,14 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback()
 	q := s.store.Queries.WithTx(tx)
 
+	hosts := ""
+	if form.Kind == "proxy" {
+		hosts = jsonList(parseHostList(form.ProxyHosts))
+	}
 	app, err := q.CreateApplication(r.Context(), sqlcgen.CreateApplicationParams{
-		ID: uuid.NewString(), Name: form.Name, Slug: form.Slug,
-		LaunchUrl: form.LaunchURL, CreatedAt: now, UpdatedAt: now,
+		ID: uuid.NewString(), Name: form.Name, Slug: form.Slug, Kind: form.Kind,
+		Description: form.Description, LaunchUrl: form.LaunchURL, ProxyHosts: hosts,
+		CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -223,10 +267,35 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+
+	// Proxy apps have no OIDC provider; nothing more to create.
+	if form.Kind == "proxy" {
+		if err := tx.Commit(); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppCreate, app.Slug, "proxy", clientIP(r))
+		http.Redirect(w, r, "/admin/applications/"+app.ID, http.StatusSeeOther)
+		return
+	}
+
+	clientID := randomHex(20)
+	var secret string
+	var secretHash *string
+	var secretEnc []byte
+	if !form.Public {
+		secret = randomHex(32)
+		h := oidcserver.HashToken(secret)
+		secretHash = &h
+		if secretEnc, err = s.oidcStore.SealClientSecret(secret); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
 	_, err = q.CreateProvider(r.Context(), sqlcgen.CreateProviderParams{
 		ID: uuid.NewString(), ApplicationID: app.ID, ClientID: clientID,
-		ClientSecretHash: secretHash,
-		RedirectUris:     jsonList(redirects), PostLogoutRedirectUris: jsonList(postLogout),
+		ClientSecretHash: secretHash, ClientSecretEnc: secretEnc,
+		RedirectUris: jsonList(redirects), PostLogoutRedirectUris: jsonList(postLogout),
 		Public:                form.Public,
 		AccessTokenTtlSeconds: 300, RefreshTokenTtlSeconds: 30 * 24 * 3600, IDTokenTtlSeconds: 3600,
 		CreatedAt: now, UpdatedAt: now,
@@ -267,12 +336,28 @@ func (s *Server) loadAppAndProvider(w http.ResponseWriter, r *http.Request) (sql
 	return app, provider, true
 }
 
+func (s *Server) loadApp(w http.ResponseWriter, r *http.Request) (sqlcgen.Application, bool) {
+	app, err := s.store.GetApplication(r.Context(), r.PathValue("id"))
+	if errors.Is(err, sql.ErrNoRows) {
+		http.NotFound(w, r)
+		return app, false
+	}
+	if err != nil {
+		s.serverError(w, r, err)
+		return app, false
+	}
+	return app, true
+}
+
 func (s *Server) renderAppDetail(w http.ResponseWriter, r *http.Request, app sqlcgen.Application, provider sqlcgen.Provider, errMsg string, saved bool) {
 	form := appForm{
-		Name: app.Name, Slug: app.Slug, LaunchURL: app.LaunchUrl,
+		Name: app.Name, Slug: app.Slug, Kind: app.Kind, Description: app.Description, LaunchURL: app.LaunchUrl,
 		RedirectURIs:   strings.Join(decodeList(provider.RedirectUris), "\n"),
 		PostLogoutURIs: strings.Join(decodeList(provider.PostLogoutRedirectUris), "\n"),
 		Public:         provider.Public,
+		AccessTTL:      provider.AccessTokenTtlSeconds,
+		RefreshTTL:     provider.RefreshTokenTtlSeconds,
+		IDTTL:          provider.IDTokenTtlSeconds,
 	}
 	groups, err := s.store.ListGroups(r.Context())
 	if err != nil {
@@ -294,25 +379,44 @@ func (s *Server) renderAppDetail(w http.ResponseWriter, r *http.Request, app sql
 		Data: adminAppDetailData{
 			App: app, Provider: provider, Form: form, Issuer: s.issuer(),
 			Error: errMsg, Saved: saved, Groups: groups, Bound: bound,
+			ClientSecret: s.oidcStore.OpenClientSecret(provider.ClientSecretEnc),
 		},
 	})
 }
 
 func (s *Server) handleAdminAppDetail(w http.ResponseWriter, r *http.Request) {
-	app, provider, ok := s.loadAppAndProvider(w, r)
+	app, ok := s.loadApp(w, r)
 	if !ok {
+		return
+	}
+	if app.Kind == "proxy" {
+		s.renderProxyDetail(w, r, app, "", r.URL.Query().Get("saved") == "1")
+		return
+	}
+	provider, err := s.store.GetProviderByApplication(r.Context(), app.ID)
+	if err != nil {
+		s.serverError(w, r, err)
 		return
 	}
 	s.renderAppDetail(w, r, app, provider, "", r.URL.Query().Get("saved") == "1")
 }
 
 func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
-	app, provider, ok := s.loadAppAndProvider(w, r)
+	app, ok := s.loadApp(w, r)
 	if !ok {
 		return
 	}
+	if app.Kind == "proxy" {
+		s.handleAdminProxyUpdate(w, r, app)
+		return
+	}
+	provider, err := s.store.GetProviderByApplication(r.Context(), app.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	form := parseAppForm(r)
-	form.Public = provider.Public // client type is immutable after creation
+	form.Kind = "oidc"
 
 	redirects, postLogout, err := form.validate()
 	if err != nil {
@@ -324,7 +428,8 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 
 	now := time.Now().UTC()
 	if err := s.store.UpdateApplication(r.Context(), sqlcgen.UpdateApplicationParams{
-		Name: form.Name, Slug: form.Slug, LaunchUrl: form.LaunchURL, UpdatedAt: now, ID: app.ID,
+		Name: form.Name, Slug: form.Slug, Description: form.Description, LaunchUrl: form.LaunchURL,
+		ProxyHosts: app.ProxyHosts, UpdatedAt: now, ID: app.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
 			s.renderAppDetail(w, r, app, provider, "An application with this slug already exists.", false)
@@ -335,33 +440,39 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.UpdateProviderRedirects(r.Context(), sqlcgen.UpdateProviderRedirectsParams{
 		RedirectUris: jsonList(redirects), PostLogoutRedirectUris: jsonList(postLogout),
-		UpdatedAt: now, ID: provider.ID,
+		AccessTokenTtlSeconds: form.AccessTTL, RefreshTokenTtlSeconds: form.RefreshTTL,
+		IDTokenTtlSeconds: form.IDTTL, UpdatedAt: now, ID: provider.ID,
 	}); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
 
-	// Replace the group access policy (no boxes checked = everyone).
-	tx, err := s.store.DB.BeginTx(r.Context(), nil)
-	if err != nil {
-		s.serverError(w, r, err)
-		return
-	}
-	defer tx.Rollback()
-	q := s.store.Queries.WithTx(tx)
-	if err := q.DeleteAppPolicies(r.Context(), app.ID); err != nil {
-		s.serverError(w, r, err)
-		return
-	}
-	for _, groupID := range r.PostForm["policy_groups"] {
-		if err := q.AddAppPolicy(r.Context(), sqlcgen.AddAppPolicyParams{
-			ApplicationID: app.ID, GroupID: groupID,
+	// Client type change: switching to public drops the secret (PKCE is
+	// enforced instead); switching to confidential mints a fresh one,
+	// visible in the Credentials section.
+	if form.Public != provider.Public {
+		var secretHash *string
+		var secretEnc []byte
+		if !form.Public {
+			secret := randomHex(32)
+			h := oidcserver.HashToken(secret)
+			secretHash = &h
+			if secretEnc, err = s.oidcStore.SealClientSecret(secret); err != nil {
+				s.serverError(w, r, err)
+				return
+			}
+		}
+		if err := s.store.UpdateProviderType(r.Context(), sqlcgen.UpdateProviderTypeParams{
+			Public: form.Public, ClientSecretHash: secretHash, ClientSecretEnc: secretEnc,
+			UpdatedAt: now, ID: provider.ID,
 		}); err != nil {
 			s.serverError(w, r, err)
 			return
 		}
 	}
-	if err := tx.Commit(); err != nil {
+
+	// Replace the group access policy (no boxes checked = everyone).
+	if err := s.replacePolicy(r, app.ID); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -380,8 +491,13 @@ func (s *Server) handleAdminAppRotateSecret(w http.ResponseWriter, r *http.Reque
 	}
 	secret := randomHex(32)
 	h := oidcserver.HashToken(secret)
+	enc, err := s.oidcStore.SealClientSecret(secret)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	if err := s.store.UpdateProviderSecret(r.Context(), sqlcgen.UpdateProviderSecretParams{
-		ClientSecretHash: &h, UpdatedAt: time.Now().UTC(), ID: provider.ID,
+		ClientSecretHash: &h, ClientSecretEnc: enc, UpdatedAt: time.Now().UTC(), ID: provider.ID,
 	}); err != nil {
 		s.serverError(w, r, err)
 		return
@@ -396,7 +512,7 @@ func (s *Server) handleAdminAppRotateSecret(w http.ResponseWriter, r *http.Reque
 }
 
 func (s *Server) handleAdminAppDelete(w http.ResponseWriter, r *http.Request) {
-	app, _, ok := s.loadAppAndProvider(w, r)
+	app, ok := s.loadApp(w, r)
 	if !ok {
 		return
 	}
@@ -407,6 +523,162 @@ func (s *Server) handleAdminAppDelete(w http.ResponseWriter, r *http.Request) {
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppDelete, app.Slug, "", clientIP(r))
 	s.log.Info("application deleted", "app", app.Slug, "by", currentUser(r).Username)
 	http.Redirect(w, r, "/admin/applications", http.StatusSeeOther)
+}
+
+// --- Proxy (forward-auth) applications -------------------------------------
+
+type adminProxyDetailData struct {
+	App    sqlcgen.Application
+	Form   appForm
+	Groups []sqlcgen.Group
+	Bound  map[string]bool
+	OutURL string
+	Error  string
+	Saved  bool
+}
+
+func (s *Server) renderProxyDetail(w http.ResponseWriter, r *http.Request, app sqlcgen.Application, errMsg string, saved bool) {
+	form := appForm{
+		Name: app.Name, Slug: app.Slug, Kind: "proxy", Description: app.Description,
+		LaunchURL: app.LaunchUrl, ProxyHosts: strings.Join(decodeList(app.ProxyHosts), "\n"),
+	}
+	groups, err := s.store.ListGroups(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	boundIDs, err := s.store.ListAppPolicyGroupIDs(r.Context(), app.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	bound := make(map[string]bool, len(boundIDs))
+	for _, id := range boundIDs {
+		bound[id] = true
+	}
+	s.render(w, r, "admin_proxy_detail.html", pageData{
+		Title: app.Name, Active: "apps", CSRF: s.csrfToken(r.Context()),
+		User: currentUser(r),
+		Data: adminProxyDetailData{
+			App: app, Form: form, Groups: groups, Bound: bound,
+			OutURL: s.issuer() + "/outpost/auth", Error: errMsg, Saved: saved,
+		},
+	})
+}
+
+func (s *Server) handleAdminProxyUpdate(w http.ResponseWriter, r *http.Request, app sqlcgen.Application) {
+	form := parseAppForm(r)
+	form.Kind = "proxy"
+	if _, _, err := form.validate(); err != nil {
+		app.Name, app.Slug, app.Description = form.Name, form.Slug, form.Description
+		app.LaunchUrl, app.ProxyHosts = form.LaunchURL, jsonList(parseHostList(form.ProxyHosts))
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.renderProxyDetail(w, r, app, err.Error(), false)
+		return
+	}
+
+	now := time.Now().UTC()
+	if err := s.store.UpdateApplication(r.Context(), sqlcgen.UpdateApplicationParams{
+		Name: form.Name, Slug: form.Slug, Description: form.Description, LaunchUrl: form.LaunchURL,
+		ProxyHosts: jsonList(parseHostList(form.ProxyHosts)), UpdatedAt: now, ID: app.ID,
+	}); err != nil {
+		if isUniqueViolation(err) {
+			s.renderProxyDetail(w, r, app, "An application with this slug already exists.", false)
+			return
+		}
+		s.serverError(w, r, err)
+		return
+	}
+	if err := s.replacePolicy(r, app.ID); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppUpdate, app.Slug, "proxy", clientIP(r))
+	http.Redirect(w, r, "/admin/applications/"+app.ID+"?saved=1", http.StatusSeeOther)
+}
+
+// replacePolicy resets an application's group access policy from the
+// submitted policy_groups values.
+func (s *Server) replacePolicy(r *http.Request, appID string) error {
+	tx, err := s.store.DB.BeginTx(r.Context(), nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	q := s.store.Queries.WithTx(tx)
+	if err := q.DeleteAppPolicies(r.Context(), appID); err != nil {
+		return err
+	}
+	for _, groupID := range r.PostForm["policy_groups"] {
+		if err := q.AddAppPolicy(r.Context(), sqlcgen.AddAppPolicyParams{
+			ApplicationID: appID, GroupID: groupID,
+		}); err != nil {
+			return err
+		}
+	}
+	return tx.Commit()
+}
+
+// --- Icons -----------------------------------------------------------------
+
+func (s *Server) handleAppIcon(w http.ResponseWriter, r *http.Request) {
+	row, err := s.store.GetApplicationIcon(r.Context(), r.PathValue("id"))
+	if err != nil || len(row.Icon) == 0 || row.IconMime == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", *row.IconMime)
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Write(row.Icon)
+}
+
+func (s *Server) handleAppIconUpload(w http.ResponseWriter, r *http.Request) {
+	app, ok := s.loadApp(w, r)
+	if !ok {
+		return
+	}
+	back := "/admin/applications/" + app.ID
+	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
+		http.Error(w, "the icon must be smaller than 1 MB", http.StatusRequestEntityTooLarge)
+		return
+	}
+	file, _, err := r.FormFile("icon")
+	if err != nil {
+		http.Redirect(w, r, back, http.StatusSeeOther)
+		return
+	}
+	defer file.Close()
+	icon, err := io.ReadAll(io.LimitReader(file, maxUploadPhotoSize+1))
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	mime := http.DetectContentType(icon)
+	if len(icon) > maxUploadPhotoSize || !slices.Contains(allowedPhotoTypes, mime) {
+		http.Error(w, "unsupported or oversized image (use JPEG, PNG, WebP or GIF up to 1 MB)", http.StatusBadRequest)
+		return
+	}
+	if err := s.store.UpdateApplicationIcon(r.Context(), sqlcgen.UpdateApplicationIconParams{
+		Icon: icon, IconMime: &mime, UpdatedAt: time.Now().UTC(), ID: app.ID,
+	}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, back, http.StatusSeeOther)
+}
+
+func (s *Server) handleAppIconDelete(w http.ResponseWriter, r *http.Request) {
+	app, ok := s.loadApp(w, r)
+	if !ok {
+		return
+	}
+	if err := s.store.UpdateApplicationIcon(r.Context(), sqlcgen.UpdateApplicationIconParams{
+		Icon: nil, IconMime: nil, UpdatedAt: time.Now().UTC(), ID: app.ID,
+	}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	http.Redirect(w, r, "/admin/applications/"+app.ID, http.StatusSeeOther)
 }
 
 func (s *Server) issuer() string {
@@ -420,5 +692,11 @@ func decodeList(raw string) []string {
 }
 
 func isUniqueViolation(err error) bool {
-	return err != nil && strings.Contains(err.Error(), "UNIQUE constraint failed")
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	// SQLite and PostgreSQL word this differently.
+	return strings.Contains(msg, "UNIQUE constraint failed") ||
+		strings.Contains(msg, "duplicate key value")
 }
