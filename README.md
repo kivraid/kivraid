@@ -1,58 +1,112 @@
-# Kivraid
+<p align="center">
+  <img src="docs/img/logo.svg" alt="Kivraid" width="88" height="88">
+</p>
 
-A lightweight identity provider in Go. Same core job as Authentik — SSO
-in front of your applications, users from a local database or an LDAP
-directory — but shipped as **a single static binary with an embedded
-SQLite database**: no Python, no PostgreSQL, no Redis, no workers.
+<h1 align="center">Kivraid</h1>
+
+<p align="center">
+  A modern, lightweight identity provider — SSO for your apps,<br>
+  shipped as <strong>one static Go binary</strong> with an embedded database.
+</p>
+
+<p align="center">
+  <a href="#quickstart">Quickstart</a> ·
+  <a href="#features">Features</a> ·
+  <a href="#how-it-compares">Compare</a> ·
+  <a href="docs/configuration.md">Docs</a>
+</p>
+
+---
+
+Kivraid does the same core job as [Authentik](https://goauthentik.io/):
+single sign-on in front of your applications, with users from a local
+database or an LDAP directory. The difference is what it takes to run it.
+
+Authentik is a Python platform that needs PostgreSQL, Redis and background
+workers. Kivraid is **a single binary with an embedded SQLite database** —
+no external services, no runtime, no worker fleet. It idles at around
+**26 MB of RAM** and adapts to whatever memory limit you give the
+container. And it comes with a genuinely nice, fast web UI in light and
+dark — no SPA.
+
+If you want most of Authentik's day-to-day value on a small host — a Pi, a
+cheap VPS, a homelab, a side of an existing app — without the operational
+weight, that's what Kivraid is for.
+
+## Why Kivraid
+
+- 📦 **One binary, zero dependencies** — static Go binary, embedded SQLite.
+  No Python, PostgreSQL, Redis or workers to run. (PostgreSQL is optional
+  for larger installs.)
+- 🪶 **Tiny footprint** — ~26 MB idle RSS; `GOMEMLIMIT` is set from the
+  container's limit so the GC respects your budget and survives login
+  bursts without OOM.
+- ✨ **A UI you'll actually enjoy** — server-rendered, fast, light & dark,
+  built with Tailwind. Login, self-service portal and admin all polished.
+- 🔋 **Batteries included** — OIDC provider, forward auth, LDAP, TOTP and
+  passkeys, an admin console and an audit trail, all in the box.
+- 🔒 **Secure by default** — revocable server-side sessions, CSRF, strict
+  CSP, rate limiting, and every secret hashed or encrypted at rest.
+
+## Screenshots
+
+> Replace the images below with real captures (`docs/img/`).
+
+<p align="center">
+  <img src="docs/img/login.png" alt="Sign-in screen" width="800"><br>
+  <em>Sign in — clean, themeable, with passwordless passkey support.</em>
+</p>
+
+<p align="center">
+  <img src="docs/img/portal.png" alt="User portal" width="800"><br>
+  <em>The self-service portal: app launcher, profile, sessions, 2FA and passkeys.</em>
+</p>
+
+<p align="center">
+  <img src="docs/img/admin.png" alt="Admin console" width="800"><br>
+  <em>Admin: applications, directories, users, groups and the audit log.</em>
+</p>
 
 ## Features
 
-- **OpenID Connect provider** — authorization code flow with PKCE,
-  refresh token rotation, discovery, JWKS (ES256, keys encrypted at
-  rest), userinfo, introspection, revocation, RP-initiated logout.
-- **Forward auth** — protect apps without native SSO via Traefik, nginx
-  or Caddy, registered as first-class applications with their own group
-  access policy ([docs/forward-auth.md](docs/forward-auth.md)).
+- **OpenID Connect provider** — authorization code flow with PKCE, refresh
+  token rotation, discovery, JWKS (ES256, keys encrypted at rest),
+  userinfo, introspection, revocation, RP-initiated logout.
+- **Forward auth** — protect apps without native SSO via Traefik, nginx or
+  Caddy, registered as first-class applications with their own group access
+  policy. See [docs/forward-auth.md](docs/forward-auth.md).
 - **User sources** — local accounts (Argon2id) and live LDAP directories
-  (OpenLDAP, LLDAP): bind authentication, group sync (paged, RFC 2696, so
-  large directories enumerate fully), and self-service password change
-  written back via RFC 3062.
-- **Two-factor authentication** — optional TOTP (authenticator apps)
-  with single-use recovery codes, for local and directory users alike;
-  admins can reset a locked-out user.
+  (OpenLDAP, LLDAP): bind authentication, paged group sync (RFC 2696), and
+  self-service password change written back via RFC 3062. See
+  [docs/ldap.md](docs/ldap.md).
+- **Two-factor authentication** — optional TOTP (authenticator apps) with
+  single-use recovery codes, for local and directory users alike; admins
+  can reset a locked-out user.
 - **Passkeys (WebAuthn)** — register device biometrics or a security key
   and sign in passwordless; a discoverable passkey is phishing-resistant
   and stands in for both password and second factor.
 - **User portal** — application launcher, profile, password change,
-  two-factor and passkey enrollment, session list with revocation. Light
-  and dark, fast, no SPA.
+  two-factor and passkey enrollment, session list with revocation.
 - **Admin** — application wizard (OIDC or forward-auth), client secret
-  displayed and rotatable, editable token lifetimes, uploadable icons
-  and descriptions, group-based access policies, directory management
-  with connection test, audit trail.
-- **Hardening** — server-side revocable sessions, CSRF, strict CSP,
-  login rate limiting, append-only audit log, all secrets hashed or
-  encrypted at rest.
+  displayed and rotatable, editable token lifetimes, uploadable icons and
+  descriptions, group-based access policies, directory management with
+  connection test, and an append-only audit trail.
+- **Hardening** — server-side revocable sessions, CSRF, strict CSP, login
+  rate limiting, all secrets hashed or encrypted at rest.
 - **SQLite or PostgreSQL** — SQLite by default (zero external services);
   Postgres for larger installs. The full test suite runs against both.
 
-## Quickstart (binary)
+## Quickstart
 
-Requirements: Go 1.26+ to build. The Tailwind CSS standalone CLI is
-downloaded automatically by `make` (no Node required).
+**Binary** — requires Go 1.26+ to build (the Tailwind CSS standalone CLI is
+downloaded automatically by `make`; no Node required):
 
 ```sh
 make build
 ./kivraid serve            # http://127.0.0.1:9000
 ```
 
-On first run Kivraid generates `kivraid.yaml` (with a random
-`secret_key`) if it is missing — no separate init step. Then open the
-instance and register the administrator account on first visit. A
-`config init` command and a `user add` CLI are also available for
-scripted setups.
-
-## Quickstart (Docker)
+**Docker** — built `FROM scratch`, runs unprivileged, all state in `/data`:
 
 ```sh
 make docker
@@ -60,90 +114,62 @@ docker volume create kivraid
 docker run -d --name kivraid -v kivraid:/data -p 9000:9000 kivraid
 ```
 
-The config is generated in the volume on first run. Then open the
-instance and register the administrator account.
+Either way, Kivraid generates its config with a random `secret_key` on
+first run — no init step. Open the instance and register the administrator
+account on first visit. See [docs/deployment.md](docs/deployment.md) for
+systemd and the resource footprint.
 
-The image is built `FROM scratch` and runs as an unprivileged user; all
-state lives in the `/data` volume.
+## How it compares
 
-## systemd
+The self-hosted auth landscape runs from minimal OIDC providers to full
+identity platforms. Kivraid sits in the middle: more than a passkey-only
+OIDC provider, far lighter than a platform. The table is a spectrum from
+narrow to broad.
 
-A hardened unit (DynamicUser, StateDirectory, syscall filtering) is
-provided in [packaging/kivraid.service](packaging/kivraid.service) with
-installation steps in its header comment.
+| | Pocket ID | **Kivraid** | Authelia | Authentik |
+|---|---|---|---|---|
+| Runtime | one Go binary | one Go binary | one Go binary | Python + workers |
+| Required services | none (SQLite) | none (SQLite) | none (SQLite; Redis for HA) | PostgreSQL + Redis |
+| Idle memory | tens of MB | ~26 MB | tens of MB | hundreds of MB |
+| Managed via | web admin | web admin | config files | web admin |
+| User sources | local (passkey) | local + LDAP | file / LDAP | local / LDAP / social |
+| Auth methods | passkeys | password, TOTP, passkeys | password, TOTP, WebAuthn, Duo | many |
+| Forward auth | ✗ | ✓ | ✓ (its core job) | ✓ (proxy outpost) |
+| Protocols | OIDC | OIDC, forward auth | OIDC, forward auth | OIDC, SAML, LDAP/RADIUS, proxy |
+| SAML | ✗ | ✗ | ✗ | ✓ |
 
-## Resource footprint
+**Reading it:** [Pocket ID](https://github.com/pocket-id/pocket-id) is the
+closest in spirit — same single-binary-plus-SQLite DNA — but deliberately
+passkey-only and OIDC-only; pick it if that's genuinely all you need.
+[Authelia](https://www.authelia.com/) overlaps heavily (Go, lightweight,
+forward auth, OIDC) but is declarative: users and rules live in config
+files, with powerful per-resource access control and no admin UI — great
+for a GitOps setup. [Authentik](https://goauthentik.io/) and
+[Keycloak](https://www.keycloak.org/) are full platforms (SAML, flow
+engines, federation, multi-tenancy) at the cost of a much heavier runtime.
+[Kanidm](https://kanidm.com/) is another lightweight, passkey-first option
+(Rust) if you want its own directory and replication.
 
-Kivraid targets small hosts. Measured in the `FROM scratch` container
-(Linux, capped at 256 MB): ~26 MB idle RSS, and it survives bursts of
-concurrent logins without OOM. Two knobs keep it lean:
+**What Kivraid does _not_ do** (by design): no visual flow engine, no SAML,
+no RADIUS or LDAP-server outposts, no SCIM provisioning, no multi-tenancy.
+If you need those, reach for Authentik or Keycloak.
 
-- Password hashing (Argon2id) runs the lighter OWASP profile (19 MiB per
-  hash) behind a small concurrency limiter, so a login storm cannot
-  exhaust memory.
-- `GOMEMLIMIT` is set automatically from the container's memory limit, so
-  the garbage collector respects the host's budget; idle memory is
-  returned to the OS periodically.
+<sub>Comparisons reflect these projects as of mid-2026 and are simplified;
+they move fast, so verify current capabilities before relying on them.</sub>
 
-Give the container a memory limit (e.g. `--memory=256m`) and Kivraid
-adapts to it.
+## Documentation
 
-## Configuration
-
-`kivraid config init` generates a commented starting point. Every key
-has a `KIVRAID_*` environment override.
-
-| Key | Env | Default | Description |
-|---|---|---|---|
-| `listen` | `KIVRAID_LISTEN` | `127.0.0.1:9000` | HTTP listen address. |
-| `base_url` | `KIVRAID_BASE_URL` | `http://localhost:9000` | Public URL; also the OIDC issuer. `https://` enables secure cookies. |
-| `secret_key` | `KIVRAID_SECRET_KEY` | — | ≥ 32 chars; protects keys and directory credentials at rest. Changing it invalidates them. |
-| `database.driver` | `KIVRAID_DB_DRIVER` | `sqlite` | `sqlite` or `postgres`. |
-| `database.dsn` | `KIVRAID_DB_DSN` | `kivraid.db` | SQLite file path, or a `postgres://user:pass@host/db` URL. |
-| `forward_auth.domains` | `KIVRAID_FORWARD_AUTH_DOMAINS` | `[]` | Hosts allowed for forward-auth post-login redirects (`.suffix` matches subdomains). |
-| `log_level` | `KIVRAID_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
-
-Run Kivraid behind a TLS-terminating reverse proxy in production and set
-`base_url` to the public `https://` URL; the OIDC issuer must match it.
-
-## Connecting an application
-
-Create the application in **Admin → Applications** — the wizard issues
-the client credentials (the secret is shown once) and lists every
-endpoint to paste into the app. Scopes: `openid profile email groups`.
-Restrict who may sign in by binding groups in the application's
-**Access** section.
-
-## LDAP directories
-
-Configure sources in **Admin → Directories**. Users authenticate by
-bind; profile, groups and photo are read at login and mirrored into a
-local shadow row (never the password). The group filter supports both
-membership models — `{dn}` for groupOfNames/groupOfUniqueNames and
-`{username}` for posixGroup's `memberUid` — and the service bind can be
-anonymous if the directory allows unauthenticated searches. Password
-write-back uses the RFC 3062 Password Modify operation on the user's
-own connection, so the directory's ACLs stay in charge (and it keeps
-working with an anonymous service bind).
-
-Local users and groups are managed in **Admin → Users** and **Admin →
-Groups**; directory-sourced entries appear there too but stay read-only
-(only Kivraid-side flags like administrator/active can be changed on a
-directory user). Any group — local or directory — can be flagged
-**"Members are administrators"**: the administrator role is then
-computed from membership on top of the per-user flag, so flagging a
-synced LDAP group lets the directory drive who administers Kivraid.
-
-Local fixtures for manual testing (OpenLDAP seeded with users, LLDAP):
-`docker compose -f fixtures/ldap/docker-compose.yml up -d` — connection
-settings are documented in that file.
+- [Configuration](docs/configuration.md) — config file, env overrides, TLS,
+  connecting an application.
+- [LDAP directories](docs/ldap.md) — bind auth, group models, write-back.
+- [Forward auth](docs/forward-auth.md) — protecting apps without native SSO.
+- [Deployment](docs/deployment.md) — Docker, systemd, resource footprint.
+- [DESIGN.md](DESIGN.md) — architecture decisions and roadmap.
 
 ## Development
 
 ```sh
 make build          # generate CSS + sqlc code, then go build
 make css-watch      # rebuild CSS on template changes
-make test           # run tests
+make test           # run tests (add KIVRAID_TEST_POSTGRES_DSN for Postgres)
 ```
-
-See [DESIGN.md](DESIGN.md) for architecture decisions and the roadmap.
