@@ -6,9 +6,30 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"gopkg.in/yaml.v3"
 )
+
+// Duration is a time.Duration that unmarshals from a YAML string such as
+// "168h" or "30m" (yaml.v3 has no native duration support).
+type Duration time.Duration
+
+func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
+	var s string
+	if err := value.Decode(&s); err != nil {
+		return err
+	}
+	if s == "" {
+		return nil
+	}
+	parsed, err := time.ParseDuration(s)
+	if err != nil {
+		return fmt.Errorf("invalid duration %q: %w", s, err)
+	}
+	*d = Duration(parsed)
+	return nil
+}
 
 type Database struct {
 	// Driver is the database engine: "sqlite" (default). "postgres" is
@@ -25,6 +46,16 @@ type ForwardAuth struct {
 	Domains []string `yaml:"domains"`
 }
 
+type Session struct {
+	// Lifetime is the absolute maximum age of a session, measured from
+	// login. A session expires after this no matter how active the user is.
+	Lifetime Duration `yaml:"lifetime"`
+	// IdleTimeout, when > 0, expires a session after this much inactivity.
+	// It is a sliding window (each request resets it), capped by Lifetime.
+	// Zero disables the inactivity timeout.
+	IdleTimeout Duration `yaml:"idle_timeout"`
+}
+
 type Config struct {
 	// Listen is the address the HTTP server binds to.
 	Listen string `yaml:"listen"`
@@ -35,6 +66,7 @@ type Config struct {
 	SecretKey   string      `yaml:"secret_key"`
 	Database    Database    `yaml:"database"`
 	ForwardAuth ForwardAuth `yaml:"forward_auth"`
+	Session     Session     `yaml:"session"`
 	LogLevel    string      `yaml:"log_level"`
 }
 
@@ -43,6 +75,7 @@ func defaults() Config {
 		Listen:   "127.0.0.1:9000",
 		BaseURL:  "http://localhost:9000",
 		Database: Database{Driver: "sqlite", DSN: "kivraid.db"},
+		Session:  Session{Lifetime: Duration(7 * 24 * time.Hour), IdleTimeout: 0},
 		LogLevel: "info",
 	}
 }
@@ -67,7 +100,9 @@ func Load(path string) (Config, error) {
 		}
 	}
 
-	applyEnv(&cfg)
+	if err := applyEnv(&cfg); err != nil {
+		return cfg, err
+	}
 
 	if err := cfg.validate(); err != nil {
 		return cfg, err
@@ -75,7 +110,7 @@ func Load(path string) (Config, error) {
 	return cfg, nil
 }
 
-func applyEnv(cfg *Config) {
+func applyEnv(cfg *Config) error {
 	set := func(key string, dst *string) {
 		if v, ok := os.LookupEnv("KIVRAID_" + key); ok {
 			*dst = v
@@ -87,6 +122,24 @@ func applyEnv(cfg *Config) {
 	set("DB_DRIVER", &cfg.Database.Driver)
 	set("DB_DSN", &cfg.Database.DSN)
 	set("LOG_LEVEL", &cfg.LogLevel)
+	setDur := func(key string, dst *Duration) error {
+		v, ok := os.LookupEnv("KIVRAID_" + key)
+		if !ok || v == "" {
+			return nil
+		}
+		parsed, err := time.ParseDuration(v)
+		if err != nil {
+			return fmt.Errorf("KIVRAID_%s: invalid duration %q: %w", key, v, err)
+		}
+		*dst = Duration(parsed)
+		return nil
+	}
+	if err := setDur("SESSION_LIFETIME", &cfg.Session.Lifetime); err != nil {
+		return err
+	}
+	if err := setDur("SESSION_IDLE_TIMEOUT", &cfg.Session.IdleTimeout); err != nil {
+		return err
+	}
 	if v, ok := os.LookupEnv("KIVRAID_FORWARD_AUTH_DOMAINS"); ok {
 		cfg.ForwardAuth.Domains = nil
 		for _, d := range strings.Split(v, ",") {
@@ -95,6 +148,7 @@ func applyEnv(cfg *Config) {
 			}
 		}
 	}
+	return nil
 }
 
 func (c Config) validate() error {
@@ -106,6 +160,16 @@ func (c Config) validate() error {
 	}
 	if !strings.HasPrefix(c.BaseURL, "http://") && !strings.HasPrefix(c.BaseURL, "https://") {
 		return fmt.Errorf("base_url must start with http:// or https://")
+	}
+	if c.Session.Lifetime <= 0 {
+		return fmt.Errorf("session.lifetime must be a positive duration (e.g. \"168h\")")
+	}
+	if c.Session.IdleTimeout < 0 {
+		return fmt.Errorf("session.idle_timeout must not be negative")
+	}
+	if c.Session.IdleTimeout > c.Session.Lifetime {
+		return fmt.Errorf("session.idle_timeout (%s) must not exceed session.lifetime (%s)",
+			time.Duration(c.Session.IdleTimeout), time.Duration(c.Session.Lifetime))
 	}
 	return nil
 }

@@ -38,7 +38,10 @@ const (
 	KeyWebAuthnLogin = "waLogin"
 )
 
-func NewManager(db *sql.DB, driver string, secureCookies bool) *scs.SessionManager {
+// NewManager builds the session manager. lifetime is the absolute session
+// age; idleTimeout, when > 0, adds a sliding inactivity window (each request
+// resets it) capped by lifetime — set it to 0 to disable inactivity expiry.
+func NewManager(db *sql.DB, driver string, secureCookies bool, lifetime, idleTimeout time.Duration) *scs.SessionManager {
 	m := scs.New()
 	switch driver {
 	case "postgres":
@@ -46,7 +49,8 @@ func NewManager(db *sql.DB, driver string, secureCookies bool) *scs.SessionManag
 	default:
 		m.Store = sqlite3store.NewWithCleanupInterval(db, 30*time.Minute)
 	}
-	m.Lifetime = 7 * 24 * time.Hour
+	m.Lifetime = lifetime
+	m.IdleTimeout = idleTimeout
 	m.Cookie.Name = "kivraid_session"
 	m.Cookie.HttpOnly = true
 	m.Cookie.SameSite = http.SameSiteLaxMode

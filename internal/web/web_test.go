@@ -11,6 +11,7 @@ import (
 	"regexp"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/mfa"
@@ -31,6 +32,7 @@ func newServerForStore(t *testing.T, st *store.Store, forwardAuthDomains []strin
 		BaseURL:     "http://localhost",
 		SecretKey:   strings.Repeat("k", 32),
 		ForwardAuth: config.ForwardAuth{Domains: forwardAuthDomains},
+		Session:     config.Session{Lifetime: config.Duration(7 * 24 * time.Hour)},
 	}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	oidcProvider, oidcStorage, err := oidcserver.New(context.Background(), cfg, st, log)
@@ -42,7 +44,8 @@ func newServerForStore(t *testing.T, st *store.Store, forwardAuthDomains []strin
 		t.Fatal(err)
 	}
 	srv, err := NewServer(Deps{
-		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false),
+		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false,
+			time.Duration(cfg.Session.Lifetime), time.Duration(cfg.Session.IdleTimeout)),
 		OIDC: oidcProvider, OIDCStore: oidcStorage,
 		LDAP:     ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
 		MFA:      mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets")),

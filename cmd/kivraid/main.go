@@ -152,7 +152,8 @@ func serve(args []string) error {
 		}
 	}()
 
-	sessions := session.NewManager(st.DB, st.Driver, strings.HasPrefix(cfg.BaseURL, "https://"))
+	sessions := session.NewManager(st.DB, st.Driver, strings.HasPrefix(cfg.BaseURL, "https://"),
+		time.Duration(cfg.Session.Lifetime), time.Duration(cfg.Session.IdleTimeout))
 	ldapManager := ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log)
 	mfaManager := mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets"))
 	webauthnManager, err := webauthn.New(st, cfg.BaseURL)
@@ -290,6 +291,13 @@ database:
 # with a dot match subdomains. See docs/forward-auth.md.
 # forward_auth:
 #   domains: [".home.example.com"]
+
+# Session expiry. lifetime is the absolute maximum age (from login);
+# idle_timeout, when set, logs users out after that much inactivity
+# (sliding window, capped by lifetime). "0s" disables the idle timeout.
+session:
+  lifetime: 168h
+  idle_timeout: 0s
 
 log_level: info
 `, hex.EncodeToString(secret))

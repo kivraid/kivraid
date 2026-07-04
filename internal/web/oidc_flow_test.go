@@ -85,14 +85,16 @@ func startIssuer(t *testing.T, public bool) (issuer string, st *store.Store) {
 		t.Fatal(err)
 	}
 
-	cfg := config.Config{BaseURL: issuer, SecretKey: strings.Repeat("k", 32)}
+	cfg := config.Config{BaseURL: issuer, SecretKey: strings.Repeat("k", 32),
+		Session: config.Session{Lifetime: config.Duration(7 * 24 * time.Hour)}}
 	log := slog.New(slog.NewTextHandler(io.Discard, nil))
 	provider, storage, err := oidcserver.New(ctx, cfg, st, log)
 	if err != nil {
 		t.Fatal(err)
 	}
 	srv, err := NewServer(Deps{
-		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false),
+		Config: cfg, Store: st, Sessions: session.NewManager(st.DB, st.Driver, false,
+			time.Duration(cfg.Session.Lifetime), time.Duration(cfg.Session.IdleTimeout)),
 		OIDC: provider, OIDCStore: storage, Log: log,
 	})
 	if err != nil {
