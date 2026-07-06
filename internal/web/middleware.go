@@ -95,7 +95,23 @@ func (s *Server) csrfProtect(next http.Handler) http.Handler {
 			got = r.PostFormValue("_csrf")
 		}
 		if want == "" || subtle.ConstantTimeCompare([]byte(want), []byte(got)) != 1 {
-			http.Error(w, "invalid CSRF token", http.StatusForbidden)
+			// Fetch-based callers expect a plain error body, not a page.
+			if r.Header.Get("X-CSRF-Token") != "" {
+				http.Error(w, "invalid CSRF token", http.StatusForbidden)
+				return
+			}
+			if want == "" {
+				// No token in the session: it expired (or was revoked)
+				// while a form sat open in a tab — by far the most common
+				// way to land here, and not the user's fault.
+				s.renderErrorAction(w, r, http.StatusForbidden, "Session expired",
+					"Your session ended while this page was open, so the form could not be submitted. Sign in again to continue.",
+					"Sign in again", "/login")
+				return
+			}
+			s.renderErrorAction(w, r, http.StatusForbidden, "Form expired",
+				"This form is no longer valid. Go back, reload the page, and try again.",
+				"", "")
 			return
 		}
 		next.ServeHTTP(w, r)

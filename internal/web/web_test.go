@@ -168,9 +168,39 @@ func TestCSRFRequired(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
 		t.Fatalf("POST without CSRF token: want 403, got %d", resp.StatusCode)
+	}
+	// A form posted from a session with no CSRF token (the expired-tab
+	// case) gets the styled session-expired page with a way back in,
+	// not a bare plain-text 403.
+	if !strings.Contains(string(body), "Session expired") ||
+		!strings.Contains(string(body), "Sign in again") {
+		t.Fatalf("expired-session CSRF failure should render the styled page, got: %.200s", body)
+	}
+}
+
+func TestCSRFMismatchRendersFormExpired(t *testing.T) {
+	ts := newTestServer(t)
+	c := newClient(t)
+
+	// Prime a session (and its CSRF token), then post a stale token.
+	fetchCSRF(t, c, ts.URL+"/login")
+	resp, err := c.PostForm(ts.URL+"/login", url.Values{
+		"_csrf": {"deadbeef"}, "username": {"alice"}, "password": {"s3cret-pass"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	body, _ := io.ReadAll(resp.Body)
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusForbidden {
+		t.Fatalf("POST with wrong CSRF token: want 403, got %d", resp.StatusCode)
+	}
+	if !strings.Contains(string(body), "Form expired") {
+		t.Fatalf("CSRF mismatch should render the styled page, got: %.200s", body)
 	}
 }
 

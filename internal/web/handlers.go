@@ -347,12 +347,21 @@ type errorData struct {
 	Code    int
 	Title   string
 	Message string
+	// Action/ActionHref override the default "Back to home" link.
+	Action     string
+	ActionHref string
 }
 
 func (s *Server) renderError(w http.ResponseWriter, r *http.Request, code int, title, message string) {
+	s.renderErrorAction(w, r, code, title, message, "", "")
+}
+
+func (s *Server) renderErrorAction(w http.ResponseWriter, r *http.Request, code int, title, message, action, href string) {
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	w.WriteHeader(code)
-	s.render(w, r, "error.html", errorData{Code: code, Title: title, Message: message})
+	s.render(w, r, "error.html", errorData{
+		Code: code, Title: title, Message: message, Action: action, ActionHref: href,
+	})
 }
 
 func (s *Server) serverError(w http.ResponseWriter, r *http.Request, err error) {
