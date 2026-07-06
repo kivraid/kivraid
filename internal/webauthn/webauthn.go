@@ -73,14 +73,16 @@ func (m *Manager) loadUser(ctx context.Context, user sqlcgen.User) (*webUser, er
 }
 
 // discoverableOpts require a resident key with user verification so the
-// credential can be found without a username at login.
+// credential can be found without a username at login. Verification is
+// required, not preferred: a passkey assertion stands in for both the
+// password and the second factor, so possession alone must not be enough.
 func discoverableOpts() []webauthn.RegistrationOption {
 	req := protocol.ResidentKeyRequirementRequired
 	return []webauthn.RegistrationOption{
 		webauthn.WithResidentKeyRequirement(req),
 		webauthn.WithAuthenticatorSelection(protocol.AuthenticatorSelection{
 			ResidentKey:      req,
-			UserVerification: protocol.VerificationPreferred,
+			UserVerification: protocol.VerificationRequired,
 		}),
 	}
 }
@@ -135,9 +137,11 @@ func (m *Manager) FinishRegistration(ctx context.Context, user sqlcgen.User, ses
 	})
 }
 
-// BeginLogin starts a usernameless passkey assertion.
+// BeginLogin starts a usernameless passkey assertion. User verification
+// is required since the assertion completes login on its own.
 func (m *Manager) BeginLogin() (options, session []byte, err error) {
-	assertion, sess, err := m.web.BeginDiscoverableLogin()
+	assertion, sess, err := m.web.BeginDiscoverableLogin(
+		webauthn.WithUserVerification(protocol.VerificationRequired))
 	if err != nil {
 		return nil, nil, err
 	}
