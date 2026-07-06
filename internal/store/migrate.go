@@ -47,10 +47,25 @@ func Migrate(ctx context.Context, db *sql.DB, dialect string) error {
 		return fmt.Errorf("unknown dialect %q: %w", dialect, err)
 	}
 	names := make([]string, 0, len(entries))
+	known := make(map[string]bool, len(entries))
 	for _, e := range entries {
 		names = append(names, e.Name())
+		known[e.Name()] = true
 	}
 	sort.Strings(names)
+
+	// Forward-only guard: a migration recorded in the database but not
+	// embedded in this binary means the data was written by a newer
+	// kivraid. Refuse to start with a clear message instead of failing
+	// later on queries against an unknown schema.
+	for name := range applied {
+		if !known[name] {
+			return fmt.Errorf(
+				"database schema contains migration %s, which this binary does not know: "+
+					"the data was written by a newer kivraid; upgrade the binary (downgrades are not supported)",
+				name)
+		}
+	}
 
 	for _, name := range names {
 		if applied[name] {
