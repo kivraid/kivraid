@@ -173,3 +173,7 @@ make build          # generate CSS + sqlc code, then go build
 make css-watch      # rebuild CSS on template changes
 make test           # run tests (add KIVRAID_TEST_POSTGRES_DSN for Postgres)
 ```
+
+## License
+
+Apache 2.0 — see [LICENSE](LICENSE).
