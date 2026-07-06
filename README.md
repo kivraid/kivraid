@@ -50,7 +50,8 @@ weight, that's what Kivraid is for.
 
 ## Screenshots
 
-> Replace the images below with real captures (`docs/img/`).
+<sub>Each capture is split down the middle: light theme on the left,
+dark on the right.</sub>
 
 <p align="center">
   <img src="docs/img/login.png" alt="Sign-in screen" width="800"><br>
@@ -172,6 +173,7 @@ they move fast, so verify current capabilities before relying on them.</sub>
 make build          # generate CSS + sqlc code, then go build
 make css-watch      # rebuild CSS on template changes
 make test           # run tests (add KIVRAID_TEST_POSTGRES_DSN for Postgres)
+make screenshots    # regenerate the README captures (needs Chrome)
 ```
 
 ## License

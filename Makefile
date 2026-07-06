@@ -22,7 +22,7 @@ CSS_OUT  := internal/web/static/app.css
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: build css css-watch sqlc test vet run clean docker
+.PHONY: build css css-watch sqlc test vet run clean docker screenshots
 
 build: css sqlc
 	go build -ldflags "$(LDFLAGS)" -o kivraid ./cmd/kivraid
@@ -46,6 +46,11 @@ $(TAILWIND):
 
 sqlc:
 	go run github.com/sqlc-dev/sqlc/cmd/sqlc@$(SQLC_VERSION) generate
+
+# Regenerate the README captures (docs/img/*.png) from a seeded demo
+# instance. Requires Google Chrome or Chromium installed locally.
+screenshots: build
+	cd tools/screenshots && go run . --binary ../../kivraid --out ../../docs/img
 
 test:
 	go test ./...
