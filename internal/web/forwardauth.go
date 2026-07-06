@@ -43,7 +43,7 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if !allowed {
-			s.audit.Record(r.Context(), user.Username, audit.ActionOIDCDeny, app.Slug, "forward-auth", clientIP(r))
+			s.audit.Record(r.Context(), user.Username, audit.ActionOIDCDeny, app.Slug, "forward-auth", s.clientIP(r))
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}

@@ -187,7 +187,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionUserCreate, user.Username, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionUserCreate, user.Username, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users/"+user.ID, http.StatusSeeOther)
 }
 
@@ -303,7 +303,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 	if !active {
 		s.revokeUserAccess(r.Context(), target.ID)
 	}
-	s.audit.Record(r.Context(), actor.Username, audit.ActionUserUpdate, target.Username, "", clientIP(r))
+	s.audit.Record(r.Context(), actor.Username, audit.ActionUserUpdate, target.Username, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users/"+target.ID+"?saved=1", http.StatusSeeOther)
 }
 
@@ -326,7 +326,7 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionUserPWReset, target.Username, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionUserPWReset, target.Username, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users/"+target.ID+"?pw=1", http.StatusSeeOther)
 }
 
@@ -345,7 +345,7 @@ func (s *Server) handleAdminUserDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), actor.Username, audit.ActionUserDelete, target.Username, "", clientIP(r))
+	s.audit.Record(r.Context(), actor.Username, audit.ActionUserDelete, target.Username, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
 }
 

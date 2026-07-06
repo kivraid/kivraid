@@ -2,6 +2,7 @@ package web
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/mfa"
@@ -70,12 +71,13 @@ func (s *Server) handleMFAEnable(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/profile", http.StatusSeeOther)
 		return
 	}
-	if !mfa.ValidateCode(secret, r.PostFormValue("code")) {
+	counter, ok := mfa.MatchCounter(secret, r.PostFormValue("code"), time.Now())
+	if !ok {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		s.renderMFAEnroll(w, r, secret, "That code didn't match. Check your authenticator's time and try again.")
 		return
 	}
-	if err := s.mfa.Enable(r.Context(), user.ID, secret); err != nil {
+	if err := s.mfa.Enable(r.Context(), user.ID, secret, counter); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -85,7 +87,7 @@ func (s *Server) handleMFAEnable(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionMFAEnable, "", "", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionMFAEnable, "", "", s.clientIP(r))
 	s.render(w, r, "mfa_recovery.html", pageData{
 		Title: "Recovery codes", Active: "profile", CSRF: s.csrfToken(r.Context()),
 		User: user, Data: mfaRecoveryData{Codes: codes},
@@ -100,7 +102,11 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	code := r.PostFormValue("code")
-	ok := s.mfa.ValidateForUser(user, code)
+	ok, err := s.mfa.ValidateForUser(r.Context(), user, code)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	if !ok {
 		if used, err := s.mfa.ConsumeRecoveryCode(r.Context(), user.ID, code); err != nil {
 			s.serverError(w, r, err)
@@ -117,7 +123,7 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionMFADisable, "", "", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionMFADisable, "", "", s.clientIP(r))
 	http.Redirect(w, r, "/profile?mfa=off", http.StatusSeeOther)
 }
 
@@ -129,7 +135,12 @@ func (s *Server) handleMFARegenerateRecovery(w http.ResponseWriter, r *http.Requ
 		http.Redirect(w, r, "/profile", http.StatusSeeOther)
 		return
 	}
-	if !s.mfa.ValidateForUser(user, r.PostFormValue("code")) {
+	ok, err := s.mfa.ValidateForUser(r.Context(), user, r.PostFormValue("code"))
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	if !ok {
 		s.renderProfile(w, r, user, "Enter a current authenticator code to regenerate recovery codes.", false)
 		return
 	}
@@ -138,7 +149,7 @@ func (s *Server) handleMFARegenerateRecovery(w http.ResponseWriter, r *http.Requ
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionMFARecovery, "", "regenerated", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionMFARecovery, "", "regenerated", s.clientIP(r))
 	s.render(w, r, "mfa_recovery.html", pageData{
 		Title: "Recovery codes", Active: "profile", CSRF: s.csrfToken(r.Context()),
 		User: user, Data: mfaRecoveryData{Codes: codes, New: true},
@@ -155,6 +166,6 @@ func (s *Server) handleAdminUserMFAReset(w http.ResponseWriter, r *http.Request)
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionMFADisable, target.Username, "admin reset", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionMFADisable, target.Username, "admin reset", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users/"+target.ID+"?saved=1", http.StatusSeeOther)
 }

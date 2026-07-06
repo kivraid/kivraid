@@ -192,7 +192,7 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapCreate, src.Name, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapCreate, src.Name, "", s.clientIP(r))
 	s.log.Info("ldap source created", "source", src.Name, "by", currentUser(r).Username)
 	http.Redirect(w, r, "/admin/ldap/"+src.ID+"?saved=1", http.StatusSeeOther)
 }
@@ -264,7 +264,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapUpdate, src.Name, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapUpdate, src.Name, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/ldap/"+src.ID+"?saved=1", http.StatusSeeOther)
 }
 
@@ -277,7 +277,7 @@ func (s *Server) handleAdminLdapDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapDelete, src.Name, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapDelete, src.Name, "", s.clientIP(r))
 	s.log.Info("ldap source deleted", "source", src.Name, "by", currentUser(r).Username)
 	http.Redirect(w, r, "/admin/ldap", http.StatusSeeOther)
 }
@@ -380,7 +380,7 @@ func (s *Server) handleAdminLdapSync(w http.ResponseWriter, r *http.Request) {
 		if sync.Missing > 0 {
 			result.Message += fmt.Sprintf(" %d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
 		}
-		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, result.Message, clientIP(r))
+		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, result.Message, s.clientIP(r))
 	}
 	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: formFromSource(src), SyncResult: result})
 }

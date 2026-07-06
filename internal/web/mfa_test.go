@@ -90,8 +90,9 @@ func TestMFAEnrollAndChallenge(t *testing.T) {
 		t.Fatalf("wrong code: want 401, got %d", resp.StatusCode)
 	}
 
-	// Correct code completes login.
-	code, _ := totp.GenerateCode(secret, time.Now())
+	// Correct code completes login. The enrollment code's time step was
+	// consumed by replay protection, so use the next step (within skew).
+	code, _ := totp.GenerateCode(secret, time.Now().Add(30*time.Second))
 	resp, _ = c2.PostForm(ts.URL+"/login/mfa", url.Values{"_csrf": {csrf2}, "code": {code}})
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusSeeOther {
@@ -101,6 +102,17 @@ func TestMFAEnrollAndChallenge(t *testing.T) {
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("after MFA: want 200, got %d", resp.StatusCode)
+	}
+
+	// Replaying the code that just logged in must fail: each TOTP time
+	// step is accepted at most once.
+	cReplay := newClient(t)
+	csrfReplay := fetchCSRF(t, cReplay, ts.URL+"/login")
+	cReplay.PostForm(ts.URL+"/login", url.Values{"_csrf": {csrfReplay}, "username": {"alice"}, "password": {"s3cret-pass"}})
+	resp, _ = cReplay.PostForm(ts.URL+"/login/mfa", url.Values{"_csrf": {csrfReplay}, "code": {code}})
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnauthorized {
+		t.Fatalf("replayed TOTP code: want 401, got %d", resp.StatusCode)
 	}
 
 	// A recovery code also works, once.

@@ -10,6 +10,7 @@ import (
 	"io/fs"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -51,6 +52,9 @@ type Server struct {
 	ipLimiter   *ratelimit.Limiter
 	userLimiter *ratelimit.Limiter
 
+	// trustedProxies gates X-Forwarded-For handling in clientIP.
+	trustedProxies []netip.Prefix
+
 	// pages maps a page name to its parsed template set (layout + page).
 	pages map[string]*template.Template
 }
@@ -73,18 +77,23 @@ func NewServer(d Deps) (*Server, error) {
 	if d.Audit == nil {
 		d.Audit = audit.NewRecorder(d.Store, d.Log)
 	}
+	proxies, err := config.ParseTrustedProxies(d.Config.TrustedProxies)
+	if err != nil {
+		return nil, err
+	}
 	s := &Server{
-		cfg:       d.Config,
-		store:     d.Store,
-		local:     local.NewSource(d.Store),
-		ldap:      d.LDAP,
-		sessions:  d.Sessions,
-		oidc:      d.OIDC,
-		oidcStore: d.OIDCStore,
-		mfa:       d.MFA,
-		webauthn:  d.WebAuthn,
-		audit:     d.Audit,
-		log:       d.Log,
+		trustedProxies: proxies,
+		cfg:            d.Config,
+		store:          d.Store,
+		local:          local.NewSource(d.Store),
+		ldap:           d.LDAP,
+		sessions:       d.Sessions,
+		oidc:           d.OIDC,
+		oidcStore:      d.OIDCStore,
+		mfa:            d.MFA,
+		webauthn:       d.WebAuthn,
+		audit:          d.Audit,
+		log:            d.Log,
 		// 10 attempts/minute per IP, 5 failures/minute per username.
 		ipLimiter:   ratelimit.New(rate.Every(6*time.Second), 10),
 		userLimiter: ratelimit.New(rate.Every(12*time.Second), 5),
@@ -203,7 +212,7 @@ func (s *Server) Handler() http.Handler {
 	// Anything else under the web surface gets the styled 404.
 	web.HandleFunc("/", s.handleNotFound)
 
-	webChain := secureHeaders(s.sessions.LoadAndSave(s.csrfProtect(web)))
+	webChain := s.secureHeaders(s.sessions.LoadAndSave(s.csrfProtect(web)))
 
 	root := http.NewServeMux()
 	static, _ := fs.Sub(staticFS, "static")

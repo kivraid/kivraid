@@ -77,7 +77,7 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionUserCreate, user.Username, "first-run setup", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionUserCreate, user.Username, "first-run setup", s.clientIP(r))
 
 	// Log the new administrator straight in.
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
@@ -85,7 +85,7 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sessions.Put(r.Context(), session.KeyUserID, user.ID)
-	s.sessions.Put(r.Context(), session.KeyIP, clientIP(r))
+	s.sessions.Put(r.Context(), session.KeyIP, s.clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
 	s.log.Info("first administrator registered", "user", user.Username)

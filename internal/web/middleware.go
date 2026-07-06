@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/lporcheron/kivraid/internal/session"
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
@@ -18,7 +19,10 @@ type ctxKey int
 
 const ctxKeyUser ctxKey = iota
 
-func secureHeaders(next http.Handler) http.Handler {
+func (s *Server) secureHeaders(next http.Handler) http.Handler {
+	// HSTS only makes sense (and is only safe to assert) when the
+	// instance is actually served over TLS.
+	hsts := strings.HasPrefix(s.cfg.BaseURL, "https://")
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		h := w.Header()
 		h.Set("Content-Security-Policy",
@@ -26,6 +30,9 @@ func secureHeaders(next http.Handler) http.Handler {
 		h.Set("X-Content-Type-Options", "nosniff")
 		h.Set("X-Frame-Options", "DENY")
 		h.Set("Referrer-Policy", "same-origin")
+		if hsts {
+			h.Set("Strict-Transport-Security", "max-age=63072000")
+		}
 		next.ServeHTTP(w, r)
 	})
 }

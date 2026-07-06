@@ -52,7 +52,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	username := r.PostFormValue("username")
 	password := r.PostFormValue("password")
 	next := s.safeNext(r.PostFormValue("next"), "/")
-	ip := clientIP(r)
+	ip := s.clientIP(r)
 	loginKey := strings.ToLower(strings.TrimSpace(username))
 
 	if !s.ipLimiter.Allow(ip) || s.userLimiter.Blocked(loginKey) {
@@ -106,20 +106,26 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.completeLogin(r, user, next)
+	if err := s.completeLogin(r, user, next); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 // completeLogin establishes a full authenticated session. A fresh token
 // on privilege change prevents session fixation.
-func (s *Server) completeLogin(r *http.Request, user sqlcgen.User, next string) {
-	s.sessions.RenewToken(r.Context())
+func (s *Server) completeLogin(r *http.Request, user sqlcgen.User, next string) error {
+	if err := s.sessions.RenewToken(r.Context()); err != nil {
+		return err
+	}
 	s.sessions.Put(r.Context(), session.KeyUserID, user.ID)
-	s.sessions.Put(r.Context(), session.KeyIP, clientIP(r))
+	s.sessions.Put(r.Context(), session.KeyIP, s.clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
-	s.audit.Record(r.Context(), user.Username, audit.ActionLogin, "", "source="+user.Source, clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionLogin, "", "source="+user.Source, s.clientIP(r))
 	s.log.Info("user logged in", "user", user.Username, "source", user.Source)
+	return nil
 }
 
 // handleMFAChallengePage shows the second-factor prompt for a session that
@@ -144,7 +150,7 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
-	ip := clientIP(r)
+	ip := s.clientIP(r)
 	if s.userLimiter.Blocked(user.Username) {
 		s.audit.Record(r.Context(), user.Username, audit.ActionLoginThrottled, "", "mfa", ip)
 		w.WriteHeader(http.StatusTooManyRequests)
@@ -155,7 +161,11 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 	}
 
 	code := r.PostFormValue("code")
-	ok := s.mfa.ValidateForUser(user, code)
+	ok, err := s.mfa.ValidateForUser(r.Context(), user, code)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	if !ok {
 		// Fall back to a single-use recovery code.
 		used, err := s.mfa.ConsumeRecoveryCode(r.Context(), user.ID, code)
@@ -178,14 +188,17 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
 	s.sessions.Remove(r.Context(), session.KeyPendingMFA)
 	s.sessions.Remove(r.Context(), session.KeyPendingNext)
-	s.completeLogin(r, user, next)
+	if err := s.completeLogin(r, user, next); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 	if userID := s.sessions.GetString(r.Context(), session.KeyUserID); userID != "" {
 		if user, err := s.store.GetUserByID(r.Context(), userID); err == nil {
-			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "", clientIP(r))
+			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "", s.clientIP(r))
 		}
 	}
 	if err := s.sessions.Destroy(r.Context()); err != nil {
@@ -200,7 +213,7 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	if userID := s.sessions.GetString(r.Context(), session.KeyUserID); userID != "" {
 		if user, err := s.store.GetUserByID(r.Context(), userID); err == nil {
-			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "rp-initiated", clientIP(r))
+			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "rp-initiated", s.clientIP(r))
 		}
 		if err := s.sessions.Destroy(r.Context()); err != nil {
 			s.serverError(w, r, err)
@@ -293,7 +306,7 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if !allowed {
-		s.audit.Record(r.Context(), user.Username, audit.ActionOIDCDeny, app.Slug, "", clientIP(r))
+		s.audit.Record(r.Context(), user.Username, audit.ActionOIDCDeny, app.Slug, "", s.clientIP(r))
 		s.log.Info("application access denied", "app", app.Slug, "user", user.Username)
 		w.WriteHeader(http.StatusForbidden)
 		s.render(w, r, "denied.html", pageData{
@@ -308,7 +321,7 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "authorization request not found or expired", http.StatusBadRequest)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionOIDCGrant, app.Slug, "", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionOIDCGrant, app.Slug, "", s.clientIP(r))
 	http.Redirect(w, r, oidcserver.CallbackPath(id), http.StatusSeeOther)
 }
 

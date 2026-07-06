@@ -4,6 +4,7 @@ package config
 
 import (
 	"fmt"
+	"net/netip"
 	"os"
 	"strings"
 	"time"
@@ -32,8 +33,7 @@ func (d *Duration) UnmarshalYAML(value *yaml.Node) error {
 }
 
 type Database struct {
-	// Driver is the database engine: "sqlite" (default). "postgres" is
-	// planned but not implemented yet.
+	// Driver is the database engine: "sqlite" (default) or "postgres".
 	Driver string `yaml:"driver"`
 	DSN    string `yaml:"dsn"`
 }
@@ -67,7 +67,39 @@ type Config struct {
 	Database    Database    `yaml:"database"`
 	ForwardAuth ForwardAuth `yaml:"forward_auth"`
 	Session     Session     `yaml:"session"`
-	LogLevel    string      `yaml:"log_level"`
+	// TrustedProxies lists reverse proxies (IPs or CIDRs) whose
+	// X-Forwarded-For header is honored when attributing a client IP
+	// (rate limiting, audit log, session list). Empty means the header
+	// is ignored and the direct peer address is used — the safe default
+	// when Kivraid is directly reachable.
+	TrustedProxies []string `yaml:"trusted_proxies"`
+	LogLevel       string   `yaml:"log_level"`
+}
+
+// ParseTrustedProxies parses trusted_proxies entries into prefixes; a
+// bare IP is treated as a single-address prefix.
+func ParseTrustedProxies(entries []string) ([]netip.Prefix, error) {
+	out := make([]netip.Prefix, 0, len(entries))
+	for _, e := range entries {
+		e = strings.TrimSpace(e)
+		if e == "" {
+			continue
+		}
+		if strings.Contains(e, "/") {
+			p, err := netip.ParsePrefix(e)
+			if err != nil {
+				return nil, fmt.Errorf("trusted_proxies: invalid CIDR %q", e)
+			}
+			out = append(out, p)
+			continue
+		}
+		a, err := netip.ParseAddr(e)
+		if err != nil {
+			return nil, fmt.Errorf("trusted_proxies: invalid IP %q (use an address or CIDR like \"10.0.0.0/8\")", e)
+		}
+		out = append(out, netip.PrefixFrom(a, a.BitLen()))
+	}
+	return out, nil
 }
 
 func defaults() Config {
@@ -148,6 +180,14 @@ func applyEnv(cfg *Config) error {
 			}
 		}
 	}
+	if v, ok := os.LookupEnv("KIVRAID_TRUSTED_PROXIES"); ok {
+		cfg.TrustedProxies = nil
+		for _, p := range strings.Split(v, ",") {
+			if p = strings.TrimSpace(p); p != "" {
+				cfg.TrustedProxies = append(cfg.TrustedProxies, p)
+			}
+		}
+	}
 	return nil
 }
 
@@ -170,6 +210,9 @@ func (c Config) validate() error {
 	if c.Session.IdleTimeout > c.Session.Lifetime {
 		return fmt.Errorf("session.idle_timeout (%s) must not exceed session.lifetime (%s)",
 			time.Duration(c.Session.IdleTimeout), time.Duration(c.Session.Lifetime))
+	}
+	if _, err := ParseTrustedProxies(c.TrustedProxies); err != nil {
+		return err
 	}
 	return nil
 }

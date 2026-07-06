@@ -1,5 +1,11 @@
 -- name: SetUserTOTP :exec
-UPDATE users SET totp_secret_enc = $1, totp_enabled = $2, updated_at = $3 WHERE id = $4;
+UPDATE users SET totp_secret_enc = $1, totp_enabled = $2, totp_last_counter = $3, updated_at = $4 WHERE id = $5;
+
+-- name: ClaimUserTOTPCounter :execrows
+-- Atomically advances the last accepted TOTP counter. Zero rows means
+-- this time step (or a later one) was already consumed: a replay.
+UPDATE users SET totp_last_counter = $1, updated_at = $2
+WHERE id = $3 AND totp_last_counter < $1;
 
 -- name: DisableUserTOTP :exec
 UPDATE users SET totp_secret_enc = NULL, totp_enabled = FALSE, updated_at = $1 WHERE id = $2;

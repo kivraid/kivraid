@@ -19,6 +19,7 @@ over the file.
 | `forward_auth.domains` | `KIVRAID_FORWARD_AUTH_DOMAINS` | `[]` | Hosts allowed for forward-auth post-login redirects (`.suffix` matches subdomains). |
 | `session.lifetime` | `KIVRAID_SESSION_LIFETIME` | `168h` | Absolute maximum session age, measured from login. |
 | `session.idle_timeout` | `KIVRAID_SESSION_IDLE_TIMEOUT` | `0s` | Inactivity timeout (sliding, capped by `lifetime`); `0s` disables it. |
+| `trusted_proxies` | `KIVRAID_TRUSTED_PROXIES` | `[]` | Proxies (IPs or CIDRs) whose `X-Forwarded-For` is trusted for client IPs. |
 | `log_level` | `KIVRAID_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
 
 Durations use Go's syntax (`168h`, `30m`, `90s`, `0s`).
@@ -41,7 +42,15 @@ can end them from the portal and admins from the user page.
 Run Kivraid behind a TLS-terminating reverse proxy in production and set
 `base_url` to the public `https://` URL. The OIDC issuer is derived from
 `base_url`, so it must match exactly what relying parties are configured
-with, and `https://` is what flips session cookies to `Secure`.
+with, and `https://` is what flips session cookies to `Secure` and turns
+on the `Strict-Transport-Security` header.
+
+When behind a proxy, also set `trusted_proxies` to the proxy's address
+(e.g. `["10.0.0.0/8"]` or the Docker network range). Client IPs — used
+for login rate limiting, the audit log and the session list — are then
+taken from `X-Forwarded-For`, walking the chain from the right past
+trusted hops. Without it the header is ignored, since anyone reaching
+Kivraid directly could spoof it.
 
 ## First run
 

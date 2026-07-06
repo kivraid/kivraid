@@ -23,6 +23,11 @@ forward_auth:
     - "grafana.example.com"    # exact host
 ```
 
+Forward auth means every request reaches Kivraid through the reverse
+proxy, so also set `trusted_proxies` to the proxy's address — otherwise
+rate limiting and the audit log attribute everything to the proxy's IP.
+See [configuration.md](configuration.md#tls-and-the-issuer).
+
 Authentication relies on the Kivraid session cookie being scoped to the
 Kivraid host: the proxies below forward the original request's cookies to
 the auth endpoint, so the check works even though the protected

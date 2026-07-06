@@ -24,7 +24,7 @@ func (q *Queries) CountUsers(ctx context.Context) (int64, error) {
 const createUser = `-- name: CreateUser :one
 INSERT INTO users (id, username, email, name, password_hash, source, ldap_source_id, ldap_dn, is_admin, active, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
-RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled
+RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter
 `
 
 type CreateUserParams struct {
@@ -75,12 +75,13 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 		&i.PhotoMime,
 		&i.TotpSecretEnc,
 		&i.TotpEnabled,
+		&i.TotpLastCounter,
 	)
 	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled FROM users WHERE email = $1
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter FROM users WHERE email = $1
 `
 
 func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error) {
@@ -103,12 +104,13 @@ func (q *Queries) GetUserByEmail(ctx context.Context, email string) (User, error
 		&i.PhotoMime,
 		&i.TotpSecretEnc,
 		&i.TotpEnabled,
+		&i.TotpLastCounter,
 	)
 	return i, err
 }
 
 const getUserByID = `-- name: GetUserByID :one
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled FROM users WHERE id = $1
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter FROM users WHERE id = $1
 `
 
 func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
@@ -131,12 +133,13 @@ func (q *Queries) GetUserByID(ctx context.Context, id string) (User, error) {
 		&i.PhotoMime,
 		&i.TotpSecretEnc,
 		&i.TotpEnabled,
+		&i.TotpLastCounter,
 	)
 	return i, err
 }
 
 const getUserByUsername = `-- name: GetUserByUsername :one
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled FROM users WHERE username = $1
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter FROM users WHERE username = $1
 `
 
 func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User, error) {
@@ -159,6 +162,7 @@ func (q *Queries) GetUserByUsername(ctx context.Context, username string) (User,
 		&i.PhotoMime,
 		&i.TotpSecretEnc,
 		&i.TotpEnabled,
+		&i.TotpLastCounter,
 	)
 	return i, err
 }

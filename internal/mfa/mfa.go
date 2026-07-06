@@ -86,24 +86,39 @@ func FormatSecret(secret string) string {
 	return b.String()
 }
 
-// ValidateCode reports whether a 6-digit code matches the secret (with a
-// small skew window for clock drift).
-func ValidateCode(secret, code string) bool {
+// totpOpts are the fixed validation parameters: 30-second steps with a
+// ±1 step skew window for clock drift.
+var totpOpts = totp.ValidateOpts{
+	Period: 30, Skew: 1, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1,
+}
+
+// MatchCounter reports which time-step counter a 6-digit code matches
+// for the secret, within the skew window. The counter is what replay
+// protection records: each accepted step is consumed exactly once.
+func MatchCounter(secret, code string, t time.Time) (int64, bool) {
 	code = strings.TrimSpace(code)
-	ok, _ := totp.ValidateCustom(code, secret, time.Now(), totp.ValidateOpts{
-		Period: 30, Skew: 1, Digits: otp.DigitsSix, Algorithm: otp.AlgorithmSHA1,
-	})
-	return ok
+	step := int64(totpOpts.Period)
+	current := t.Unix() / step
+	for _, c := range []int64{current, current - 1, current + 1} {
+		expected, err := totp.GenerateCodeCustom(secret, time.Unix(c*step, 0), totpOpts)
+		if err == nil && subtle.ConstantTimeCompare([]byte(expected), []byte(code)) == 1 {
+			return c, true
+		}
+	}
+	return 0, false
 }
 
 // Enable stores the (encrypted) secret and turns TOTP on for the user.
-func (m *Manager) Enable(ctx context.Context, userID, secret string) error {
+// lastCounter is the time step of the enrollment code, seeding replay
+// protection so that same code cannot be reused at the login prompt.
+func (m *Manager) Enable(ctx context.Context, userID, secret string, lastCounter int64) error {
 	enc, err := secrets.Seal(m.sealKey, []byte(secret))
 	if err != nil {
 		return err
 	}
 	return m.store.SetUserTOTP(ctx, sqlcgen.SetUserTOTPParams{
-		TotpSecretEnc: enc, TotpEnabled: true, UpdatedAt: time.Now().UTC(), ID: userID,
+		TotpSecretEnc: enc, TotpEnabled: true, TotpLastCounter: lastCounter,
+		UpdatedAt: time.Now().UTC(), ID: userID,
 	})
 }
 
@@ -117,16 +132,28 @@ func (m *Manager) Disable(ctx context.Context, userID string) error {
 	return m.store.DeleteRecoveryCodes(ctx, userID)
 }
 
-// ValidateForUser checks a TOTP code against a user's stored secret.
-func (m *Manager) ValidateForUser(user sqlcgen.User, code string) bool {
+// ValidateForUser checks a TOTP code against a user's stored secret and
+// consumes its time step: a given code is accepted at most once, so an
+// intercepted code cannot be replayed within the skew window.
+func (m *Manager) ValidateForUser(ctx context.Context, user sqlcgen.User, code string) (bool, error) {
 	if !user.TotpEnabled || len(user.TotpSecretEnc) == 0 {
-		return false
+		return false, nil
 	}
 	secret, err := secrets.Open(m.sealKey, user.TotpSecretEnc)
 	if err != nil {
-		return false
+		return false, err
 	}
-	return ValidateCode(string(secret), code)
+	counter, ok := MatchCounter(string(secret), code, time.Now())
+	if !ok {
+		return false, nil
+	}
+	rows, err := m.store.ClaimUserTOTPCounter(ctx, sqlcgen.ClaimUserTOTPCounterParams{
+		TotpLastCounter: counter, UpdatedAt: time.Now().UTC(), ID: user.ID,
+	})
+	if err != nil {
+		return false, err
+	}
+	return rows > 0, nil
 }
 
 func hashCode(code string) string {

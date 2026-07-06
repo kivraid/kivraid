@@ -69,7 +69,7 @@ func (s *Server) handleAdminGroupCreate(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupCreate, group.Name, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupCreate, group.Name, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
@@ -158,7 +158,7 @@ func (s *Server) handleAdminGroupRename(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, name, "renamed from "+group.Name, clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, name, "renamed from "+group.Name, s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
@@ -180,7 +180,7 @@ func (s *Server) handleAdminGroupAddMember(w http.ResponseWriter, r *http.Reques
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member added", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member added", s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
@@ -199,7 +199,7 @@ func (s *Server) handleAdminGroupRemoveMember(w http.ResponseWriter, r *http.Req
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member removed", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member removed", s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
@@ -222,7 +222,7 @@ func (s *Server) handleAdminGroupRole(w http.ResponseWriter, r *http.Request) {
 	if grants {
 		detail = "now grants the administrator role"
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, detail, clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, detail, s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
@@ -235,6 +235,6 @@ func (s *Server) handleAdminGroupDelete(w http.ResponseWriter, r *http.Request) 
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupDelete, group.Name, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupDelete, group.Name, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups", http.StatusSeeOther)
 }

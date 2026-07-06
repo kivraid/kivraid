@@ -52,7 +52,7 @@ func (s *Server) handlePasskeyRegisterFinish(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	s.sessions.Remove(r.Context(), session.KeyWebAuthnReg)
-	s.audit.Record(r.Context(), user.Username, audit.ActionPasskeyAdd, "", name, clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionPasskeyAdd, "", name, s.clientIP(r))
 	writeJSONRaw(w, []byte(`{"ok":true}`))
 }
 
@@ -67,7 +67,7 @@ func (s *Server) handlePasskeyDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionPasskeyRemove, "", "", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionPasskeyRemove, "", "", s.clientIP(r))
 	http.Redirect(w, r, "/profile", http.StatusSeeOther)
 }
 
@@ -103,7 +103,7 @@ func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request
 	userID, err := s.webauthn.FinishLogin(r.Context(), []byte(sess), r)
 	if err != nil {
 		s.log.Warn("passkey login failed", "err", err)
-		s.audit.Record(r.Context(), "", audit.ActionLoginFailed, "", "passkey", clientIP(r))
+		s.audit.Record(r.Context(), "", audit.ActionLoginFailed, "", "passkey", s.clientIP(r))
 		http.Error(w, "authentication failed", http.StatusUnauthorized)
 		return
 	}
@@ -113,8 +113,11 @@ func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request
 		s.serverError(w, r, err)
 		return
 	}
-	s.completeLogin(r, user, next)
-	s.audit.Record(r.Context(), user.Username, audit.ActionPasskeyLogin, "", "", clientIP(r))
+	if err := s.completeLogin(r, user, next); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.audit.Record(r.Context(), user.Username, audit.ActionPasskeyLogin, "", "", s.clientIP(r))
 	writeJSONRaw(w, []byte(`{"next":`+jsonString(next)+`}`))
 }
 

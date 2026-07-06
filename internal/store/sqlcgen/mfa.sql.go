@@ -11,6 +11,27 @@ import (
 	"time"
 )
 
+const claimUserTOTPCounter = `-- name: ClaimUserTOTPCounter :execrows
+UPDATE users SET totp_last_counter = $1, updated_at = $2
+WHERE id = $3 AND totp_last_counter < $1
+`
+
+type ClaimUserTOTPCounterParams struct {
+	TotpLastCounter int64
+	UpdatedAt       time.Time
+	ID              string
+}
+
+// Atomically advances the last accepted TOTP counter. Zero rows means
+// this time step (or a later one) was already consumed: a replay.
+func (q *Queries) ClaimUserTOTPCounter(ctx context.Context, arg ClaimUserTOTPCounterParams) (int64, error) {
+	result, err := q.db.ExecContext(ctx, claimUserTOTPCounter, arg.TotpLastCounter, arg.UpdatedAt, arg.ID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const countUnusedRecoveryCodes = `-- name: CountUnusedRecoveryCodes :one
 SELECT COUNT(*) FROM mfa_recovery_codes WHERE user_id = $1 AND used_at IS NULL
 `
@@ -114,20 +135,22 @@ func (q *Queries) MarkRecoveryCodeUsed(ctx context.Context, arg MarkRecoveryCode
 }
 
 const setUserTOTP = `-- name: SetUserTOTP :exec
-UPDATE users SET totp_secret_enc = $1, totp_enabled = $2, updated_at = $3 WHERE id = $4
+UPDATE users SET totp_secret_enc = $1, totp_enabled = $2, totp_last_counter = $3, updated_at = $4 WHERE id = $5
 `
 
 type SetUserTOTPParams struct {
-	TotpSecretEnc []byte
-	TotpEnabled   bool
-	UpdatedAt     time.Time
-	ID            string
+	TotpSecretEnc   []byte
+	TotpEnabled     bool
+	TotpLastCounter int64
+	UpdatedAt       time.Time
+	ID              string
 }
 
 func (q *Queries) SetUserTOTP(ctx context.Context, arg SetUserTOTPParams) error {
 	_, err := q.db.ExecContext(ctx, setUserTOTP,
 		arg.TotpSecretEnc,
 		arg.TotpEnabled,
+		arg.TotpLastCounter,
 		arg.UpdatedAt,
 		arg.ID,
 	)

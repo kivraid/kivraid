@@ -292,6 +292,11 @@ database:
 # forward_auth:
 #   domains: [".home.example.com"]
 
+# Reverse proxies (IPs or CIDRs) whose X-Forwarded-For header is trusted
+# for client IP attribution (rate limiting, audit log). Leave unset when
+# Kivraid is directly reachable.
+# trusted_proxies: ["10.0.0.0/8"]
+
 # Session expiry. lifetime is the absolute maximum age (from login);
 # idle_timeout, when set, logs users out after that much inactivity
 # (sliding window, capped by lifetime). "0s" disables the idle timeout.

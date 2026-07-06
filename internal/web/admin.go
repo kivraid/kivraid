@@ -274,7 +274,7 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
-		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppCreate, app.Slug, "proxy", clientIP(r))
+		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppCreate, app.Slug, "proxy", s.clientIP(r))
 		http.Redirect(w, r, "/admin/applications/"+app.ID, http.StatusSeeOther)
 		return
 	}
@@ -309,7 +309,7 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppCreate, app.Slug, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppCreate, app.Slug, "", s.clientIP(r))
 	s.log.Info("application created", "app", app.Slug, "by", currentUser(r).Username)
 	s.render(w, r, "admin_app_secret.html", pageData{
 		Title: "Application created", Active: "apps", CSRF: s.csrfToken(r.Context()),
@@ -476,7 +476,7 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppUpdate, app.Slug, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppUpdate, app.Slug, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/applications/"+app.ID+"?saved=1", http.StatusSeeOther)
 }
 
@@ -502,7 +502,7 @@ func (s *Server) handleAdminAppRotateSecret(w http.ResponseWriter, r *http.Reque
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSecretRotate, app.Slug, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSecretRotate, app.Slug, "", s.clientIP(r))
 	s.log.Info("client secret rotated", "app", app.Slug, "by", currentUser(r).Username)
 	s.render(w, r, "admin_app_secret.html", pageData{
 		Title: "Secret rotated", Active: "apps", CSRF: s.csrfToken(r.Context()),
@@ -520,7 +520,7 @@ func (s *Server) handleAdminAppDelete(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppDelete, app.Slug, "", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppDelete, app.Slug, "", s.clientIP(r))
 	s.log.Info("application deleted", "app", app.Slug, "by", currentUser(r).Username)
 	http.Redirect(w, r, "/admin/applications", http.StatusSeeOther)
 }
@@ -593,7 +593,7 @@ func (s *Server) handleAdminProxyUpdate(w http.ResponseWriter, r *http.Request, 
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppUpdate, app.Slug, "proxy", clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppUpdate, app.Slug, "proxy", s.clientIP(r))
 	http.Redirect(w, r, "/admin/applications/"+app.ID+"?saved=1", http.StatusSeeOther)
 }
 

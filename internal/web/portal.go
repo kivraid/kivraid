@@ -7,6 +7,7 @@ import (
 	"errors"
 	"net"
 	"net/http"
+	"net/netip"
 	"sort"
 	"strings"
 	"time"
@@ -100,7 +101,7 @@ func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 		fail("The directory refused the password change. Contact your administrator.")
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionPasswordChange, "", "source="+user.Source, clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionPasswordChange, "", "source="+user.Source, s.clientIP(r))
 	s.log.Info("password changed", "user", user.Username, "source", user.Source)
 	http.Redirect(w, r, "/profile?pw=1", http.StatusSeeOther)
 }
@@ -186,7 +187,7 @@ func (s *Server) handleSessionRevoke(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "one session", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "one session", s.clientIP(r))
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
 
@@ -206,7 +207,7 @@ func (s *Server) handleSessionsRevokeOthers(w http.ResponseWriter, r *http.Reque
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "all other sessions", clientIP(r))
+	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "all other sessions", s.clientIP(r))
 	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
 }
 
@@ -247,17 +248,46 @@ func summarizeUA(ua string) string {
 	return browser + " · " + os
 }
 
-// clientIP extracts the requester's IP, honoring X-Forwarded-For when the
-// instance runs behind a reverse proxy.
-func clientIP(r *http.Request) string {
-	if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
-		if first, _, ok := strings.Cut(xff, ","); ok || first != "" {
-			return strings.TrimSpace(first)
-		}
-	}
-	host, _, err := net.SplitHostPort(r.RemoteAddr)
-	if err != nil {
+// clientIP returns the requester's IP for rate limiting and the audit
+// log. X-Forwarded-For is only honored when the direct peer is a
+// configured trusted proxy — the header is trivially spoofable
+// otherwise. The chain is walked from the right, skipping trusted hops;
+// the first untrusted address is the client.
+func (s *Server) clientIP(r *http.Request) string {
+	peer, ok := remoteAddr(r)
+	if !ok {
 		return r.RemoteAddr
 	}
-	return host
+	if len(s.trustedProxies) > 0 && proxyTrusted(s.trustedProxies, peer) {
+		parts := strings.Split(r.Header.Get("X-Forwarded-For"), ",")
+		for i := len(parts) - 1; i >= 0; i-- {
+			a, err := netip.ParseAddr(strings.TrimSpace(parts[i]))
+			if err != nil {
+				break
+			}
+			if !proxyTrusted(s.trustedProxies, a) {
+				return a.String()
+			}
+		}
+	}
+	return peer.String()
+}
+
+func remoteAddr(r *http.Request) (netip.Addr, bool) {
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err != nil {
+		host = r.RemoteAddr
+	}
+	a, err := netip.ParseAddr(host)
+	return a, err == nil
+}
+
+func proxyTrusted(prefixes []netip.Prefix, a netip.Addr) bool {
+	a = a.Unmap()
+	for _, p := range prefixes {
+		if p.Contains(a) {
+			return true
+		}
+	}
+	return false
 }
