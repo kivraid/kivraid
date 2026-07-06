@@ -16,6 +16,12 @@
   <a href="docs/configuration.md">Docs</a>
 </p>
 
+<p align="center">
+  <a href="https://github.com/lporcheron/kivraid/actions/workflows/ci.yml"><img src="https://github.com/lporcheron/kivraid/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/lporcheron/kivraid/releases/latest"><img src="https://img.shields.io/github/v/release/lporcheron/kivraid?label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/lporcheron/kivraid" alt="License: Apache-2.0"></a>
+</p>
+
 ---
 
 Kivraid does the same core job as [Authentik](https://goauthentik.io/):
@@ -47,6 +53,16 @@ weight, that's what Kivraid is for.
   passkeys, an admin console and an audit trail, all in the box.
 - 🔒 **Secure by default** — revocable server-side sessions, CSRF, strict
   CSP, rate limiting, and every secret hashed or encrypted at rest.
+
+**No hand-rolled crypto or protocols.** The security-critical parts are
+established, maintained libraries: the OIDC server is
+[zitadel/oidc](https://github.com/zitadel/oidc), passkeys use
+[go-webauthn](https://github.com/go-webauthn/webauthn), password hashing
+is Argon2id from `golang.org/x/crypto`, LDAP speaks
+[go-ldap](https://github.com/go-ldap/ldap), and every SQL query is
+compile-time-checked by [sqlc](https://sqlc.dev). The full list of
+choices — and the reasoning behind each — is in
+[DESIGN.md](DESIGN.md#key-library-choices).
 
 ## Screenshots
 
