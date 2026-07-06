@@ -228,6 +228,7 @@ type profileData struct {
 	CanChangePW       bool
 	PWError           string
 	PWSuccess         bool
+	MFAOff            bool
 	MFAEnabled        bool
 	RecoveryRemaining int64
 	Passkeys          []sqlcgen.WebauthnCredential
@@ -268,6 +269,7 @@ func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlc
 			CanChangePW:       s.canChangePassword(r, user),
 			PWError:           pwError,
 			PWSuccess:         pwSuccess,
+			MFAOff:            r.URL.Query().Get("mfa") == "off",
 			MFAEnabled:        user.TotpEnabled,
 			RecoveryRemaining: recovery,
 			Passkeys:          passkeys,

@@ -20,6 +20,7 @@ type adminUsersData struct {
 	Users       []sqlcgen.User
 	SourceNames map[string]string // ldap_source_id → source name
 	AdminVia    map[string]bool   // user IDs that are admins via a granting group
+	Deleted     bool
 	Query       string
 	Page        int
 	Pages       int
@@ -123,7 +124,8 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 
 	data := adminUsersData{
 		Users: users, SourceNames: names, AdminVia: adminVia,
-		Query: query, Page: page, Pages: pages, Total: total,
+		Deleted: r.URL.Query().Get("deleted") == "1",
+		Query:   query, Page: page, Pages: pages, Total: total,
 		RangeStart: int64(page-1)*usersPageSize + 1,
 		RangeEnd:   int64(page-1)*usersPageSize + int64(len(users)),
 	}
@@ -313,7 +315,8 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if target.Source != "local" {
-		http.Error(w, "directory users change their password in the directory", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Directory-managed password",
+			"Directory users change their password in the directory, not here.")
 		return
 	}
 	password := r.PostFormValue("password")
@@ -337,7 +340,8 @@ func (s *Server) handleAdminUserDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := currentUser(r)
 	if target.ID == actor.ID {
-		http.Error(w, "you cannot delete your own account", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "You cannot delete your own account",
+			"Sign in as another administrator to delete this account.")
 		return
 	}
 	s.revokeUserAccess(r.Context(), target.ID)
@@ -346,7 +350,7 @@ func (s *Server) handleAdminUserDelete(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit.Record(r.Context(), actor.Username, audit.ActionUserDelete, target.Username, "", s.clientIP(r))
-	http.Redirect(w, r, "/admin/users", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/users?deleted=1", http.StatusSeeOther)
 }
 
 // revokeUserAccess kills the user's sessions and OAuth tokens; used when

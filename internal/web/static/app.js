@@ -134,6 +134,27 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Two-factor challenge: switch the single code field between
+  // authenticator codes (numeric keyboard) and recovery codes.
+  const mfaToggle = document.querySelector("[data-mfa-recovery-toggle]");
+  if (mfaToggle) {
+    const input = document.getElementById("code");
+    const label = document.querySelector('label[for="code"]');
+    let recovery = false;
+    mfaToggle.addEventListener("click", () => {
+      recovery = !recovery;
+      input.value = "";
+      input.inputMode = recovery ? "text" : "numeric";
+      input.placeholder = recovery ? "xxxx-xxxx" : "000000";
+      input.autocomplete = recovery ? "off" : "one-time-code";
+      label.textContent = recovery ? "Recovery code" : "Authentication code";
+      mfaToggle.textContent = recovery
+        ? "Use an authenticator code instead"
+        : "Lost your device? Use a recovery code";
+      input.focus();
+    });
+  }
+
   // Copy-to-clipboard for credentials and endpoint URLs.
   for (const btn of document.querySelectorAll("[data-copy]")) {
     btn.addEventListener("click", async () => {

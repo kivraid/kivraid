@@ -1,4 +1,6 @@
 {{define "content"}}
+{{if eq .Data.Revoked "1"}}<div data-flash="Session revoked." data-variant="success" hidden></div>{{end}}
+{{if eq .Data.Revoked "others"}}<div data-flash="All other sessions signed out." data-variant="success" hidden></div>{{end}}
 <div class="mb-8 flex items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Sessions</h1>
@@ -30,7 +32,9 @@
       </div>
     </div>
     {{if not .Current}}
-    <form method="post" action="/sessions/revoke" class="shrink-0">
+    <form method="post" action="/sessions/revoke" class="shrink-0"
+          data-confirm="Sign out this session? The device will need to sign in again."
+          data-confirm-title="Revoke session" data-confirm-variant="danger" data-confirm-label="Revoke">
       <input type="hidden" name="_csrf" value="{{$.CSRF}}">
       <input type="hidden" name="token_hash" value="{{.TokenHash}}">
       <button type="submit" class="btn-ghost">Revoke</button>

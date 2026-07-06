@@ -115,7 +115,8 @@ func (s *Server) handleAvatar(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProfilePhoto(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	if user.Source != "local" {
-		http.Error(w, "directory users get their photo from the directory", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Directory-managed photo",
+			"Directory users get their photo from the directory, not here.")
 		return
 	}
 	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
@@ -154,7 +155,8 @@ func (s *Server) handleProfilePhoto(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProfilePhotoDelete(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	if user.Source != "local" {
-		http.Error(w, "directory users get their photo from the directory", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Directory-managed photo",
+			"Directory users get their photo from the directory, not here.")
 		return
 	}
 	if err := s.store.UpdateUserPhoto(r.Context(), sqlcgen.UpdateUserPhotoParams{

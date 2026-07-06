@@ -184,9 +184,18 @@ func serve(args []string) error {
 		IdleTimeout:       2 * time.Minute,
 	}
 
+	// On a fresh instance, tell the operator what to do next.
+	firstRun := false
+	if n, err := st.CountUsers(ctx); err == nil && n == 0 {
+		firstRun = true
+	}
+
 	errCh := make(chan error, 1)
 	go func() {
 		log.Info("kivraid listening", "version", version, "addr", cfg.Listen, "base_url", cfg.BaseURL)
+		if firstRun {
+			log.Info("first run: open the web UI to create the administrator account", "url", cfg.BaseURL)
+		}
 		errCh <- httpSrv.ListenAndServe()
 	}()
 

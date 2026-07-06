@@ -69,7 +69,9 @@
           <div class="mt-0.5 truncate text-xs text-faint">{{.Username}} · {{.Email}}</div>
         </div>
         {{if not $.Data.IsLDAP}}
-        <form method="post" action="/admin/groups/{{$.Data.Group.ID}}/members/remove" class="shrink-0">
+        <form method="post" action="/admin/groups/{{$.Data.Group.ID}}/members/remove" class="shrink-0"
+              data-confirm="Remove {{.Name}} from this group? They may lose access to applications restricted to it."
+              data-confirm-title="Remove member" data-confirm-variant="danger" data-confirm-label="Remove">
           <input type="hidden" name="_csrf" value="{{$.CSRF}}">
           <input type="hidden" name="user_id" value="{{.ID}}">
           <button type="submit" class="btn-ghost">Remove</button>

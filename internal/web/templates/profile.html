@@ -1,4 +1,5 @@
 {{define "content"}}
+{{if .Data.MFAOff}}<div data-flash="Two-factor authentication disabled." data-variant="success" hidden></div>{{end}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
   <p class="mt-1 text-sm text-muted">Your identity, as applications will see it.</p>
@@ -52,7 +53,9 @@
       <button type="submit" class="btn-secondary shrink-0">Upload</button>
     </form>
     {{if .User.PhotoMime}}
-    <form method="post" action="/profile/photo/delete" class="shrink-0">
+    <form method="post" action="/profile/photo/delete" class="shrink-0"
+          data-confirm="Remove your profile photo?" data-confirm-title="Remove photo"
+          data-confirm-variant="danger" data-confirm-label="Remove">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <button type="submit" class="btn-ghost">Remove</button>
     </form>
@@ -145,16 +148,34 @@
     </div>
     <div>
       <label class="label" for="current_password">Current password</label>
-      <input class="input sm:w-2/3" id="current_password" name="current_password" type="password" autocomplete="current-password" required>
+      <div class="relative sm:w-2/3">
+        <input class="input pr-11" id="current_password" name="current_password" type="password" autocomplete="current-password" required data-secret>
+        <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+          <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+        </button>
+      </div>
     </div>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
         <label class="label" for="new_password">New password</label>
-        <input class="input" id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="relative">
+          <input class="input pr-11" id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required data-secret>
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+            <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+          </button>
+        </div>
       </div>
       <div>
         <label class="label" for="confirm_password">Confirm new password</label>
-        <input class="input" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required>
+        <div class="relative">
+          <input class="input pr-11" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required data-secret>
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+            <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+          </button>
+        </div>
       </div>
     </div>
     <div class="flex justify-end border-t border-line pt-5">

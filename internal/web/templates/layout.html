@@ -99,7 +99,9 @@
       <button type="submit" class="btn-secondary shrink-0">Upload</button>
     </form>
     {{if .Data.App.IconMime}}
-    <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon/delete" class="shrink-0">
+    <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon/delete" class="shrink-0"
+          data-confirm="Remove this application's icon?" data-confirm-title="Remove icon"
+          data-confirm-variant="danger" data-confirm-label="Remove">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <button type="submit" class="btn-ghost">Remove</button>
     </form>

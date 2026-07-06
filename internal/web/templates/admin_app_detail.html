@@ -101,15 +101,15 @@
       <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div>
           <label class="label" for="access_ttl">Access token</label>
-          <input class="input" id="access_ttl" name="access_ttl" type="number" min="1" value="{{.Data.Form.AccessTTL}}">
+          <input class="input" id="access_ttl" name="access_ttl" type="number" min="1" max="86400" value="{{.Data.Form.AccessTTL}}">
         </div>
         <div>
           <label class="label" for="refresh_ttl">Refresh token</label>
-          <input class="input" id="refresh_ttl" name="refresh_ttl" type="number" min="1" value="{{.Data.Form.RefreshTTL}}">
+          <input class="input" id="refresh_ttl" name="refresh_ttl" type="number" min="1" max="31536000" value="{{.Data.Form.RefreshTTL}}">
         </div>
         <div>
           <label class="label" for="id_ttl">ID token</label>
-          <input class="input" id="id_ttl" name="id_ttl" type="number" min="1" value="{{.Data.Form.IDTTL}}">
+          <input class="input" id="id_ttl" name="id_ttl" type="number" min="1" max="86400" value="{{.Data.Form.IDTTL}}">
         </div>
       </div>
     </div>

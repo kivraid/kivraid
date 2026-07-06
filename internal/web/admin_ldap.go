@@ -45,6 +45,7 @@ type ldapTestResult struct {
 
 type adminLdapListData struct {
 	Sources []sqlcgen.LdapSource
+	Deleted bool
 }
 
 type adminLdapFormData struct {
@@ -131,7 +132,7 @@ func (s *Server) handleAdminLdapList(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "admin_ldap.html", pageData{
 		Title: "Directories", Active: "ldap", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminLdapListData{Sources: sources},
+		User: currentUser(r), Data: adminLdapListData{Sources: sources, Deleted: r.URL.Query().Get("deleted") == "1"},
 	})
 }
 
@@ -279,7 +280,7 @@ func (s *Server) handleAdminLdapDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapDelete, src.Name, "", s.clientIP(r))
 	s.log.Info("ldap source deleted", "source", src.Name, "by", currentUser(r).Username)
-	http.Redirect(w, r, "/admin/ldap", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/ldap?deleted=1", http.StatusSeeOther)
 }
 
 // draftSource builds an unsaved LdapSource from the submitted form so a

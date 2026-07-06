@@ -17,6 +17,7 @@ type adminGroupsData struct {
 	Groups      []sqlcgen.ListGroupsWithCountsRow
 	SourceNames map[string]string
 	Error       string
+	Deleted     bool
 }
 
 type adminGroupDetailData struct {
@@ -41,7 +42,10 @@ func (s *Server) renderGroups(w http.ResponseWriter, r *http.Request, errMsg str
 	}
 	s.render(w, r, "admin_groups.html", pageData{
 		Title: "Groups", Active: "groups", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminGroupsData{Groups: groups, SourceNames: names, Error: errMsg},
+		User: currentUser(r), Data: adminGroupsData{
+			Groups: groups, SourceNames: names, Error: errMsg,
+			Deleted: r.URL.Query().Get("deleted") == "1",
+		},
 	})
 }
 
@@ -140,7 +144,8 @@ func (s *Server) handleAdminGroupRename(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if group.Source != "local" {
-		http.Error(w, "directory groups are managed in the directory", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Directory-managed group",
+			"This group is synced from a directory and is managed there.")
 		return
 	}
 	name := strings.TrimSpace(r.PostFormValue("name"))
@@ -168,12 +173,14 @@ func (s *Server) handleAdminGroupAddMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if group.Source != "local" {
-		http.Error(w, "directory group memberships are managed in the directory", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Directory-managed group",
+			"Members of a directory group are managed in the directory.")
 		return
 	}
 	userID := r.PostFormValue("user_id")
 	if _, err := s.store.GetUserByID(r.Context(), userID); err != nil {
-		http.Error(w, "unknown user", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Unknown user",
+			"That user does not exist (it may have just been deleted).")
 		return
 	}
 	if err := s.store.AddUserGroup(r.Context(), sqlcgen.AddUserGroupParams{UserID: userID, GroupID: group.ID}); err != nil && !isUniqueViolation(err) {
@@ -190,7 +197,8 @@ func (s *Server) handleAdminGroupRemoveMember(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if group.Source != "local" {
-		http.Error(w, "directory group memberships are managed in the directory", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Directory-managed group",
+			"Members of a directory group are managed in the directory.")
 		return
 	}
 	if err := s.store.RemoveUserGroup(r.Context(), sqlcgen.RemoveUserGroupParams{
@@ -236,5 +244,5 @@ func (s *Server) handleAdminGroupDelete(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupDelete, group.Name, "", s.clientIP(r))
-	http.Redirect(w, r, "/admin/groups", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/groups?deleted=1", http.StatusSeeOther)
 }

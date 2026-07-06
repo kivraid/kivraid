@@ -52,7 +52,8 @@ type appForm struct {
 }
 
 type adminAppsData struct {
-	Apps []sqlcgen.ListApplicationsAdminRow
+	Apps    []sqlcgen.ListApplicationsAdminRow
+	Deleted bool
 }
 
 type adminAppFormData struct {
@@ -88,7 +89,7 @@ func (s *Server) handleAdminApps(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "admin_apps.html", pageData{
 		Title: "Applications", Active: "apps", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminAppsData{Apps: apps},
+		User: currentUser(r), Data: adminAppsData{Apps: apps, Deleted: r.URL.Query().Get("deleted") == "1"},
 	})
 }
 
@@ -486,7 +487,8 @@ func (s *Server) handleAdminAppRotateSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if provider.Public {
-		http.Error(w, "public clients have no secret", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "No secret to rotate",
+			"This is a public client: it authenticates with PKCE and has no client secret.")
 		return
 	}
 	secret := randomHex(32)
@@ -522,7 +524,7 @@ func (s *Server) handleAdminAppDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionAppDelete, app.Slug, "", s.clientIP(r))
 	s.log.Info("application deleted", "app", app.Slug, "by", currentUser(r).Username)
-	http.Redirect(w, r, "/admin/applications", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/applications?deleted=1", http.StatusSeeOther)
 }
 
 // --- Proxy (forward-auth) applications -------------------------------------
@@ -639,7 +641,8 @@ func (s *Server) handleAppIconUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	back := "/admin/applications/" + app.ID
 	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
-		http.Error(w, "the icon must be smaller than 1 MB", http.StatusRequestEntityTooLarge)
+		s.renderError(w, r, http.StatusRequestEntityTooLarge, "Icon too large",
+			"The icon must be smaller than 1 MB.")
 		return
 	}
 	file, _, err := r.FormFile("icon")
@@ -655,7 +658,8 @@ func (s *Server) handleAppIconUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	mime := http.DetectContentType(icon)
 	if len(icon) > maxUploadPhotoSize || !slices.Contains(allowedPhotoTypes, mime) {
-		http.Error(w, "unsupported or oversized image (use JPEG, PNG, WebP or GIF up to 1 MB)", http.StatusBadRequest)
+		s.renderError(w, r, http.StatusBadRequest, "Unsupported image",
+			"Use a JPEG, PNG, WebP or GIF up to 1 MB.")
 		return
 	}
 	if err := s.store.UpdateApplicationIcon(r.Context(), sqlcgen.UpdateApplicationIconParams{

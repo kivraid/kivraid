@@ -120,6 +120,8 @@ type sessionInfo struct {
 type sessionsData struct {
 	Sessions []sessionInfo
 	Others   int
+	// Revoked flags the post-action flash: "1" (one session) or "others".
+	Revoked string
 }
 
 // listUserSessions walks the session store and returns the current user's
@@ -165,7 +167,10 @@ func (s *Server) handleSessions(w http.ResponseWriter, r *http.Request) {
 	}
 	s.render(w, r, "sessions.html", pageData{
 		Title: "Sessions", Active: "sessions", CSRF: s.csrfToken(r.Context()),
-		User: user, Data: sessionsData{Sessions: sessions, Others: others},
+		User: user, Data: sessionsData{
+			Sessions: sessions, Others: others,
+			Revoked: r.URL.Query().Get("revoked"),
+		},
 	})
 }
 
@@ -188,7 +193,7 @@ func (s *Server) handleSessionRevoke(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "one session", s.clientIP(r))
-	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+	http.Redirect(w, r, "/sessions?revoked=1", http.StatusSeeOther)
 }
 
 func (s *Server) handleSessionsRevokeOthers(w http.ResponseWriter, r *http.Request) {
@@ -208,7 +213,7 @@ func (s *Server) handleSessionsRevokeOthers(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	s.audit.Record(r.Context(), user.Username, audit.ActionSessionRevoke, "", "all other sessions", s.clientIP(r))
-	http.Redirect(w, r, "/sessions", http.StatusSeeOther)
+	http.Redirect(w, r, "/sessions?revoked=others", http.StatusSeeOther)
 }
 
 // summarizeUA turns a User-Agent header into a short human label.
