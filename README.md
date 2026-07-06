@@ -124,7 +124,9 @@ docker run -d --name kivraid -v kivraid:/data -p 9000:9000 \
   ghcr.io/lporcheron/kivraid
 ```
 
-Or with Compose: copy [docker-compose.yml](docker-compose.yml) and `docker compose up -d`.
+Or with Compose: copy [docker-compose.yml](docker-compose.yml) and
+`docker compose up -d` — there is also a
+[PostgreSQL-backed variant](docker-compose.postgres.yml).
 
 **Binary** — prebuilt for Linux and macOS (amd64/arm64) on the
 [releases page](https://github.com/lporcheron/kivraid/releases):

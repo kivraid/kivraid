@@ -1,0 +1,47 @@
+# Docker Compose deployment for Kivraid backed by PostgreSQL.
+#
+#   docker compose -f docker-compose.postgres.yml up -d
+#
+# Change POSTGRES_PASSWORD (and the matching password in KIVRAID_DB_DSN)
+# before deploying. Kivraid runs its migrations automatically on start.
+services:
+  kivraid:
+    image: ghcr.io/lporcheron/kivraid:latest
+    container_name: kivraid
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      # Still used for the generated configuration and its secret_key.
+      - kivraid-data:/data
+    environment:
+      # Public URL of the instance — also the OIDC issuer. Set it to the
+      # https:// URL served by your reverse proxy in production.
+      KIVRAID_BASE_URL: "http://localhost:9000"
+      KIVRAID_DB_DRIVER: "postgres"
+      KIVRAID_DB_DSN: "postgres://kivraid:change-me@db:5432/kivraid?sslmode=disable"
+      # KIVRAID_TRUSTED_PROXIES: "172.16.0.0/12"
+    depends_on:
+      db:
+        condition: service_healthy
+    mem_limit: 256m
+
+  db:
+    image: postgres:18
+    container_name: kivraid-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: kivraid
+      POSTGRES_PASSWORD: change-me
+      POSTGRES_DB: kivraid
+    volumes:
+      - kivraid-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U kivraid"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  kivraid-data:
+  kivraid-pgdata:

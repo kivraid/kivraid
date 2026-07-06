@@ -15,6 +15,29 @@ For Compose, [docker-compose.yml](../docker-compose.yml) at the
 repository root is a ready-to-use deployment (volume, memory limit, the
 env overrides worth setting).
 
+## PostgreSQL
+
+SQLite is the right default: zero services, trivial backup, and more
+than enough for the workload of an identity provider. Reach for
+PostgreSQL when you already run one (shared backup/monitoring/replication
+tooling) or want the database on a separate host:
+
+```yaml
+# kivraid.yaml
+database:
+  driver: postgres
+  dsn: "postgres://kivraid:secret@db.internal:5432/kivraid"
+```
+
+or via `KIVRAID_DB_DRIVER=postgres` and `KIVRAID_DB_DSN=...`.
+[docker-compose.postgres.yml](../docker-compose.postgres.yml) is a
+ready-to-use Compose stack with a bundled PostgreSQL 18. Migrations run
+automatically at startup on either engine, and the full test suite runs
+against both in CI.
+
+Pick the engine when you first deploy: there is no built-in tool to move
+existing data between SQLite and PostgreSQL.
+
 The config is generated in the volume on first run; then open the instance
 and register the administrator account.
 
