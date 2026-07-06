@@ -26,6 +26,8 @@ COPY --from=build --chown=65532:65532 /out/data /data
 USER 65532:65532
 VOLUME /data
 EXPOSE 9000
+HEALTHCHECK --interval=30s --timeout=3s --start-period=5s \
+  CMD ["/kivraid", "healthcheck"]
 ENV KIVRAID_LISTEN=0.0.0.0:9000 \
     KIVRAID_DB_DSN=/data/kivraid.db
 

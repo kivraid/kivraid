@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -61,6 +62,8 @@ func main() {
 			os.Exit(2)
 		}
 		err = configInit(os.Args[3:])
+	case "healthcheck":
+		err = healthcheck(os.Args[2:])
 	case "version", "-v", "--version":
 		fmt.Println("kivraid", version)
 	case "help", "-h", "--help":
@@ -81,8 +84,11 @@ func usage() {
 
 Usage:
   kivraid config init [--config kivraid.yaml]   generate an initial configuration
-  kivraid serve       [--config kivraid.yaml]
-  kivraid user add    [--config kivraid.yaml] --username U --email E [--name N] [--admin]
+  kivraid serve       [--config kivraid.yaml]   run the server
+  kivraid user add    [--config kivraid.yaml] --username U --email E
+                      [--name N] [--admin] [--password P]
+  kivraid healthcheck [--url http://127.0.0.1:9000/healthz]
+  kivraid version
 `)
 }
 
@@ -258,6 +264,32 @@ func userAdd(args []string) error {
 	audit.NewRecorder(st, newLogger(cfg.LogLevel)).
 		Record(ctx, "cli", audit.ActionUserCreate, user.Username, "", "")
 	fmt.Printf("created user %s (%s)\n", user.Username, user.ID)
+	return nil
+}
+
+// healthcheck probes the local /healthz endpoint and exits non-zero when
+// the instance is unreachable or unhealthy. The Docker HEALTHCHECK uses
+// it: the scratch image has no shell or curl.
+func healthcheck(args []string) error {
+	fs := flag.NewFlagSet("healthcheck", flag.ExitOnError)
+	def := "http://127.0.0.1:9000/healthz"
+	if l := os.Getenv("KIVRAID_LISTEN"); l != "" {
+		if _, port, err := net.SplitHostPort(l); err == nil {
+			def = "http://127.0.0.1:" + port + "/healthz"
+		}
+	}
+	url := fs.String("url", def, "health endpoint to probe")
+	fs.Parse(args)
+
+	client := &http.Client{Timeout: 3 * time.Second}
+	resp, err := client.Get(*url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("unhealthy: %s returned %s", *url, resp.Status)
+	}
 	return nil
 }
 
