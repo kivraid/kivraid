@@ -1,6 +1,22 @@
 -- name: ListUsers :many
 SELECT * FROM users ORDER BY username;
 
+-- name: CountUsersSearch :one
+-- The pattern is lowercased and wildcard-escaped by the caller ('%' for
+-- no filter). lower() keeps the match case-insensitive on both engines.
+SELECT COUNT(*) FROM users
+WHERE lower(username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+   OR lower(email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+   OR lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\';
+
+-- name: ListUsersPage :many
+SELECT * FROM users
+WHERE lower(username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+   OR lower(email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+   OR lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+ORDER BY username
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
 -- name: UpdateUserIdentity :exec
 UPDATE users SET name = $1, email = $2, updated_at = $3 WHERE id = $4;
 

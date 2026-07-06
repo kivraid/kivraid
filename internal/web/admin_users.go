@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -13,10 +14,20 @@ import (
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
 
+const usersPageSize = 50
+
 type adminUsersData struct {
 	Users       []sqlcgen.User
 	SourceNames map[string]string // ldap_source_id → source name
 	AdminVia    map[string]bool   // user IDs that are admins via a granting group
+	Query       string
+	Page        int
+	Pages       int
+	Total       int64
+	RangeStart  int64
+	RangeEnd    int64
+	PrevPage    int
+	NextPage    int
 }
 
 type adminUserDetailData struct {
@@ -56,8 +67,41 @@ func (s *Server) ldapSourceNames(ctx context.Context) (map[string]string, error)
 	return names, nil
 }
 
+// likePattern turns a free-text search into a case-insensitive LIKE
+// pattern, escaping the LIKE wildcards in the user's input. An empty
+// search matches everything.
+func likePattern(q string) string {
+	if q == "" {
+		return "%"
+	}
+	esc := strings.NewReplacer(`\`, `\\`, `%`, `\%`, `_`, `\_`).Replace(strings.ToLower(q))
+	return "%" + esc + "%"
+}
+
 func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
-	users, err := s.store.ListUsers(r.Context())
+	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	pattern := likePattern(query)
+
+	total, err := s.store.CountUsersSearch(r.Context(), pattern)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	pages := int((total + usersPageSize - 1) / usersPageSize)
+	if pages < 1 {
+		pages = 1
+	}
+	page := 1
+	if p, err := strconv.Atoi(r.URL.Query().Get("page")); err == nil && p > 1 {
+		page = p
+	}
+	if page > pages {
+		page = pages
+	}
+
+	users, err := s.store.ListUsersPage(r.Context(), sqlcgen.ListUsersPageParams{
+		Pattern: pattern, PageLimit: usersPageSize, PageOffset: int32(page-1) * usersPageSize,
+	})
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -76,9 +120,26 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	for _, id := range viaIDs {
 		adminVia[id] = true
 	}
+
+	data := adminUsersData{
+		Users: users, SourceNames: names, AdminVia: adminVia,
+		Query: query, Page: page, Pages: pages, Total: total,
+		RangeStart: int64(page-1)*usersPageSize + 1,
+		RangeEnd:   int64(page-1)*usersPageSize + int64(len(users)),
+	}
+	if total == 0 {
+		data.RangeStart = 0
+	}
+	if page > 1 {
+		data.PrevPage = page - 1
+	}
+	if page < pages {
+		data.NextPage = page + 1
+	}
+
 	s.render(w, r, "admin_users.html", pageData{
 		Title: "Users", Active: "users", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminUsersData{Users: users, SourceNames: names, AdminVia: adminVia},
+		User: currentUser(r), Data: data,
 	})
 }
 

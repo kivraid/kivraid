@@ -35,6 +35,22 @@ func (q *Queries) CountAdminGroupMemberships(ctx context.Context, userID string)
 	return count, err
 }
 
+const countUsersSearch = `-- name: CountUsersSearch :one
+SELECT COUNT(*) FROM users
+WHERE lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
+   OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
+   OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+`
+
+// The pattern is lowercased and wildcard-escaped by the caller ('%' for
+// no filter). lower() keeps the match case-insensitive on both engines.
+func (q *Queries) CountUsersSearch(ctx context.Context, pattern string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsersSearch, pattern)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAccessTokensByUser = `-- name: DeleteAccessTokensByUser :exec
 DELETE FROM access_tokens WHERE user_id = $1
 `
@@ -276,6 +292,61 @@ SELECT id, username, email, name, password_hash, source, is_admin, active, creat
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 	rows, err := q.db.QueryContext(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Source,
+			&i.IsAdmin,
+			&i.Active,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LdapSourceID,
+			&i.LdapDn,
+			&i.Photo,
+			&i.PhotoMime,
+			&i.TotpSecretEnc,
+			&i.TotpEnabled,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsersPage = `-- name: ListUsersPage :many
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled FROM users
+WHERE lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
+   OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
+   OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+ORDER BY username
+LIMIT $3 OFFSET $2
+`
+
+type ListUsersPageParams struct {
+	Pattern    string
+	PageOffset int32
+	PageLimit  int32
+}
+
+func (q *Queries) ListUsersPage(ctx context.Context, arg ListUsersPageParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listUsersPage, arg.Pattern, arg.PageOffset, arg.PageLimit)
 	if err != nil {
 		return nil, err
 	}
