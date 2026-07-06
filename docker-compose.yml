@@ -1,0 +1,31 @@
+# Docker Compose deployment for Kivraid.
+#
+#   docker compose up -d
+#
+# On first start Kivraid generates its configuration (with a fresh
+# secret_key) in the data volume; then open the instance and register
+# the administrator account. The image ships a HEALTHCHECK, so
+# `docker compose ps` reports real health.
+services:
+  kivraid:
+    image: ghcr.io/lporcheron/kivraid:latest
+    container_name: kivraid
+    restart: unless-stopped
+    ports:
+      - "9000:9000"
+    volumes:
+      - kivraid-data:/data
+    environment:
+      # Public URL of the instance — also the OIDC issuer. Set it to the
+      # https:// URL served by your reverse proxy in production.
+      KIVRAID_BASE_URL: "http://localhost:9000"
+      # When a reverse proxy sits in front, list it (IP or CIDR) so
+      # client IPs are taken from X-Forwarded-For. See
+      # docs/configuration.md.
+      # KIVRAID_TRUSTED_PROXIES: "172.16.0.0/12"
+    # Kivraid adapts its GC to the container's memory limit and idles
+    # around 26 MB; 256 MB leaves generous headroom for login bursts.
+    mem_limit: 256m
+
+volumes:
+  kivraid-data:

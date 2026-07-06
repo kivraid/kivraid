@@ -11,6 +11,10 @@ docker run -d --name kivraid -v kivraid:/data -p 9000:9000 \
   ghcr.io/lporcheron/kivraid
 ```
 
+For Compose, [docker-compose.yml](../docker-compose.yml) at the
+repository root is a ready-to-use deployment (volume, memory limit, the
+env overrides worth setting).
+
 The config is generated in the volume on first run; then open the instance
 and register the administrator account.
 
