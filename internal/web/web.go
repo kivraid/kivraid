@@ -4,7 +4,9 @@
 package web
 
 import (
+	"crypto/sha256"
 	"embed"
+	"encoding/hex"
 	"fmt"
 	"html/template"
 	"io/fs"
@@ -100,6 +102,9 @@ func NewServer(d Deps) (*Server, error) {
 		pages:       map[string]*template.Template{},
 	}
 
+	// Asset URLs carry a content hash so browsers can cache aggressively
+	// yet pick up new CSS/JS immediately after an upgrade.
+	assetV := assetVersion()
 	funcs := template.FuncMap{
 		"initials": initials,
 		"deref": func(p *string) string {
@@ -107,6 +112,9 @@ func NewServer(d Deps) (*Server, error) {
 				return ""
 			}
 			return *p
+		},
+		"asset": func(name string) string {
+			return "/static/" + name + "?v=" + assetV
 		},
 	}
 	standalone := []string{"login.html", "login_mfa.html", "error.html", "setup.html"}
@@ -258,7 +266,30 @@ func upperFirst(s string) string {
 
 func cacheStatic(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		// Versioned URLs (?v=<content hash>) change whenever the asset
+		// does, so those responses can be cached indefinitely. Anything
+		// referenced without a version keeps a short lifetime.
+		if r.URL.Query().Get("v") != "" {
+			w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		} else {
+			w.Header().Set("Cache-Control", "public, max-age=3600")
+		}
 		next.ServeHTTP(w, r)
 	})
+}
+
+// assetVersion hashes the embedded CSS and JS into a short cache-busting
+// token that changes with any asset change.
+func assetVersion() string {
+	h := sha256.New()
+	for _, name := range []string{"static/app.css", "static/app.js"} {
+		b, err := staticFS.ReadFile(name)
+		if err != nil {
+			// Embedded files cannot go missing at runtime; be defensive
+			// anyway and fall back to an uncached-style token.
+			return "dev"
+		}
+		h.Write(b)
+	}
+	return hex.EncodeToString(h.Sum(nil))[:12]
 }
