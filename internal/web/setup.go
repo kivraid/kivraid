@@ -36,8 +36,8 @@ func (s *Server) handleSetupPage(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
-	// Re-checked at submit time so the window between two concurrent
-	// first visitors cannot yield two admins.
+	// Cheap pre-check; the real guarantee is the post-insert count below,
+	// since two concurrent first visitors can both pass this.
 	if !s.needsSetup(r) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
@@ -75,6 +75,20 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 	user, err := s.local.CreateUser(r.Context(), data.Username, data.Email, data.Name, password, true)
 	if err != nil {
 		s.serverError(w, r, err)
+		return
+	}
+	// Setup may only create the very first account. If a concurrent
+	// submission slipped past the pre-check, whoever is not alone
+	// concedes: the extra account is removed and the request bounces
+	// to the login page.
+	n, err := s.store.CountUsers(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	if n != 1 {
+		_ = s.store.DeleteUser(r.Context(), user.ID)
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
 	s.audit.Record(r.Context(), user.Username, audit.ActionUserCreate, user.Username, "first-run setup", s.clientIP(r))
