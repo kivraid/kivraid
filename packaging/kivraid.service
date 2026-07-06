@@ -3,8 +3,11 @@
 #   install -m 755 kivraid /usr/local/bin/kivraid
 #   install -m 644 packaging/kivraid.service /etc/systemd/system/
 #   systemctl daemon-reload
-#   kivraid config init --config /var/lib/kivraid/kivraid.yaml   (as root, then chown)
 #   systemctl enable --now kivraid
+#
+# No config step needed: the state directory is created by systemd and
+# Kivraid generates its configuration (with a fresh secret_key) there on
+# first start. Then open the instance to register the administrator.
 
 [Unit]
 Description=Kivraid identity provider
@@ -15,7 +18,7 @@ Wants=network-online.target
 [Service]
 ExecStart=/usr/local/bin/kivraid serve --config /var/lib/kivraid/kivraid.yaml
 WorkingDirectory=/var/lib/kivraid
-Restart=on-failure
+Restart=always
 RestartSec=2
 
 # Run as a transient unprivileged user owning only its state directory.

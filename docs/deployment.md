@@ -39,6 +39,36 @@ concurrent logins without OOM. Two knobs keep it lean:
 Give the container a memory limit (e.g. `--memory=256m`) and Kivraid adapts
 to it.
 
+## Backup, restore, upgrades
+
+All state lives in the database, but SQLite runs in WAL mode: copying
+`kivraid.db` alone while the server runs can miss recent writes. Either
+stop the service and copy `kivraid.db`, `kivraid.db-wal` and
+`kivraid.db-shm` together, or take a consistent online snapshot:
+
+```sh
+sqlite3 /var/lib/kivraid/kivraid.db ".backup /backups/kivraid.db"
+```
+
+With PostgreSQL, use `pg_dump` as usual.
+
+Keep the config file (or at least its `secret_key`) with the backup:
+signing keys, TOTP secrets and directory credentials are encrypted with
+it and are unrecoverable without it.
+
+Upgrading is replacing the binary (or pulling a newer image) and
+restarting — pending migrations run automatically at startup.
+**Downgrades are not supported**: migrations are forward-only, and an
+older binary refuses to start on a database written by a newer one. To
+roll back, restore the database backup taken before the upgrade.
+
+## Health checks
+
+`GET /healthz` returns `200 ok`. The Docker image declares a
+`HEALTHCHECK` using the built-in `kivraid healthcheck` subcommand
+(the `FROM scratch` image has no curl), which you can also point at a
+non-default port with `--url`.
+
 ## Behind a reverse proxy
 
 Run Kivraid behind a TLS-terminating proxy and set `base_url` to the public
