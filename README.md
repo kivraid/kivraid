@@ -99,26 +99,38 @@ dark on the right.</sub>
 
 ## Quickstart
 
-**Binary** — requires Go 1.26+ to build (the Tailwind CSS standalone CLI is
+**Docker** — multi-arch (amd64/arm64) image on GHCR, built `FROM scratch`,
+runs unprivileged, all state in `/data`:
+
+```sh
+docker volume create kivraid
+docker run -d --name kivraid -v kivraid:/data -p 9000:9000 \
+  ghcr.io/lporcheron/kivraid
+```
+
+**Binary** — prebuilt for Linux and macOS (amd64/arm64) on the
+[releases page](https://github.com/lporcheron/kivraid/releases):
+
+```sh
+tar xzf kivraid_*_$(uname -s | tr A-Z a-z)_$(uname -m | sed 's/x86_64/amd64/').tar.gz
+./kivraid serve            # http://127.0.0.1:9000
+```
+
+**From source** — requires Go 1.26+ (the Tailwind CSS standalone CLI is
 downloaded automatically by `make`; no Node required):
 
 ```sh
 make build
-./kivraid serve            # http://127.0.0.1:9000
-```
-
-**Docker** — built `FROM scratch`, runs unprivileged, all state in `/data`:
-
-```sh
-make docker
-docker volume create kivraid
-docker run -d --name kivraid -v kivraid:/data -p 9000:9000 kivraid
+./kivraid serve
 ```
 
 Either way, Kivraid generates its config with a random `secret_key` on
 first run — no init step. Open the instance and register the administrator
 account on first visit. See [docs/deployment.md](docs/deployment.md) for
 systemd and the resource footprint.
+
+Releases are cut automatically from `main` and versioned by build date
+(`YYYYMMDD.HHmmss`); the `latest` image tag always tracks the newest one.
 
 ## How it compares
 

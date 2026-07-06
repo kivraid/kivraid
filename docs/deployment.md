@@ -2,10 +2,13 @@
 
 ## Docker
 
+A multi-arch (amd64/arm64) image is published on GHCR for every release;
+`make docker` builds the same image locally.
+
 ```sh
-make docker
 docker volume create kivraid
-docker run -d --name kivraid -v kivraid:/data -p 9000:9000 kivraid
+docker run -d --name kivraid -v kivraid:/data -p 9000:9000 \
+  ghcr.io/lporcheron/kivraid
 ```
 
 The config is generated in the volume on first run; then open the instance
