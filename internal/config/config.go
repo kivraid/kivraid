@@ -46,6 +46,13 @@ type ForwardAuth struct {
 	Domains []string `yaml:"domains"`
 }
 
+type OIDC struct {
+	// SigningAlgorithm signs OIDC ID tokens: "es256" (default) or "rs256".
+	// ES256 is modern and compact; RS256 is the universally supported
+	// baseline — switch to it for apps that reject ES256 (e.g. BookStack).
+	SigningAlgorithm string `yaml:"signing_algorithm"`
+}
+
 type Session struct {
 	// Lifetime is the absolute maximum age of a session, measured from
 	// login. A session expires after this no matter how active the user is.
@@ -66,6 +73,7 @@ type Config struct {
 	SecretKey   string      `yaml:"secret_key"`
 	Database    Database    `yaml:"database"`
 	ForwardAuth ForwardAuth `yaml:"forward_auth"`
+	OIDC        OIDC        `yaml:"oidc"`
 	Session     Session     `yaml:"session"`
 	// TrustedProxies lists reverse proxies (IPs or CIDRs) whose
 	// X-Forwarded-For header is honored when attributing a client IP
@@ -107,6 +115,7 @@ func defaults() Config {
 		Listen:   "127.0.0.1:9000",
 		BaseURL:  "http://localhost:9000",
 		Database: Database{Driver: "sqlite", DSN: "kivraid.db"},
+		OIDC:     OIDC{SigningAlgorithm: "es256"},
 		Session:  Session{Lifetime: Duration(7 * 24 * time.Hour), IdleTimeout: 0},
 		LogLevel: "info",
 	}
@@ -153,6 +162,7 @@ func applyEnv(cfg *Config) error {
 	set("SECRET_KEY", &cfg.SecretKey)
 	set("DB_DRIVER", &cfg.Database.Driver)
 	set("DB_DSN", &cfg.Database.DSN)
+	set("OIDC_SIGNING_ALGORITHM", &cfg.OIDC.SigningAlgorithm)
 	set("LOG_LEVEL", &cfg.LogLevel)
 	setDur := func(key string, dst *Duration) error {
 		v, ok := os.LookupEnv("KIVRAID_" + key)
@@ -213,6 +223,11 @@ func (c Config) validate() error {
 	}
 	if _, err := ParseTrustedProxies(c.TrustedProxies); err != nil {
 		return err
+	}
+	switch strings.ToLower(c.OIDC.SigningAlgorithm) {
+	case "es256", "rs256":
+	default:
+		return fmt.Errorf("oidc.signing_algorithm must be \"es256\" or \"rs256\" (got %q)", c.OIDC.SigningAlgorithm)
 	}
 	return nil
 }

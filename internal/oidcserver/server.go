@@ -2,16 +2,32 @@ package oidcserver
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"net/url"
 	"strings"
 
+	jose "github.com/go-jose/go-jose/v4"
 	"github.com/zitadel/oidc/v3/pkg/op"
 
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/store"
 )
+
+// signingAlgorithm maps the configured algorithm name to its jose value.
+// The config layer already restricts the input to es256/rs256; this stays
+// defensive.
+func signingAlgorithm(s string) (jose.SignatureAlgorithm, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "es256":
+		return jose.ES256, nil
+	case "rs256":
+		return jose.RS256, nil
+	default:
+		return "", fmt.Errorf("unsupported oidc signing algorithm %q (want \"es256\" or \"rs256\")", s)
+	}
+}
 
 // ResumePath is where the web layer completes a pending authorization
 // request after login; the op callback then issues the code.
@@ -27,9 +43,13 @@ func CallbackPath(authRequestID string) string {
 // an http.Handler covering discovery, authorize, token, userinfo, keys,
 // revocation and end_session under the issuer root.
 func New(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logger) (*op.Provider, *Storage, error) {
+	alg, err := signingAlgorithm(cfg.OIDC.SigningAlgorithm)
+	if err != nil {
+		return nil, nil, err
+	}
 	storage, err := NewStorage(ctx, st,
 		secrets.DeriveKey(cfg.SecretKey, "signing-keys"),
-		secrets.DeriveKey(cfg.SecretKey, "client-secrets"))
+		secrets.DeriveKey(cfg.SecretKey, "client-secrets"), alg)
 	if err != nil {
 		return nil, nil, err
 	}

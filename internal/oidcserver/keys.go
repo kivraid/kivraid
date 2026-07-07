@@ -2,9 +2,11 @@ package oidcserver
 
 import (
 	"context"
+	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/rsa"
 	"crypto/x509"
 	"fmt"
 	"time"
@@ -17,11 +19,12 @@ import (
 	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
 
-// signingKey is the in-memory, decrypted form of a signing_keys row.
+// signingKey is the in-memory, decrypted form of a signing_keys row. The
+// private key is an EC key for ES256 or an RSA key for RS256.
 type signingKey struct {
 	id      string
 	alg     jose.SignatureAlgorithm
-	private *ecdsa.PrivateKey
+	private crypto.Signer
 }
 
 func (k *signingKey) ID() string                                  { return k.id }
@@ -31,51 +34,77 @@ func (k *signingKey) Key() any                                    { return k.pri
 // publicKey exposes a signing key's public half for the JWKS endpoint.
 type publicKey struct{ *signingKey }
 
-func (k publicKey) Use() string { return "sig" }
-func (k publicKey) Key() any    { return &k.private.PublicKey }
-func (k publicKey) Algorithm() jose.SignatureAlgorithm {
-	return k.alg
+func (k publicKey) Use() string                        { return "sig" }
+func (k publicKey) Key() any                           { return k.private.Public() }
+func (k publicKey) Algorithm() jose.SignatureAlgorithm { return k.alg }
+
+// generateKey creates a fresh private key for the given algorithm.
+func generateKey(alg jose.SignatureAlgorithm) (crypto.Signer, error) {
+	switch alg {
+	case jose.ES256:
+		return ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	case jose.RS256:
+		return rsa.GenerateKey(rand.Reader, 2048)
+	default:
+		return nil, fmt.Errorf("unsupported signing algorithm %q", alg)
+	}
 }
 
-// loadOrCreateSigningKey returns the newest active ES256 key, generating
-// and persisting one on first start. Private keys are encrypted at rest.
-func loadOrCreateSigningKey(ctx context.Context, st *store.Store, sealKey [32]byte) (*signingKey, error) {
+// loadSigningKeys decrypts every active signing key (all are published in
+// the JWKS so tokens signed before an algorithm switch still verify) and
+// returns the one matching alg, generating and persisting it on first use.
+func loadSigningKeys(ctx context.Context, st *store.Store, sealKey [32]byte, alg jose.SignatureAlgorithm) (active *signingKey, all []*signingKey, err error) {
 	rows, err := st.GetActiveSigningKeys(ctx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	if len(rows) > 0 {
-		return decryptSigningKey(rows[0], sealKey)
+	for _, row := range rows {
+		k, err := decryptSigningKey(row, sealKey)
+		if err != nil {
+			return nil, nil, err
+		}
+		all = append(all, k)
+		if k.alg == alg && active == nil {
+			active = k
+		}
+	}
+	if active != nil {
+		return active, all, nil
 	}
 
-	private, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	// No key for the requested algorithm yet: generate and persist one.
+	// Any existing key of a different algorithm is left active so its
+	// public half stays in the JWKS.
+	private, err := generateKey(alg)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	der, err := x509.MarshalPKCS8PrivateKey(private)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	sealed, err := secrets.Seal(sealKey, der)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	pubDER, err := x509.MarshalPKIXPublicKey(&private.PublicKey)
+	pubDER, err := x509.MarshalPKIXPublicKey(private.Public())
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	id := uuid.NewString()
 	if err := st.CreateSigningKey(ctx, sqlcgen.CreateSigningKeyParams{
 		ID:            id,
-		Alg:           string(jose.ES256),
+		Alg:           string(alg),
 		PrivateKeyEnc: sealed,
 		PublicKeyDer:  pubDER,
 		Active:        true,
 		CreatedAt:     time.Now().UTC(),
 	}); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return &signingKey{id: id, alg: jose.ES256, private: private}, nil
+	active = &signingKey{id: id, alg: alg, private: private}
+	all = append(all, active)
+	return active, all, nil
 }
 
 func decryptSigningKey(row sqlcgen.SigningKey, sealKey [32]byte) (*signingKey, error) {
@@ -87,9 +116,9 @@ func decryptSigningKey(row sqlcgen.SigningKey, sealKey [32]byte) (*signingKey, e
 	if err != nil {
 		return nil, err
 	}
-	ec, ok := parsed.(*ecdsa.PrivateKey)
+	signer, ok := parsed.(crypto.Signer)
 	if !ok {
 		return nil, fmt.Errorf("signing key %s: unexpected key type %T", row.ID, parsed)
 	}
-	return &signingKey{id: row.ID, alg: jose.SignatureAlgorithm(row.Alg), private: ec}, nil
+	return &signingKey{id: row.ID, alg: jose.SignatureAlgorithm(row.Alg), private: signer}, nil
 }

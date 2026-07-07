@@ -18,6 +18,28 @@ func writeTemp(t *testing.T, body string) string {
 
 const validSecret = "0123456789abcdef0123456789abcdef"
 
+func TestSigningAlgorithm(t *testing.T) {
+	cfg, err := Load(writeTemp(t, "secret_key: \""+validSecret+"\"\n"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cfg.OIDC.SigningAlgorithm != "es256" {
+		t.Fatalf("default signing_algorithm: want es256, got %q", cfg.OIDC.SigningAlgorithm)
+	}
+
+	cfg, err = Load(writeTemp(t, "secret_key: \""+validSecret+"\"\noidc:\n  signing_algorithm: rs256\n"))
+	if err != nil {
+		t.Fatalf("rs256 should be valid: %v", err)
+	}
+	if cfg.OIDC.SigningAlgorithm != "rs256" {
+		t.Fatalf("want rs256, got %q", cfg.OIDC.SigningAlgorithm)
+	}
+
+	if _, err := Load(writeTemp(t, "secret_key: \""+validSecret+"\"\noidc:\n  signing_algorithm: hs256\n")); err == nil {
+		t.Fatal("hs256 should be rejected")
+	}
+}
+
 func TestSessionDefaults(t *testing.T) {
 	cfg, err := Load(writeTemp(t, "secret_key: \""+validSecret+"\"\n"))
 	if err != nil {

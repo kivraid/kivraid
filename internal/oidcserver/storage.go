@@ -35,7 +35,8 @@ const (
 
 type Storage struct {
 	store *store.Store
-	key   *signingKey
+	key   *signingKey // the key tokens are signed with (the configured alg)
+	keys  []op.Key    // all active public keys, published in the JWKS
 	// clientSecretKey encrypts OAuth client secrets at rest so the admin
 	// can display them again.
 	clientSecretKey [32]byte
@@ -44,12 +45,16 @@ type Storage struct {
 var _ op.Storage = (*Storage)(nil)
 var _ op.CanSetUserinfoFromRequest = (*Storage)(nil)
 
-func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [32]byte) (*Storage, error) {
-	key, err := loadOrCreateSigningKey(ctx, st, sealKey)
+func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [32]byte, alg jose.SignatureAlgorithm) (*Storage, error) {
+	active, all, err := loadSigningKeys(ctx, st, sealKey, alg)
 	if err != nil {
 		return nil, fmt.Errorf("signing key: %w", err)
 	}
-	return &Storage{store: st, key: key, clientSecretKey: clientSecretKey}, nil
+	keys := make([]op.Key, len(all))
+	for i, k := range all {
+		keys[i] = publicKey{k}
+	}
+	return &Storage{store: st, key: active, keys: keys, clientSecretKey: clientSecretKey}, nil
 }
 
 // SealClientSecret encrypts a client secret for storage.
@@ -377,7 +382,7 @@ func (s *Storage) SignatureAlgorithms(context.Context) ([]jose.SignatureAlgorith
 }
 
 func (s *Storage) KeySet(context.Context) ([]op.Key, error) {
-	return []op.Key{publicKey{s.key}}, nil
+	return s.keys, nil
 }
 
 // --- Clients & userinfo --------------------------------------------------

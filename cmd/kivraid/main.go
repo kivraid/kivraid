@@ -338,6 +338,11 @@ database:
 # Kivraid is directly reachable.
 # trusted_proxies: ["10.0.0.0/8"]
 
+# OIDC ID token signing algorithm: "es256" (default) or "rs256". Switch to
+# rs256 for apps that reject ES256 (e.g. BookStack). See docs/integrations.
+# oidc:
+#   signing_algorithm: es256
+
 # Session expiry. lifetime is the absolute maximum age (from login);
 # idle_timeout, when set, logs users out after that much inactivity
 # (sliding window, capped by lifetime). "0s" disables the idle timeout.
