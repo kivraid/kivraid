@@ -68,4 +68,8 @@ paste into the app. Request the scopes `openid profile email groups`.
 Restrict who may sign in by binding groups in the application's **Access**
 section; with no bound group, every authenticated user may use the app.
 
+Step-by-step recipes for common applications (Grafana, Nextcloud, Gitea,
+Proxmox) and a generic OIDC reference live in
+[docs/integrations](integrations/).
+
 For apps without native OIDC support, use [forward auth](forward-auth.md).

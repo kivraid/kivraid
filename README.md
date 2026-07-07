@@ -194,6 +194,8 @@ they move fast, so verify current capabilities before relying on them.</sub>
 
 - [Configuration](docs/configuration.md) — config file, env overrides, TLS,
   connecting an application.
+- [Integrations](docs/integrations/) — step-by-step OIDC recipes for
+  Grafana, Nextcloud, Gitea, Proxmox, and a generic reference.
 - [LDAP directories](docs/ldap.md) — bind auth, group models, write-back.
 - [Forward auth](docs/forward-auth.md) — protecting apps without native SSO.
 - [Deployment](docs/deployment.md) — Docker, systemd, resource footprint.
