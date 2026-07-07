@@ -34,9 +34,10 @@ const (
 )
 
 type Storage struct {
-	store *store.Store
-	key   *signingKey // the key tokens are signed with (the configured alg)
-	keys  []op.Key    // all active public keys, published in the JWKS
+	store  *store.Store
+	key    *signingKey // the key tokens are signed with (the configured alg)
+	keys   []op.Key    // all active public keys, published in the JWKS
+	issuer string      // base URL, used to build absolute claim URLs
 	// clientSecretKey encrypts OAuth client secrets at rest so the admin
 	// can display them again.
 	clientSecretKey [32]byte
@@ -45,7 +46,7 @@ type Storage struct {
 var _ op.Storage = (*Storage)(nil)
 var _ op.CanSetUserinfoFromRequest = (*Storage)(nil)
 
-func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [32]byte, alg jose.SignatureAlgorithm) (*Storage, error) {
+func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [32]byte, issuer string, alg jose.SignatureAlgorithm) (*Storage, error) {
 	active, all, err := loadSigningKeys(ctx, st, sealKey, alg)
 	if err != nil {
 		return nil, fmt.Errorf("signing key: %w", err)
@@ -54,7 +55,7 @@ func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [
 	for i, k := range all {
 		keys[i] = publicKey{k}
 	}
-	return &Storage{store: st, key: active, keys: keys, clientSecretKey: clientSecretKey}, nil
+	return &Storage{store: st, key: active, keys: keys, issuer: issuer, clientSecretKey: clientSecretKey}, nil
 }
 
 // SealClientSecret encrypts a client secret for storage.
@@ -432,6 +433,12 @@ func (s *Storage) setUserinfo(ctx context.Context, ui *oidc.UserInfo, userID str
 			ui.Name = user.Name
 			ui.PreferredUsername = user.Username
 			ui.UpdatedAt = oidc.FromTime(user.UpdatedAt)
+			// Expose the avatar as the standard `picture` claim (a URL),
+			// but only when the user actually has a photo — otherwise the
+			// claim is omitted rather than pointing at a 404.
+			if user.PhotoMime != nil {
+				ui.Picture = s.issuer + "/oidc/avatar/" + user.ID
+			}
 		case oidc.ScopeEmail:
 			ui.Email = user.Email
 			ui.EmailVerified = true

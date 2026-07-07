@@ -99,7 +99,7 @@ ID tokens are signed with **ES256**; PKCE (`S256`) is supported.
 | Scope | Adds |
 |---|---|
 | `openid` | required; yields `sub` |
-| `profile` | `name`, `preferred_username`, `updated_at` |
+| `profile` | `name`, `preferred_username`, `picture`, `updated_at` |
 | `email` | `email`, `email_verified` |
 | `groups` | `groups` (the user's group names) |
 | `offline_access` | a refresh token (rotated on use) |
@@ -115,6 +115,7 @@ userinfo get the user's identity.
 | `sub` | `f70fc5bb-b3e9-…` | Stable **opaque UUID**. Never changes, even if the user is renamed. |
 | `preferred_username` | `amelia` | The login name. |
 | `name` | `Amelia Laurent` | Display name. |
+| `picture` | `https://sso.example.com/oidc/avatar/…` | Avatar URL; present only if the user uploaded a photo. |
 | `email` | `amelia@example.com` | `email_verified` is always `true`. |
 | `groups` | `["engineering"]` | Group names; needs the `groups` scope. |
 

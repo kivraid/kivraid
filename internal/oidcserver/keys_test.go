@@ -32,7 +32,7 @@ func TestSigningKeyByAlgorithmAndSwitch(t *testing.T) {
 	ctx := t.Context()
 
 	// Default ES256: signs with an EC key, one key in the JWKS.
-	s1, err := NewStorage(ctx, st, seal, cs, jose.ES256)
+	s1, err := NewStorage(ctx, st, seal, cs, "https://sso.example.test", jose.ES256)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -45,7 +45,7 @@ func TestSigningKeyByAlgorithmAndSwitch(t *testing.T) {
 
 	// Switch to RS256 on the same store: now signs RS256, but the ES256
 	// key stays published so tokens issued before the switch still verify.
-	s2, err := NewStorage(ctx, st, seal, cs, jose.RS256)
+	s2, err := NewStorage(ctx, st, seal, cs, "https://sso.example.test", jose.RS256)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -57,7 +57,7 @@ func TestSigningKeyByAlgorithmAndSwitch(t *testing.T) {
 	}
 
 	// Switching back reuses the existing keys rather than minting more.
-	s3, err := NewStorage(ctx, st, seal, cs, jose.ES256)
+	s3, err := NewStorage(ctx, st, seal, cs, "https://sso.example.test", jose.ES256)
 	if err != nil {
 		t.Fatal(err)
 	}

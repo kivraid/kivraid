@@ -49,7 +49,8 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logg
 	}
 	storage, err := NewStorage(ctx, st,
 		secrets.DeriveKey(cfg.SecretKey, "signing-keys"),
-		secrets.DeriveKey(cfg.SecretKey, "client-secrets"), alg)
+		secrets.DeriveKey(cfg.SecretKey, "client-secrets"),
+		strings.TrimSuffix(cfg.BaseURL, "/"), alg)
 	if err != nil {
 		return nil, nil, err
 	}
@@ -65,7 +66,7 @@ func New(ctx context.Context, cfg config.Config, st *store.Store, log *slog.Logg
 		},
 		SupportedClaims: []string{
 			"sub", "aud", "exp", "iat", "iss", "auth_time", "nonce", "acr", "amr",
-			"name", "preferred_username", "email", "email_verified", "updated_at",
+			"name", "preferred_username", "picture", "email", "email_verified", "updated_at",
 			ScopeGroups,
 		},
 	}

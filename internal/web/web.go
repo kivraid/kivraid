@@ -228,6 +228,9 @@ func (s *Server) Handler() http.Handler {
 	root.HandleFunc("GET /healthz", func(w http.ResponseWriter, _ *http.Request) {
 		w.Write([]byte("ok"))
 	})
+	// Public avatar endpoint for the OIDC `picture` claim: served without a
+	// session so relying parties can fetch it (see handlePublicAvatar).
+	root.HandleFunc("GET /oidc/avatar/{id}", s.handlePublicAvatar)
 	// Protocol endpoints are API surface: no session, no CSRF, no CSP.
 	// end_session is the exception: it needs the session middleware so
 	// RP-initiated logout also terminates the Kivraid session.

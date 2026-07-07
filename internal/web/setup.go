@@ -124,6 +124,21 @@ func (s *Server) handleAvatar(w http.ResponseWriter, r *http.Request) {
 	w.Write(row.Photo)
 }
 
+// handlePublicAvatar serves a user's profile photo without a session, for
+// the OIDC `picture` claim: relying parties fetch it from a domain where
+// they hold no Kivraid cookie. The random user UUID in the path is the
+// capability — avatars are low-sensitivity and the id is not enumerable.
+func (s *Server) handlePublicAvatar(w http.ResponseWriter, r *http.Request) {
+	row, err := s.store.GetUserPhoto(r.Context(), r.PathValue("id"))
+	if err != nil || len(row.Photo) == 0 || row.PhotoMime == nil {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", *row.PhotoMime)
+	w.Header().Set("Cache-Control", "public, max-age=300")
+	w.Write(row.Photo)
+}
+
 // handleProfilePhoto lets local users upload their picture; directory
 // users get theirs from the photo attribute sync.
 func (s *Server) handleProfilePhoto(w http.ResponseWriter, r *http.Request) {
