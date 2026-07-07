@@ -55,9 +55,9 @@ The **Issuer URI** is the Kivraid base URL itself (the plugin appends
 `/.well-known/openid-configuration` to discover the endpoints); do not
 add that suffix yourself.
 
-Set **ID token signature algorithm** to `ES256` — Kivraid signs ID
-tokens with ES256, and a mismatch here makes every login fail signature
-verification.
+Set **ID token signature algorithm** to match your Kivraid instance —
+`ES256` by default, or `RS256` if you switched it. A mismatch makes every
+login fail signature verification.
 
 **Login strategy** `Preferred username` is the important choice: it uses
 the `preferred_username` claim (e.g. `amelia`) as the SonarQube login.

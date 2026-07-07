@@ -4,16 +4,15 @@ BookStack signs in through its native **OpenID Connect** authentication
 method (`AUTH_METHOD=oidc`). Replace `sso.example.com` with your Kivraid
 `base_url` and `bookstack.example.com` with your BookStack URL throughout.
 
-> **Compatibility blocker (read first).** BookStack validates ID tokens
-> **only** when they are signed with **RS256** — its docs state "Only RS256
-> is currently supported as a token signing algorithm." Kivraid signs ID
-> tokens with **ES256**, so BookStack rejects the token and sign-in fails.
-> There is no config on either side to bridge this today: Kivraid does not
-> offer RS256, and ES256 support in BookStack is still an open feature
-> request ([BookStack #5390](https://github.com/BookStackApp/BookStack/issues/5390)).
-> Until BookStack ships ES256, protect BookStack with Kivraid
-> **[forward auth](../forward-auth.md)** instead (see [Notes](#notes)). The
-> OIDC configuration below is correct and ready for the day ES256 lands.
+> **Set Kivraid to RS256 first.** BookStack validates ID tokens **only**
+> when signed with **RS256** ("Only RS256 is currently supported as a token
+> signing algorithm"), while Kivraid defaults to ES256. Configure your
+> Kivraid instance with `oidc.signing_algorithm: rs256` (or
+> `KIVRAID_OIDC_SIGNING_ALGORITHM=rs256`) — see
+> [configuration](../configuration.md#id-token-signing-algorithm). RS256 is
+> accepted by every other app too, so this switch is safe instance-wide;
+> just re-check any app where you pinned ES256. Without it, BookStack
+> rejects the token and sign-in fails.
 
 ## In Kivraid
 
@@ -72,13 +71,10 @@ per role via the role's **External Authentication IDs** field in BookStack.
 
 ## Notes
 
-- **Working alternative today:** because of the ES256/RS256 mismatch above,
-  put BookStack behind Kivraid [forward auth](../forward-auth.md) for now.
+- **If you prefer to keep the instance on ES256**, put BookStack behind
+  Kivraid [forward auth](../forward-auth.md) instead of using OIDC.
   BookStack has no built-in reverse-proxy header login, so forward auth
-  gates access at the proxy rather than logging users into BookStack
-  directly; the `Remote-User` / `Remote-Email` / `Remote-Name` /
-  `Remote-Groups` headers are available if you later add a header-auth
-  mechanism.
+  gates access at the proxy rather than logging users in directly.
 - **Single logout:** set `OIDC_END_SESSION_ENDPOINT=true` so BookStack uses
   the RP-initiated logout endpoint advertised by discovery
   (`https://sso.example.com/end_session`) and ends the Kivraid session on

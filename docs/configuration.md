@@ -20,6 +20,7 @@ over the file.
 | `session.lifetime` | `KIVRAID_SESSION_LIFETIME` | `168h` | Absolute maximum session age, measured from login. |
 | `session.idle_timeout` | `KIVRAID_SESSION_IDLE_TIMEOUT` | `0s` | Inactivity timeout (sliding, capped by `lifetime`); `0s` disables it. |
 | `trusted_proxies` | `KIVRAID_TRUSTED_PROXIES` | `[]` | Proxies (IPs or CIDRs) whose `X-Forwarded-For` is trusted for client IPs. |
+| `oidc.signing_algorithm` | `KIVRAID_OIDC_SIGNING_ALGORITHM` | `es256` | ID token signature: `es256` or `rs256`. |
 | `log_level` | `KIVRAID_LOG_LEVEL` | `info` | `debug`, `info`, `warn`, `error`. |
 
 Durations use Go's syntax (`168h`, `30m`, `90s`, `0s`).
@@ -58,6 +59,21 @@ Kivraid directly could spoof it.
 2. Open the instance; the first visitor is prompted to register the
    administrator account (no seeding required).
 3. From there, manage everything from the web UI.
+
+## ID token signing algorithm
+
+Kivraid signs OIDC ID tokens with **ES256** by default — modern, compact,
+and understood by most clients. A few applications only accept **RS256**
+(the universally supported OIDC baseline); set `oidc.signing_algorithm:
+rs256` for those. RS256 works with every OIDC client, so switching the
+whole instance to it is a safe way to cover a stubborn app.
+
+Switching is live and non-disruptive: Kivraid generates the new key on the
+next start and keeps the old public key in its JWKS, so tokens issued
+before the switch still verify. The catch is any app where you *pinned*
+the algorithm (e.g. Immich, SonarQube — see
+[integrations](integrations/)): update its setting to match, or its next
+sign-in fails signature verification.
 
 ## Connecting an application
 

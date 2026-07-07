@@ -38,8 +38,9 @@ register the HTTPS forwarding endpoint instead.
 - **Storage Label Claim:** `preferred_username` (the default)
 - **ID Token Signed Response Algorithm:** `ES256`
 
-  Kivraid signs ID tokens with ES256; Immich defaults this field to
-  `RS256`, so you must change it or discovery/verification will fail.
+  Match your Kivraid instance's signing algorithm (ES256 by default;
+  RS256 if you switched it). Immich defaults this field to `RS256`, so on
+  a default ES256 instance you must change it, or verification fails.
 - **Button Text:** e.g. `Login with Kivraid`
 - **Auto Register:** on, to create Immich accounts on first login.
 

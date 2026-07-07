@@ -15,6 +15,7 @@ Configured directly in the app:
 - [Gitea](gitea.md) · [Forgejo](forgejo.md)
 - [GitLab](gitlab.md)
 - [Nextcloud](nextcloud.md)
+- [BookStack](bookstack.md) — requires the instance on RS256 (see below)
 - [Outline](outline.md)
 - [Opengist](opengist.md)
 - [Weblate](weblate.md)
@@ -42,7 +43,6 @@ through your reverse proxy with [forward auth](../forward-auth.md) instead:
 - [Home Assistant](home-assistant.md) — no native OIDC
 - [Uptime Kuma](uptime-kuma.md) — no SSO support
 - [Coolify](coolify.md) — no generic OIDC provider
-- [BookStack](bookstack.md) — OIDC config exists but requires RS256 (see below)
 - [Sentry](sentry.md) — only an unofficial community plugin
 
 ## Register an application in Kivraid
@@ -83,12 +83,16 @@ need the **discovery URL** and auto-configure the rest.
 
 ID tokens are signed with **ES256**; PKCE (`S256`) is supported.
 
-> **Signing algorithm.** Kivraid signs ID tokens with ES256. Most clients
-> read the algorithm from the discovery document or fetch the key from
-> JWKS and just work. A few pin RS256: some let you select ES256 (Immich,
-> SonarQube — set it explicitly, or login fails signature verification),
-> and at least one accepts only RS256 (BookStack), which cannot use
-> Kivraid OIDC today — use forward auth there.
+> **Signing algorithm.** Kivraid signs ID tokens with **ES256** by
+> default, and can be switched to **RS256** instance-wide with
+> `oidc.signing_algorithm` (see
+> [configuration](../configuration.md#id-token-signing-algorithm)). Most
+> clients read the algorithm from discovery or JWKS and just work. A few
+> pin it: some let you select ES256 (Immich, SonarQube — match your
+> instance or login fails signature verification), and BookStack accepts
+> **only** RS256, so run the instance on RS256 for it. RS256 is the
+> universally accepted baseline, so switching the whole instance to it is
+> always safe.
 
 ## Scopes
 
