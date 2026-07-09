@@ -54,14 +54,20 @@
         <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> Password write-back
       </label>
     </div>
-    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+    <div class="space-y-5">
       <div>
         <label class="label" for="bind_dn">Bind DN <span class="font-normal text-faint">(empty for anonymous)</span></label>
         <input class="input font-mono" id="bind_dn" name="bind_dn" value="{{.Data.Form.BindDN}}" placeholder="cn=kivraid,ou=services,dc=example,dc=com">
       </div>
       <div>
         <label class="label" for="bind_password">Bind password{{if not .Data.IsNew}} <span class="font-normal text-faint">(leave empty to keep)</span>{{end}}</label>
-        <input class="input" id="bind_password" name="bind_password" type="password" autocomplete="new-password">
+        <div class="relative">
+          <input class="input pr-11 font-mono" id="bind_password" name="bind_password" type="password" autocomplete="new-password" value="{{.Data.Form.BindPassword}}" data-secret>
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+            <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+            <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+          </button>
+        </div>
       </div>
     </div>
     <p class="text-xs text-muted">With an anonymous bind the directory must allow unauthenticated searches. Password write-back keeps working either way: it binds as the user with their current password.</p>
@@ -138,6 +144,7 @@
 
     <div class="flex items-center justify-end gap-3 border-t border-line pt-5">
       <a href="/admin/ldap" class="btn-ghost">Cancel</a>
+      <button type="submit" name="sync" value="1" class="btn-secondary">{{if .Data.IsNew}}Create &amp; sync{{else}}Save &amp; sync{{end}}</button>
       <button type="submit" class="btn-primary">{{if .Data.IsNew}}Create directory{{else}}Save changes{{end}}</button>
     </div>
   </form>

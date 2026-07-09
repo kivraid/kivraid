@@ -141,6 +141,10 @@ func (s *Server) renderLdapForm(w http.ResponseWriter, r *http.Request, data adm
 	if data.IsNew {
 		title = "New directory"
 	}
+	// A freshly-typed bind password can be echoed back into the form (see
+	// the template) so it survives a test round-trip; keep that out of the
+	// browser cache.
+	w.Header().Set("Cache-Control", "no-store")
 	s.render(w, r, "admin_ldap_form.html", pageData{
 		Title: title, Active: "ldap", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r), Data: data,
@@ -195,6 +199,11 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapCreate, src.Name, "", s.clientIP(r))
 	s.log.Info("ldap source created", "source", src.Name, "by", currentUser(r).Username)
+	if r.PostFormValue("sync") == "1" {
+		result := s.syncSource(r, src)
+		s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: formFromSource(src), Saved: true, SyncResult: result})
+		return
+	}
 	http.Redirect(w, r, "/admin/ldap/"+src.ID+"?saved=1", http.StatusSeeOther)
 }
 
@@ -266,6 +275,17 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapUpdate, src.Name, "", s.clientIP(r))
+	if r.PostFormValue("sync") == "1" {
+		// Re-load so the sync runs against exactly what was persisted
+		// (including any just-changed bind password).
+		updated, ok := s.loadLdapSource(w, r)
+		if !ok {
+			return
+		}
+		result := s.syncSource(r, updated)
+		s.renderLdapForm(w, r, adminLdapFormData{ID: updated.ID, Form: formFromSource(updated), Saved: true, SyncResult: result})
+		return
+	}
 	http.Redirect(w, r, "/admin/ldap/"+src.ID+"?saved=1", http.StatusSeeOther)
 }
 
@@ -363,6 +383,25 @@ func (s *Server) handleAdminLdapTest(w http.ResponseWriter, r *http.Request) {
 	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: form, TestResult: result})
 }
 
+// syncSource runs a full synchronization of a directory and returns the
+// outcome as a result banner, recording an audit entry on success.
+func (s *Server) syncSource(r *http.Request, src sqlcgen.LdapSource) *ldapTestResult {
+	result := &ldapTestResult{}
+	sync, err := s.ldap.SyncAll(r.Context(), src)
+	if err != nil {
+		result.Message = err.Error()
+		return result
+	}
+	result.OK = true
+	result.Message = fmt.Sprintf("Synchronized: %d user(s) created, %d updated, %d skipped.",
+		sync.Created, sync.Updated, sync.Skipped)
+	if sync.Missing > 0 {
+		result.Message += fmt.Sprintf(" %d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
+	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, result.Message, s.clientIP(r))
+	return result
+}
+
 // handleAdminLdapSync imports or refreshes every directory user and their
 // groups without waiting for individual sign-ins.
 func (s *Server) handleAdminLdapSync(w http.ResponseWriter, r *http.Request) {
@@ -370,19 +409,7 @@ func (s *Server) handleAdminLdapSync(w http.ResponseWriter, r *http.Request) {
 	if !ok {
 		return
 	}
-	result := &ldapTestResult{}
-	sync, err := s.ldap.SyncAll(r.Context(), src)
-	if err != nil {
-		result.Message = err.Error()
-	} else {
-		result.OK = true
-		result.Message = fmt.Sprintf("Synchronized: %d user(s) created, %d updated, %d skipped.",
-			sync.Created, sync.Updated, sync.Skipped)
-		if sync.Missing > 0 {
-			result.Message += fmt.Sprintf(" %d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
-		}
-		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, result.Message, s.clientIP(r))
-	}
+	result := s.syncSource(r, src)
 	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: formFromSource(src), SyncResult: result})
 }
 
