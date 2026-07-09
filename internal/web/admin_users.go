@@ -37,9 +37,11 @@ type adminUserDetailData struct {
 	SourceName  string
 	Groups      []sqlcgen.Group
 	AdminGroups []sqlcgen.Group // granting groups the user belongs to
+	Sessions    []sessionInfo
 	Error       string
 	Saved       bool
 	PWSaved     bool
+	Revoked     bool
 	Self        bool
 }
 
@@ -206,13 +208,21 @@ func (s *Server) loadTargetUser(w http.ResponseWriter, r *http.Request) (sqlcgen
 	return target, true
 }
 
-func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target sqlcgen.User, errMsg string, saved, pwSaved bool) {
+func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target sqlcgen.User, errMsg string, saved, pwSaved, revoked bool) {
 	groups, err := s.store.ListUserGroups(r.Context(), target.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
 	adminGroups, err := s.store.ListUserAdminGroups(r.Context(), target.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	// The user's active sessions. listUserSessions marks "Current" against
+	// the admin's own token, which is only ever true when an admin views
+	// their own account — correct in that case, false for everyone else.
+	sessions, err := s.listUserSessions(r, target.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -228,8 +238,8 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 		User: currentUser(r),
 		Data: adminUserDetailData{
 			Target: target, IsLDAP: target.Source == "ldap", SourceName: sourceName,
-			Groups: groups, AdminGroups: adminGroups,
-			Error: errMsg, Saved: saved, PWSaved: pwSaved,
+			Groups: groups, AdminGroups: adminGroups, Sessions: sessions,
+			Error: errMsg, Saved: saved, PWSaved: pwSaved, Revoked: revoked,
 			Self: target.ID == currentUser(r).ID,
 		},
 	})
@@ -241,7 +251,7 @@ func (s *Server) handleAdminUserDetail(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	q := r.URL.Query()
-	s.renderUserDetail(w, r, target, "", q.Get("saved") == "1", q.Get("pw") == "1")
+	s.renderUserDetail(w, r, target, "", q.Get("saved") == "1", q.Get("pw") == "1", q.Get("revoked") == "1")
 }
 
 func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
@@ -255,7 +265,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 
 	fail := func(msg string) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderUserDetail(w, r, target, msg, false, false)
+		s.renderUserDetail(w, r, target, msg, false, false, false)
 	}
 
 	// Footgun guards: you cannot lock yourself out, and the instance
@@ -322,7 +332,7 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 	password := r.PostFormValue("password")
 	if len(password) < 8 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderUserDetail(w, r, target, "The new password must be at least 8 characters.", false, false)
+		s.renderUserDetail(w, r, target, "The new password must be at least 8 characters.", false, false, false)
 		return
 	}
 	if err := s.local.SetPassword(r.Context(), target.ID, password); err != nil {
@@ -351,6 +361,18 @@ func (s *Server) handleAdminUserDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	s.audit.Record(r.Context(), actor.Username, audit.ActionUserDelete, target.Username, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users?deleted=1", http.StatusSeeOther)
+}
+
+// handleAdminUserSessionsRevoke signs a user out everywhere: all their
+// sessions and OAuth tokens are dropped, forcing a fresh login.
+func (s *Server) handleAdminUserSessionsRevoke(w http.ResponseWriter, r *http.Request) {
+	target, ok := s.loadTargetUser(w, r)
+	if !ok {
+		return
+	}
+	s.revokeUserAccess(r.Context(), target.ID)
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSessionRevoke, target.Username, "admin revoked all sessions", s.clientIP(r))
+	http.Redirect(w, r, "/admin/users/"+target.ID+"?revoked=1", http.StatusSeeOther)
 }
 
 // revokeUserAccess kills the user's sessions and OAuth tokens; used when

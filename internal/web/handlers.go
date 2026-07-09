@@ -2,6 +2,7 @@ package web
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"net/http"
 	"strings"
@@ -123,6 +124,13 @@ func (s *Server) completeLogin(r *http.Request, user sqlcgen.User, next string) 
 	s.sessions.Put(r.Context(), session.KeyIP, s.clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
+	// Record the last login for the admin view. Best-effort: a failure
+	// here must not block sign-in.
+	if err := s.store.SetUserLastLogin(r.Context(), sqlcgen.SetUserLastLoginParams{
+		LastLoginAt: sql.NullTime{Time: time.Now().UTC(), Valid: true}, ID: user.ID,
+	}); err != nil {
+		s.log.Warn("record last login", "user", user.Username, "err", err)
+	}
 	s.audit.Record(r.Context(), user.Username, audit.ActionLogin, "", "source="+user.Source, s.clientIP(r))
 	s.log.Info("user logged in", "user", user.Username, "source", user.Source)
 	return nil

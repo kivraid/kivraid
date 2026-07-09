@@ -20,6 +20,7 @@
 <div class="space-y-4">
   {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
   {{if .Data.PWSaved}}<div data-flash="Password reset." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Revoked}}<div data-flash="Signed the user out of all sessions." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <form method="post" action="/admin/users/{{.Data.Target.ID}}" class="card space-y-5 p-6">
@@ -106,6 +107,46 @@
     </div>
   </form>
   {{end}}
+
+  <div class="card p-6">
+    <div class="flex items-center justify-between gap-4">
+      <h2 class="text-sm font-semibold">Sessions</h2>
+      {{if .Data.Sessions}}
+      <form method="post" action="/admin/users/{{.Data.Target.ID}}/sessions/revoke" class="shrink-0"
+            data-confirm="Sign {{.Data.Target.Username}} out of every session and revoke their tokens? They will have to sign in again."
+            data-confirm-title="Sign out all sessions" data-confirm-variant="danger" data-confirm-label="Sign out everywhere">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn-danger-soft">Sign out all sessions</button>
+      </form>
+      {{end}}
+    </div>
+    <p class="mt-1 text-sm text-muted">
+      Last login:
+      {{if .Data.Target.LastLoginAt.Valid}}{{.Data.Target.LastLoginAt.Time.Format "Jan 2, 2006 15:04"}} UTC{{else}}never{{end}}
+    </p>
+    {{if .Data.Sessions}}
+    <div class="mt-4 divide-y divide-line border-t border-line">
+      {{range .Data.Sessions}}
+      <div class="flex items-center gap-4 py-3">
+        <span class="btn-icon pointer-events-none border border-line">
+          <svg class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+        </span>
+        <div class="min-w-0 flex-1">
+          <div class="flex items-center gap-2">
+            <span class="text-sm font-medium">{{.Device}}</span>
+            {{if .Current}}<span class="badge-accent">This device</span>{{end}}
+          </div>
+          <div class="mt-0.5 text-xs text-muted">
+            {{if .IP}}{{.IP}} · {{end}}signed in {{.LoginAt.Format "Jan 2, 2006 15:04"}} · expires {{.Expiry.Format "Jan 2, 2006"}}
+          </div>
+        </div>
+      </div>
+      {{end}}
+    </div>
+    {{else}}
+    <p class="mt-3 text-sm text-faint">No active sessions.</p>
+    {{end}}
+  </div>
 
   {{if not .Data.Self}}
   <div class="card border-danger/25 p-6">

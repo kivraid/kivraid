@@ -157,6 +157,7 @@ type User struct {
 	TotpSecretEnc   []byte
 	TotpEnabled     bool
 	TotpLastCounter int64
+	LastLoginAt     sql.NullTime
 }
 
 type UserGroup struct {
