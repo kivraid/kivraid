@@ -38,6 +38,7 @@ var staticFS embed.FS
 
 type Server struct {
 	cfg       config.Config
+	version   string
 	store     *store.Store
 	local     *local.Source
 	ldap      *ldap.Manager
@@ -64,6 +65,7 @@ type Server struct {
 // Deps bundles the server's collaborators.
 type Deps struct {
 	Config    config.Config
+	Version   string
 	Store     *store.Store
 	Sessions  *scs.SessionManager
 	OIDC      http.Handler
@@ -86,6 +88,7 @@ func NewServer(d Deps) (*Server, error) {
 	s := &Server{
 		trustedProxies: proxies,
 		cfg:            d.Config,
+		version:        d.Version,
 		store:          d.Store,
 		local:          local.NewSource(d.Store),
 		ldap:           d.LDAP,
@@ -132,7 +135,7 @@ func NewServer(d Deps) (*Server, error) {
 		"admin_proxy_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
-		"admin_groups.html", "admin_group_detail.html",
+		"admin_groups.html", "admin_group_detail.html", "admin_system.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -217,6 +220,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/groups/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDelete)))
 
 	web.Handle("GET /admin/audit", s.requireAdmin(http.HandlerFunc(s.handleAdminAudit)))
+	web.Handle("GET /admin/system", s.requireAdmin(http.HandlerFunc(s.handleAdminSystem)))
 
 	// Anything else under the web surface gets the styled 404.
 	web.HandleFunc("/", s.handleNotFound)

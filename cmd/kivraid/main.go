@@ -168,6 +168,7 @@ func serve(args []string) error {
 	}
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,
+		Version:   version,
 		Store:     st,
 		Sessions:  sessions,
 		OIDC:      oidcProvider,

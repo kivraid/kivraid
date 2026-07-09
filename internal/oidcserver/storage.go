@@ -386,6 +386,13 @@ func (s *Storage) KeySet(context.Context) ([]op.Key, error) {
 	return s.keys, nil
 }
 
+// ActiveSigningAlgorithm reports the algorithm ID tokens are signed with.
+func (s *Storage) ActiveSigningAlgorithm() string { return string(s.key.alg) }
+
+// PublishedKeyCount reports how many public keys the JWKS exposes (more
+// than one after an algorithm switch, while old tokens still verify).
+func (s *Storage) PublishedKeyCount() int { return len(s.keys) }
+
 // --- Clients & userinfo --------------------------------------------------
 
 func (s *Storage) GetClientByClientID(ctx context.Context, clientID string) (op.Client, error) {
