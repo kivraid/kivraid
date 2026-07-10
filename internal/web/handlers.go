@@ -32,6 +32,9 @@ type pageData struct {
 	Data   any
 }
 
+// handleLoginPage renders the first login step: the identifier form (plus
+// a discoverable-passkey option). A fresh visit clears any half-finished
+// login so the flow restarts cleanly.
 func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	if s.needsSetup(r) {
 		http.Redirect(w, r, "/setup", http.StatusSeeOther)
@@ -43,36 +46,77 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, s.safeNext(r.URL.Query().Get("next"), "/"), http.StatusSeeOther)
 		return
 	}
+	s.sessions.Remove(r.Context(), session.KeyPendingLogin)
 	s.render(w, r, "login.html", loginData{
 		CSRF: s.csrfToken(r.Context()),
 		Next: s.safeNext(r.URL.Query().Get("next"), ""),
 	})
 }
 
-func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
-	username := r.PostFormValue("username")
-	password := r.PostFormValue("password")
+// handleLoginIdentify handles the first step: it records the entered
+// identifier and advances to the password step. It performs NO account
+// lookup, so it reveals nothing about whether the account exists — the
+// password step fails identically for unknown users and wrong passwords.
+func (s *Server) handleLoginIdentify(w http.ResponseWriter, r *http.Request) {
+	identifier := strings.TrimSpace(r.PostFormValue("username"))
 	next := s.safeNext(r.PostFormValue("next"), "/")
+	if identifier == "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.render(w, r, "login.html", loginData{
+			CSRF: s.csrfToken(r.Context()), Error: "Enter your username or email.", Next: next,
+		})
+		return
+	}
+	s.sessions.Put(r.Context(), session.KeyPendingLogin, identifier)
+	s.sessions.Put(r.Context(), session.KeyPendingNext, next)
+	// Broker seam: a future version resolves the identifier's email domain
+	// against configured upstream-IdP rules here and may redirect to an
+	// external provider instead of the local password step.
+	http.Redirect(w, r, "/login/password", http.StatusSeeOther)
+}
+
+// handleLoginPasswordPage renders the second step: the password prompt for
+// the identifier captured in step one.
+func (s *Server) handleLoginPasswordPage(w http.ResponseWriter, r *http.Request) {
+	identifier := s.sessions.GetString(r.Context(), session.KeyPendingLogin)
+	if identifier == "" {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	s.render(w, r, "login_password.html", loginData{
+		CSRF: s.csrfToken(r.Context()), Username: identifier,
+	})
+}
+
+func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Request) {
+	identifier := s.sessions.GetString(r.Context(), session.KeyPendingLogin)
+	if identifier == "" {
+		http.Redirect(w, r, "/login", http.StatusSeeOther)
+		return
+	}
+	password := r.PostFormValue("password")
+	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
 	ip := s.clientIP(r)
-	loginKey := strings.ToLower(strings.TrimSpace(username))
+	loginKey := strings.ToLower(identifier)
+
+	fail := func(status int, msg string) {
+		w.WriteHeader(status)
+		s.render(w, r, "login_password.html", loginData{
+			CSRF: s.csrfToken(r.Context()), Username: identifier, Error: msg,
+		})
+	}
 
 	if !s.ipLimiter.Allow(ip) || s.userLimiter.Blocked(loginKey) {
 		s.audit.Record(r.Context(), loginKey, audit.ActionLoginThrottled, "", "", ip)
-		w.WriteHeader(http.StatusTooManyRequests)
-		s.render(w, r, "login.html", loginData{
-			CSRF:     s.csrfToken(r.Context()),
-			Error:    "Too many attempts. Please wait a minute and try again.",
-			Username: username,
-			Next:     next,
-		})
+		fail(http.StatusTooManyRequests, "Too many attempts. Please wait a minute and try again.")
 		return
 	}
 
 	// Sources are tried in order: local accounts first, then the enabled
 	// LDAP directories.
-	user, err := s.local.Authenticate(r.Context(), username, password)
+	user, err := s.local.Authenticate(r.Context(), identifier, password)
 	if errors.Is(err, local.ErrBadCredentials) && s.ldap != nil {
-		user, err = s.ldap.Authenticate(r.Context(), username, password)
+		user, err = s.ldap.Authenticate(r.Context(), identifier, password)
 		if errors.Is(err, ldap.ErrBadCredentials) {
 			err = local.ErrBadCredentials
 		}
@@ -80,13 +124,7 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 	if errors.Is(err, local.ErrBadCredentials) {
 		s.userLimiter.Allow(loginKey) // consume a failure token
 		s.audit.Record(r.Context(), loginKey, audit.ActionLoginFailed, "", "", ip)
-		w.WriteHeader(http.StatusUnauthorized)
-		s.render(w, r, "login.html", loginData{
-			CSRF:     s.csrfToken(r.Context()),
-			Error:    "Invalid username or password.",
-			Username: username,
-			Next:     next,
-		})
+		fail(http.StatusUnauthorized, "Invalid username or password.")
 		return
 	}
 	if err != nil {
@@ -101,12 +139,14 @@ func (s *Server) handleLoginSubmit(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, err)
 			return
 		}
+		s.sessions.Remove(r.Context(), session.KeyPendingLogin)
 		s.sessions.Put(r.Context(), session.KeyPendingMFA, user.ID)
 		s.sessions.Put(r.Context(), session.KeyPendingNext, next)
 		http.Redirect(w, r, "/login/mfa", http.StatusSeeOther)
 		return
 	}
 
+	s.sessions.Remove(r.Context(), session.KeyPendingLogin)
 	if err := s.completeLogin(r, user, next); err != nil {
 		s.serverError(w, r, err)
 		return

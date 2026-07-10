@@ -113,15 +113,10 @@ func TestLoginFlow(t *testing.T) {
 	ts := newTestServer(t)
 	c := newClient(t)
 
-	csrf := fetchCSRF(t, c, ts.URL+"/login")
+	csrf := identify(t, c, ts.URL, "alice", "")
 
 	// Wrong password: 401, page shows the error.
-	resp, err := c.PostForm(ts.URL+"/login", url.Values{
-		"_csrf": {csrf}, "username": {"alice"}, "password": {"nope"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp := passwordStep(t, c, ts.URL, csrf, "nope")
 	body, _ := io.ReadAll(resp.Body)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
@@ -131,20 +126,15 @@ func TestLoginFlow(t *testing.T) {
 		t.Fatal("error message missing from login page")
 	}
 
-	// Good password: redirect to /.
-	resp, err = c.PostForm(ts.URL+"/login", url.Values{
-		"_csrf": {csrf}, "username": {"alice"}, "password": {"s3cret-pass"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	// Good password (same session keeps the pending identifier): redirect to /.
+	resp = passwordStep(t, c, ts.URL, csrf, "s3cret-pass")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/" {
 		t.Fatalf("login: want 303 to /, got %d to %q", resp.StatusCode, resp.Header.Get("Location"))
 	}
 
 	// Profile now renders.
-	resp, err = c.Get(ts.URL + "/profile")
+	resp, err := c.Get(ts.URL + "/profile")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -221,15 +211,43 @@ func TestAnonymousRedirectedToLogin(t *testing.T) {
 	}
 }
 
-func login(t *testing.T, c *http.Client, baseURL, username, password string) {
+// identify runs the first login step (identifier form) and returns the
+// session CSRF token to reuse for the password step. next, when set, is
+// carried as the post-login redirect target.
+func identify(t *testing.T, c *http.Client, baseURL, username, next string) string {
 	t.Helper()
 	csrf := fetchCSRF(t, c, baseURL+"/login")
-	resp, err := c.PostForm(baseURL+"/login", url.Values{
-		"_csrf": {csrf}, "username": {username}, "password": {password},
-	})
+	form := url.Values{"_csrf": {csrf}, "username": {username}}
+	if next != "" {
+		form.Set("next", next)
+	}
+	resp, err := c.PostForm(baseURL+"/login", form)
 	if err != nil {
 		t.Fatal(err)
 	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/login/password" {
+		t.Fatalf("identify %s: want 303 to /login/password, got %d to %q",
+			username, resp.StatusCode, resp.Header.Get("Location"))
+	}
+	return csrf
+}
+
+// passwordStep submits the second login step and returns the raw response
+// for the caller to inspect (status, redirect target).
+func passwordStep(t *testing.T, c *http.Client, baseURL, csrf, password string) *http.Response {
+	t.Helper()
+	resp, err := c.PostForm(baseURL+"/login/password", url.Values{"_csrf": {csrf}, "password": {password}})
+	if err != nil {
+		t.Fatal(err)
+	}
+	return resp
+}
+
+func login(t *testing.T, c *http.Client, baseURL, username, password string) {
+	t.Helper()
+	csrf := identify(t, c, baseURL, username, "")
+	resp := passwordStep(t, c, baseURL, csrf, password)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusSeeOther {
 		t.Fatalf("login %s: want 303, got %d", username, resp.StatusCode)
@@ -271,10 +289,8 @@ func TestPasswordChangeLocal(t *testing.T) {
 
 	// Old password no longer works, the new one does.
 	c2 := newClient(t)
-	csrf2 := fetchCSRF(t, c2, ts.URL+"/login")
-	resp, _ = c2.PostForm(ts.URL+"/login", url.Values{
-		"_csrf": {csrf2}, "username": {"alice"}, "password": {"s3cret-pass"},
-	})
+	csrf2 := identify(t, c2, ts.URL, "alice", "")
+	resp = passwordStep(t, c2, ts.URL, csrf2, "s3cret-pass")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
 		t.Fatalf("old password still accepted: %d", resp.StatusCode)

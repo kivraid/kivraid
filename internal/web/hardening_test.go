@@ -11,15 +11,12 @@ import (
 func TestLoginThrottledAfterRepeatedFailures(t *testing.T) {
 	ts := newTestServer(t)
 	c := newClient(t)
-	csrf := fetchCSRF(t, c, ts.URL+"/login")
+	// The identifier step reveals nothing and costs no budget; throttling
+	// applies to the password step.
+	csrf := identify(t, c, ts.URL, "alice", "")
 
 	attempt := func() int {
-		resp, err := c.PostForm(ts.URL+"/login", url.Values{
-			"_csrf": {csrf}, "username": {"alice"}, "password": {"definitely-wrong"},
-		})
-		if err != nil {
-			t.Fatal(err)
-		}
+		resp := passwordStep(t, c, ts.URL, csrf, "definitely-wrong")
 		io.Copy(io.Discard, resp.Body)
 		resp.Body.Close()
 		return resp.StatusCode
@@ -36,12 +33,7 @@ func TestLoginThrottledAfterRepeatedFailures(t *testing.T) {
 	}
 
 	// Even the correct password is refused while throttled.
-	resp, err := c.PostForm(ts.URL+"/login", url.Values{
-		"_csrf": {csrf}, "username": {"alice"}, "password": {"s3cret-pass"},
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+	resp := passwordStep(t, c, ts.URL, csrf, "s3cret-pass")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusTooManyRequests {
 		t.Fatalf("correct password while throttled: want 429, got %d", resp.StatusCode)
@@ -129,10 +121,8 @@ func TestAuditRecordsLoginEvents(t *testing.T) {
 	ts, st := buildTestServer(t, nil)
 	c := newClient(t)
 
-	csrf := fetchCSRF(t, c, ts.URL+"/login")
-	resp, _ := c.PostForm(ts.URL+"/login", url.Values{
-		"_csrf": {csrf}, "username": {"alice"}, "password": {"wrong"},
-	})
+	csrf := identify(t, c, ts.URL, "alice", "")
+	resp := passwordStep(t, c, ts.URL, csrf, "wrong")
 	resp.Body.Close()
 	login(t, c, ts.URL, "alice", "s3cret-pass")
 

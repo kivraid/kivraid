@@ -120,7 +120,7 @@ func NewServer(d Deps) (*Server, error) {
 			return "/static/" + name + "?v=" + assetV
 		},
 	}
-	standalone := []string{"login.html", "login_mfa.html", "error.html", "setup.html"}
+	standalone := []string{"login.html", "login_password.html", "login_mfa.html", "error.html", "setup.html"}
 	for _, page := range standalone {
 		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page)
 		if err != nil {
@@ -151,7 +151,9 @@ func NewServer(d Deps) (*Server, error) {
 func (s *Server) Handler() http.Handler {
 	web := http.NewServeMux()
 	web.HandleFunc("GET /login", s.handleLoginPage)
-	web.HandleFunc("POST /login", s.handleLoginSubmit)
+	web.HandleFunc("POST /login", s.handleLoginIdentify)
+	web.HandleFunc("GET /login/password", s.handleLoginPasswordPage)
+	web.HandleFunc("POST /login/password", s.handleLoginPasswordSubmit)
 	web.HandleFunc("GET /login/mfa", s.handleMFAChallengePage)
 	web.HandleFunc("POST /login/mfa", s.handleMFAChallengeSubmit)
 	web.HandleFunc("POST /login/passkey/begin", s.handlePasskeyLoginBegin)

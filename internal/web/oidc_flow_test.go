@@ -142,12 +142,19 @@ func browseAuthFlow(t *testing.T, authURL string) string {
 		t.Fatalf("expected login redirect, got %s", loginURL)
 	}
 
-	// Log in, preserving the OIDC resume target.
+	// Log in (two steps), preserving the OIDC resume target.
 	u, _ := url.Parse(loginURL)
 	next := u.Query().Get("next")
 	csrf := fetchCSRF(t, c, loginURL)
-	postResp, err := c.PostForm(abs("/login"), url.Values{
-		"_csrf": {csrf}, "username": {"alice"}, "password": {"s3cret-pass"}, "next": {next},
+	idResp, err := c.PostForm(abs("/login"), url.Values{
+		"_csrf": {csrf}, "username": {"alice"}, "next": {next},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idResp.Body.Close()
+	postResp, err := c.PostForm(abs("/login/password"), url.Values{
+		"_csrf": {csrf}, "password": {"s3cret-pass"},
 	})
 	if err != nil {
 		t.Fatal(err)
@@ -267,8 +274,15 @@ func TestOIDCAccessPolicyDenied(t *testing.T) {
 	next := u.Query().Get("next")
 
 	csrf := fetchCSRF(t, c, issuer+loginLoc)
-	resp, err = c.PostForm(issuer+"/login", url.Values{
-		"_csrf": {csrf}, "username": {"alice"}, "password": {"s3cret-pass"}, "next": {next},
+	idResp, err := c.PostForm(issuer+"/login", url.Values{
+		"_csrf": {csrf}, "username": {"alice"}, "next": {next},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	idResp.Body.Close()
+	resp, err = c.PostForm(issuer+"/login/password", url.Values{
+		"_csrf": {csrf}, "password": {"s3cret-pass"},
 	})
 	if err != nil {
 		t.Fatal(err)

@@ -68,10 +68,8 @@ func TestMFAEnrollAndChallenge(t *testing.T) {
 
 	// A new session: password alone lands on the MFA challenge, not in.
 	c2 := newClient(t)
-	csrf2 := fetchCSRF(t, c2, ts.URL+"/login")
-	resp, _ := c2.PostForm(ts.URL+"/login", url.Values{
-		"_csrf": {csrf2}, "username": {"alice"}, "password": {"s3cret-pass"},
-	})
+	csrf2 := identify(t, c2, ts.URL, "alice", "")
+	resp := passwordStep(t, c2, ts.URL, csrf2, "s3cret-pass")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/login/mfa" {
 		t.Fatalf("password step: want 303 to /login/mfa, got %d %q", resp.StatusCode, resp.Header.Get("Location"))
@@ -107,8 +105,8 @@ func TestMFAEnrollAndChallenge(t *testing.T) {
 	// Replaying the code that just logged in must fail: each TOTP time
 	// step is accepted at most once.
 	cReplay := newClient(t)
-	csrfReplay := fetchCSRF(t, cReplay, ts.URL+"/login")
-	cReplay.PostForm(ts.URL+"/login", url.Values{"_csrf": {csrfReplay}, "username": {"alice"}, "password": {"s3cret-pass"}})
+	csrfReplay := identify(t, cReplay, ts.URL, "alice", "")
+	passwordStep(t, cReplay, ts.URL, csrfReplay, "s3cret-pass").Body.Close()
 	resp, _ = cReplay.PostForm(ts.URL+"/login/mfa", url.Values{"_csrf": {csrfReplay}, "code": {code}})
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
@@ -117,8 +115,8 @@ func TestMFAEnrollAndChallenge(t *testing.T) {
 
 	// A recovery code also works, once.
 	c3 := newClient(t)
-	csrf3 := fetchCSRF(t, c3, ts.URL+"/login")
-	c3.PostForm(ts.URL+"/login", url.Values{"_csrf": {csrf3}, "username": {"alice"}, "password": {"s3cret-pass"}})
+	csrf3 := identify(t, c3, ts.URL, "alice", "")
+	passwordStep(t, c3, ts.URL, csrf3, "s3cret-pass").Body.Close()
 	resp, _ = c3.PostForm(ts.URL+"/login/mfa", url.Values{"_csrf": {csrf3}, "code": {codes[0]}})
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusSeeOther {
@@ -126,8 +124,8 @@ func TestMFAEnrollAndChallenge(t *testing.T) {
 	}
 	// The same recovery code cannot be reused.
 	c4 := newClient(t)
-	csrf4 := fetchCSRF(t, c4, ts.URL+"/login")
-	c4.PostForm(ts.URL+"/login", url.Values{"_csrf": {csrf4}, "username": {"alice"}, "password": {"s3cret-pass"}})
+	csrf4 := identify(t, c4, ts.URL, "alice", "")
+	passwordStep(t, c4, ts.URL, csrf4, "s3cret-pass").Body.Close()
 	resp, _ = c4.PostForm(ts.URL+"/login/mfa", url.Values{"_csrf": {csrf4}, "code": {codes[0]}})
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusUnauthorized {
@@ -168,8 +166,8 @@ func TestMFAAdminReset(t *testing.T) {
 
 	// Password alone now signs in (no challenge).
 	c2 := newClient(t)
-	csrf2 := fetchCSRF(t, c2, ts.URL+"/login")
-	resp, _ = c2.PostForm(ts.URL+"/login", url.Values{"_csrf": {csrf2}, "username": {"alice"}, "password": {"s3cret-pass"}})
+	csrf2 := identify(t, c2, ts.URL, "alice", "")
+	resp = passwordStep(t, c2, ts.URL, csrf2, "s3cret-pass")
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusSeeOther || resp.Header.Get("Location") != "/" {
 		t.Fatalf("after reset password login: want 303 to /, got %d %q", resp.StatusCode, resp.Header.Get("Location"))

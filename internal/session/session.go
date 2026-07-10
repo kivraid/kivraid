@@ -23,9 +23,12 @@ const (
 	KeyIP        = "ip"
 	KeyUserAgent = "ua"
 	KeyLoginAt   = "loginAt"
+	// KeyPendingLogin holds the identifier entered on the first login step,
+	// carried to the password step. It grants no access on its own.
+	KeyPendingLogin = "pendingLogin"
 	// KeyPendingMFA holds the user ID that passed the password step but
 	// still owes a TOTP code; it grants no access on its own. KeyPendingNext
-	// carries the post-login redirect target.
+	// carries the post-login redirect target across login steps.
 	KeyPendingMFA  = "pendingMFA"
 	KeyPendingNext = "pendingNext"
 	// KeyMFAEnroll holds a not-yet-confirmed TOTP secret during profile
