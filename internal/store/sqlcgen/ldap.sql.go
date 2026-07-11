@@ -59,10 +59,10 @@ func (q *Queries) CreateGroup(ctx context.Context, arg CreateGroupParams) (Group
 const createLdapSource = `-- name: CreateLdapSource :one
 INSERT INTO ldap_sources (id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc,
                           base_dn, user_filter, username_attr, email_attr, name_attr, photo_attr,
-                          group_filter, group_name_attr, password_writeback, enabled, position,
-                          created_at, updated_at)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20)
-RETURNING id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr
+                          group_filter, group_name_attr, password_writeback, password_reset, enabled,
+                          position, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18, $19, $20, $21)
+RETURNING id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr, password_reset
 `
 
 type CreateLdapSourceParams struct {
@@ -82,6 +82,7 @@ type CreateLdapSourceParams struct {
 	GroupFilter       string
 	GroupNameAttr     string
 	PasswordWriteback bool
+	PasswordReset     bool
 	Enabled           bool
 	Position          int64
 	CreatedAt         time.Time
@@ -106,6 +107,7 @@ func (q *Queries) CreateLdapSource(ctx context.Context, arg CreateLdapSourcePara
 		arg.GroupFilter,
 		arg.GroupNameAttr,
 		arg.PasswordWriteback,
+		arg.PasswordReset,
 		arg.Enabled,
 		arg.Position,
 		arg.CreatedAt,
@@ -133,6 +135,7 @@ func (q *Queries) CreateLdapSource(ctx context.Context, arg CreateLdapSourcePara
 		&i.UpdatedAt,
 		&i.PasswordWriteback,
 		&i.PhotoAttr,
+		&i.PasswordReset,
 	)
 	return i, err
 }
@@ -181,7 +184,7 @@ func (q *Queries) GetGroupByName(ctx context.Context, name string) (Group, error
 }
 
 const getLdapSource = `-- name: GetLdapSource :one
-SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr FROM ldap_sources WHERE id = $1
+SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr, password_reset FROM ldap_sources WHERE id = $1
 `
 
 func (q *Queries) GetLdapSource(ctx context.Context, id string) (LdapSource, error) {
@@ -208,12 +211,13 @@ func (q *Queries) GetLdapSource(ctx context.Context, id string) (LdapSource, err
 		&i.UpdatedAt,
 		&i.PasswordWriteback,
 		&i.PhotoAttr,
+		&i.PasswordReset,
 	)
 	return i, err
 }
 
 const listEnabledLdapSources = `-- name: ListEnabledLdapSources :many
-SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr FROM ldap_sources WHERE enabled = TRUE ORDER BY position, name
+SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr, password_reset FROM ldap_sources WHERE enabled = TRUE ORDER BY position, name
 `
 
 func (q *Queries) ListEnabledLdapSources(ctx context.Context) ([]LdapSource, error) {
@@ -246,6 +250,7 @@ func (q *Queries) ListEnabledLdapSources(ctx context.Context) ([]LdapSource, err
 			&i.UpdatedAt,
 			&i.PasswordWriteback,
 			&i.PhotoAttr,
+			&i.PasswordReset,
 		); err != nil {
 			return nil, err
 		}
@@ -261,7 +266,7 @@ func (q *Queries) ListEnabledLdapSources(ctx context.Context) ([]LdapSource, err
 }
 
 const listLdapSources = `-- name: ListLdapSources :many
-SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr FROM ldap_sources ORDER BY position, name
+SELECT id, name, url, start_tls, skip_tls_verify, bind_dn, bind_password_enc, base_dn, user_filter, username_attr, email_attr, name_attr, group_filter, group_name_attr, enabled, position, created_at, updated_at, password_writeback, photo_attr, password_reset FROM ldap_sources ORDER BY position, name
 `
 
 func (q *Queries) ListLdapSources(ctx context.Context) ([]LdapSource, error) {
@@ -294,6 +299,7 @@ func (q *Queries) ListLdapSources(ctx context.Context) ([]LdapSource, error) {
 			&i.UpdatedAt,
 			&i.PasswordWriteback,
 			&i.PhotoAttr,
+			&i.PasswordReset,
 		); err != nil {
 			return nil, err
 		}
@@ -312,8 +318,9 @@ const updateLdapSource = `-- name: UpdateLdapSource :exec
 UPDATE ldap_sources
 SET name = $1, url = $2, start_tls = $3, skip_tls_verify = $4, bind_dn = $5, base_dn = $6,
     user_filter = $7, username_attr = $8, email_attr = $9, name_attr = $10, photo_attr = $11,
-    group_filter = $12, group_name_attr = $13, password_writeback = $14, enabled = $15, updated_at = $16
-WHERE id = $17
+    group_filter = $12, group_name_attr = $13, password_writeback = $14, password_reset = $15,
+    enabled = $16, updated_at = $17
+WHERE id = $18
 `
 
 type UpdateLdapSourceParams struct {
@@ -331,6 +338,7 @@ type UpdateLdapSourceParams struct {
 	GroupFilter       string
 	GroupNameAttr     string
 	PasswordWriteback bool
+	PasswordReset     bool
 	Enabled           bool
 	UpdatedAt         time.Time
 	ID                string
@@ -352,6 +360,7 @@ func (q *Queries) UpdateLdapSource(ctx context.Context, arg UpdateLdapSourcePara
 		arg.GroupFilter,
 		arg.GroupNameAttr,
 		arg.PasswordWriteback,
+		arg.PasswordReset,
 		arg.Enabled,
 		arg.UpdatedAt,
 		arg.ID,

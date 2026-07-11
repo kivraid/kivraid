@@ -508,7 +508,9 @@ func (s *Storage) setUserinfo(ctx context.Context, ui *oidc.UserInfo, userID str
 			}
 		case oidc.ScopeEmail:
 			ui.Email = user.Email
-			ui.EmailVerified = true
+			// Directory addresses are trusted as-is; local addresses carry
+			// their verification state.
+			ui.EmailVerified = oidc.Bool(user.EmailVerified || user.Source == "ldap")
 		case ScopeGroups:
 			groups, err := s.store.ListUserGroups(ctx, user.ID)
 			if err != nil {

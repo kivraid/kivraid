@@ -1,8 +1,6 @@
 {{define "content"}}
-<div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">System</h1>
-  <p class="mt-1 text-sm text-muted">The effective configuration (read-only; secrets redacted) and live request diagnostics.</p>
-</div>
+{{template "settingstabs" .}}
+<p class="mb-6 text-sm text-muted">The effective configuration (read-only; secrets redacted) and live request diagnostics.</p>
 
 <div class="space-y-6">
   <div class="card p-6">
@@ -30,7 +28,7 @@
           {{.Data.PublishedKeys}} key{{if ne .Data.PublishedKeys 1}}s{{end}} published in the JWKS.
         </p>
       </div>
-      <form method="post" action="/admin/system/rotate-key" class="shrink-0"
+      <form method="post" action="/admin/settings/system/rotate-key" class="shrink-0"
             data-confirm="Generate a new signing key and sign new tokens with it? The current key stays published in the JWKS so tokens issued before now keep verifying until they expire."
             data-confirm-title="Rotate signing key" data-confirm-label="Rotate key">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">

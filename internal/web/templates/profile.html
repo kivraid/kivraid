@@ -1,5 +1,7 @@
 {{define "content"}}
 {{if .Data.MFAOff}}<div data-flash="Two-factor authentication disabled." data-variant="success" hidden></div>{{end}}
+{{if .Data.VerifySent}}<div data-flash="Verification email sent — check your inbox." data-variant="success" hidden></div>{{end}}
+{{if .Data.VerifiedFlash}}<div data-flash="Your email address is verified." data-variant="success" hidden></div>{{end}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
   <p class="mt-1 text-sm text-muted">Your identity, as applications will see it.</p>
@@ -18,6 +20,24 @@
         {{if .User.IsAdmin}}<span class="badge-accent">Admin</span>{{end}}
       </div>
       <p class="truncate text-sm text-muted">{{.User.Email}}</p>
+      {{if eq .User.Source "local"}}
+      <div class="mt-1.5 flex flex-wrap items-center gap-2">
+        {{if .Data.EmailVerified}}
+        <span class="inline-flex items-center gap-1 text-xs font-medium text-accent">
+          <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
+          Email verified
+        </span>
+        {{else}}
+        <span class="badge">Email not verified</span>
+        {{if .Data.CanVerifyEmail}}
+        <form method="post" action="/profile/verify-email">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button type="submit" class="text-xs font-medium text-accent underline underline-offset-2 hover:no-underline" data-no-spinner>Send verification link</button>
+        </form>
+        {{end}}
+        {{end}}
+      </div>
+      {{end}}
     </div>
   </div>
   <dl class="grid grid-cols-1 gap-x-8 gap-y-6 p-6 text-sm sm:grid-cols-2">

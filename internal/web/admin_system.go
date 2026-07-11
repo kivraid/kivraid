@@ -170,7 +170,7 @@ func (s *Server) handleAdminSystemRotateKey(w http.ResponseWriter, r *http.Reque
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionKeyRotate, "",
 		"alg="+s.oidcStore.ActiveSigningAlgorithm(), s.clientIP(r))
 	s.log.Info("signing key rotated", "by", currentUser(r).Username)
-	http.Redirect(w, r, "/admin/system?rotated=1", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/settings/system?rotated=1", http.StatusSeeOther)
 }
 
 func idleTimeout(d time.Duration) string {

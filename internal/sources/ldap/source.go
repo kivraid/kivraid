@@ -172,6 +172,44 @@ func (m *Manager) Connect(src sqlcgen.LdapSource) (*goldap.Conn, error) {
 // password changes from Kivraid.
 var ErrWritebackDisabled = errors.New("password changes are disabled for this directory")
 
+// ErrResetDisabled is returned when the user's source does not allow Kivraid
+// to reset passwords with the service account.
+var ErrResetDisabled = errors.New("password reset is disabled for this directory")
+
+// ResetPassword force-sets a directory user's password using the service
+// (bind) account, without knowing the current one — the mechanism behind
+// email-based and admin-initiated resets. It requires the bind account to
+// hold write permission on the target's password, and the source's
+// password_reset flag to be enabled. Unlike ChangePassword it never binds
+// as the user.
+func (m *Manager) ResetPassword(ctx context.Context, user sqlcgen.User, newPassword string) error {
+	if user.LdapSourceID == nil || user.LdapDn == nil {
+		return errors.New("user has no directory binding")
+	}
+	src, err := m.store.GetLdapSource(ctx, *user.LdapSourceID)
+	if err != nil {
+		return err
+	}
+	if !src.PasswordReset {
+		return ErrResetDisabled
+	}
+	if src.BindDn == "" {
+		return fmt.Errorf("password reset requires a service account (bind DN) with write access")
+	}
+	conn, err := m.Connect(src) // binds as the service account
+	if err != nil {
+		return err
+	}
+	defer conn.Close()
+	// Target the user's DN explicitly; bound as the service account, this is
+	// an administrative set rather than a self-service change.
+	if _, err := conn.PasswordModify(goldap.NewPasswordModifyRequest(*user.LdapDn, "", newPassword)); err != nil {
+		return fmt.Errorf("password modify: %w", err)
+	}
+	m.log.Info("ldap password reset", "user", user.Username, "source", src.Name)
+	return nil
+}
+
 // ChangePassword performs the RFC 3062 Password Modify extended operation
 // on the user's own connection: the current password is verified by the
 // user bind, and the directory's ACLs decide whether self-service change

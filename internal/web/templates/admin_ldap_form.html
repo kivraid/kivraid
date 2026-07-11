@@ -53,6 +53,9 @@
       <label class="flex cursor-pointer items-center gap-2 text-sm" title="Allow users to change their directory password from the portal (RFC 3062)">
         <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> Password write-back
       </label>
+      <label class="flex cursor-pointer items-center gap-2 text-sm" title="Let Kivraid reset a user's password with the service account (email-based and admin resets)">
+        <input type="checkbox" name="password_reset" class="accent-accent" {{if .Data.Form.Reset}}checked{{end}}> Password reset
+      </label>
     </div>
     <div class="space-y-5">
       <div>
@@ -70,7 +73,7 @@
         </div>
       </div>
     </div>
-    <p class="text-xs text-muted">With an anonymous bind the directory must allow unauthenticated searches. Password write-back keeps working either way: it binds as the user with their current password.</p>
+    <p class="text-xs text-muted">With an anonymous bind the directory must allow unauthenticated searches. <strong class="font-medium text-fg">Password write-back</strong> lets users change their own password from the portal — it binds as the user with their current password, so it needs no special rights. <strong class="font-medium text-fg">Password reset</strong> is stronger: it lets Kivraid set a password <em>without</em> the current one (for the “forgot password” email and admin resets), so the service (bind) account must have permission to modify user passwords in the directory. Leave it off unless you've granted that.</p>
 
     <h2 class="border-t border-line pt-5 text-sm font-semibold">Users</h2>
     <div>

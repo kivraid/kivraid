@@ -56,6 +56,15 @@ type AuthRequest struct {
 	CreatedAt time.Time
 }
 
+type EmailToken struct {
+	TokenHash string
+	Purpose   string
+	UserID    string
+	Email     string
+	ExpiresAt time.Time
+	CreatedAt time.Time
+}
+
 type Group struct {
 	ID           string
 	Name         string
@@ -94,6 +103,7 @@ type LdapSource struct {
 	UpdatedAt         time.Time
 	PasswordWriteback bool
 	PhotoAttr         string
+	PasswordReset     bool
 }
 
 type MfaRecoveryCode struct {
@@ -147,6 +157,19 @@ type SigningKey struct {
 	CreatedAt     time.Time
 }
 
+type SmtpSetting struct {
+	ID          int32
+	Enabled     bool
+	Host        string
+	Port        int32
+	Username    string
+	PasswordEnc []byte
+	FromAddress string
+	FromName    string
+	Encryption  string
+	UpdatedAt   time.Time
+}
+
 type User struct {
 	ID              string
 	Username        string
@@ -166,6 +189,7 @@ type User struct {
 	TotpEnabled     bool
 	TotpLastCounter int64
 	LastLoginAt     sql.NullTime
+	EmailVerified   bool
 }
 
 type UserGroup struct {

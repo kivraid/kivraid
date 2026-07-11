@@ -259,6 +259,14 @@
     @apply bg-raised text-fg;
   }
 
+  /* Settings tab strip: underlined links, one URL per tab. */
+  .tab {
+    @apply -mb-px inline-flex shrink-0 cursor-pointer whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-fg;
+  }
+  .tab-active {
+    @apply border-accent text-fg;
+  }
+
   /* Dropdown menus (toggled by app.js on [data-menu] containers). */
   .menu-panel {
     @apply invisible absolute right-0 top-full z-30 mt-2 w-56 origin-top-right scale-95 rounded-xl border border-line bg-surface p-1 opacity-0;

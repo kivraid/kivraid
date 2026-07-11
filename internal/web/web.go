@@ -16,6 +16,7 @@ import (
 	"net/netip"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/alexedwards/scs/v2"
@@ -23,6 +24,7 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/lporcheron/kivraid/internal/mailer"
 	"github.com/lporcheron/kivraid/internal/mfa"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/ratelimit"
@@ -50,7 +52,13 @@ type Server struct {
 	mfa       *mfa.Manager
 	webauthn  *webauthn.Manager
 	audit     *audit.Recorder
+	mailer    *mailer.Mailer
 	log       *slog.Logger
+
+	// smtpEnabled caches whether email delivery is configured, so templates
+	// can gate "forgot password" / "verify email" affordances without a DB
+	// hit per render. Refreshed at startup and after an admin saves SMTP.
+	smtpEnabled atomic.Bool
 
 	// Login brute-force protection: per-IP on attempts, per-username on
 	// failures.
@@ -84,6 +92,7 @@ type Deps struct {
 	MFA       *mfa.Manager
 	WebAuthn  *webauthn.Manager
 	Audit     *audit.Recorder
+	Mailer    *mailer.Mailer
 	Log       *slog.Logger
 }
 
@@ -108,6 +117,7 @@ func NewServer(d Deps) (*Server, error) {
 		mfa:            d.MFA,
 		webauthn:       d.WebAuthn,
 		audit:          d.Audit,
+		mailer:         d.Mailer,
 		log:            d.Log,
 		// 10 attempts/minute per IP, 5 failures/minute per username.
 		ipLimiter:   ratelimit.New(rate.Every(6*time.Second), 10),
@@ -118,6 +128,7 @@ func NewServer(d Deps) (*Server, error) {
 	// Load the admin-editable branding before first render; defaults are
 	// used if it cannot be read.
 	s.loadBranding(context.Background())
+	s.refreshSMTPCache(context.Background())
 
 	// Asset URLs carry a content hash so browsers can cache aggressively
 	// yet pick up new CSS/JS immediately after an upgrade.
@@ -138,8 +149,10 @@ func NewServer(d Deps) (*Server, error) {
 		"brandName":    s.brandDisplayName,
 		"brandHasLogo": s.brandHasLogo,
 		"brandLogoURL": func() string { return "/brand/logo?v=" + s.brandVersion() },
+		"mailEnabled":  s.smtpEnabled.Load,
 	}
-	standalone := []string{"login.html", "login_password.html", "login_mfa.html", "error.html", "setup.html"}
+	standalone := []string{"login.html", "login_password.html", "login_mfa.html", "error.html", "setup.html",
+		"forgot.html", "reset.html"}
 	for _, page := range standalone {
 		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page)
 		if err != nil {
@@ -155,7 +168,7 @@ func NewServer(d Deps) (*Server, error) {
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
 		"admin_groups.html", "admin_group_detail.html", "admin_system.html",
-		"admin_dashboard.html", "admin_branding.html",
+		"admin_dashboard.html", "admin_branding.html", "admin_smtp.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -181,6 +194,11 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("POST /logout", s.handleLogout)
 	web.HandleFunc("GET /setup", s.handleSetupPage)
 	web.HandleFunc("POST /setup", s.handleSetupSubmit)
+	web.HandleFunc("GET /forgot", s.handleForgotPage)
+	web.HandleFunc("POST /forgot", s.handleForgotSubmit)
+	web.HandleFunc("GET /reset", s.handleResetPage)
+	web.HandleFunc("POST /reset", s.handleResetSubmit)
+	web.HandleFunc("GET /verify-email", s.handleVerifyEmail)
 	// Public custom logo (the login page, served before auth, references it).
 	web.HandleFunc("GET /brand/logo", s.handleBrandLogo)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))
@@ -198,6 +216,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /profile/passkeys/begin", s.requireAuth(http.HandlerFunc(s.handlePasskeyRegisterBegin)))
 	web.Handle("POST /profile/passkeys/finish", s.requireAuth(http.HandlerFunc(s.handlePasskeyRegisterFinish)))
 	web.Handle("POST /profile/passkeys/{id}/delete", s.requireAuth(http.HandlerFunc(s.handlePasskeyDelete)))
+	web.Handle("POST /profile/verify-email", s.requireAuth(http.HandlerFunc(s.handleProfileSendVerification)))
 	web.Handle("GET /sessions", s.requireAuth(http.HandlerFunc(s.handleSessions)))
 	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
 	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))
@@ -236,6 +255,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/users/{id}/mfa/reset", s.requireAdmin(http.HandlerFunc(s.handleAdminUserMFAReset)))
 	web.Handle("POST /admin/users/{id}/sessions/revoke", s.requireAdmin(http.HandlerFunc(s.handleAdminUserSessionsRevoke)))
 	web.Handle("POST /admin/users/{id}/impersonate", s.requireAdmin(http.HandlerFunc(s.handleAdminUserImpersonate)))
+	web.Handle("POST /admin/users/{id}/verify-email", s.requireAdmin(http.HandlerFunc(s.handleAdminUserSendVerification)))
 	web.Handle("POST /admin/users/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDelete)))
 
 	web.Handle("GET /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroups)))
@@ -249,11 +269,20 @@ func (s *Server) Handler() http.Handler {
 
 	web.Handle("GET /admin/audit", s.requireAdmin(http.HandlerFunc(s.handleAdminAudit)))
 	web.Handle("GET /admin/audit/export.csv", s.requireAdmin(http.HandlerFunc(s.handleAdminAuditExport)))
-	web.Handle("GET /admin/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBranding)))
-	web.Handle("POST /admin/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingSave)))
-	web.Handle("POST /admin/branding/logo/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingLogoDelete)))
-	web.Handle("GET /admin/system", s.requireAdmin(http.HandlerFunc(s.handleAdminSystem)))
-	web.Handle("POST /admin/system/rotate-key", s.requireAdmin(http.HandlerFunc(s.handleAdminSystemRotateKey)))
+
+	// Instance settings, grouped under one nav entry with server-rendered
+	// tabs (one URL per tab).
+	web.Handle("GET /admin/settings", s.requireAdmin(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/admin/settings/system", http.StatusSeeOther)
+	})))
+	web.Handle("GET /admin/settings/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBranding)))
+	web.Handle("POST /admin/settings/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingSave)))
+	web.Handle("POST /admin/settings/branding/logo/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingLogoDelete)))
+	web.Handle("GET /admin/settings/email", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTP)))
+	web.Handle("POST /admin/settings/email", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTPSave)))
+	web.Handle("POST /admin/settings/email/test", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTPTest)))
+	web.Handle("GET /admin/settings/system", s.requireAdmin(http.HandlerFunc(s.handleAdminSystem)))
+	web.Handle("POST /admin/settings/system/rotate-key", s.requireAdmin(http.HandlerFunc(s.handleAdminSystemRotateKey)))
 
 	// Anything else under the web surface gets the styled 404.
 	web.HandleFunc("/", s.handleNotFound)

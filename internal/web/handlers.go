@@ -19,6 +19,7 @@ import (
 type loginData struct {
 	CSRF     string
 	Error    string
+	Notice   string
 	Username string
 	Next     string
 }
@@ -51,9 +52,17 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sessions.Remove(r.Context(), session.KeyPendingLogin)
+	notice := ""
+	switch {
+	case r.URL.Query().Get("reset") == "1":
+		notice = "Your password has been changed. Sign in with it."
+	case r.URL.Query().Get("verified") == "1":
+		notice = "Your email address is now verified."
+	}
 	s.render(w, r, "login.html", loginData{
-		CSRF: s.csrfToken(r.Context()),
-		Next: s.safeNext(r.URL.Query().Get("next"), ""),
+		CSRF:   s.csrfToken(r.Context()),
+		Notice: notice,
+		Next:   s.safeNext(r.URL.Query().Get("next"), ""),
 	})
 }
 
@@ -285,6 +294,10 @@ type profileData struct {
 	RecoveryRemaining int64
 	Passkeys          []sqlcgen.WebauthnCredential
 	PasskeysEnabled   bool
+	EmailVerified     bool
+	CanVerifyEmail    bool // local, unverified, and SMTP is configured
+	VerifySent        bool
+	VerifiedFlash     bool
 }
 
 func (s *Server) handleProfile(w http.ResponseWriter, r *http.Request) {
@@ -326,6 +339,10 @@ func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlc
 			RecoveryRemaining: recovery,
 			Passkeys:          passkeys,
 			PasskeysEnabled:   s.webauthn != nil,
+			EmailVerified:     user.EmailVerified,
+			CanVerifyEmail:    user.Source == "local" && !user.EmailVerified && s.smtpEnabled.Load(),
+			VerifySent:        r.URL.Query().Get("vsent") == "1",
+			VerifiedFlash:     r.URL.Query().Get("verified") == "1",
 		},
 	})
 }

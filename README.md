@@ -93,8 +93,9 @@ dark on the right.</sub>
   Caddy, registered as first-class applications with their own group access
   policy. See [docs/forward-auth.md](docs/forward-auth.md).
 - **User sources** — local accounts (Argon2id) and live LDAP directories
-  (OpenLDAP, LLDAP): bind authentication, paged group sync (RFC 2696), and
-  self-service password change written back via RFC 3062. See
+  (OpenLDAP, LLDAP): bind authentication, paged group sync (RFC 2696),
+  self-service password change written back via RFC 3062, and optional
+  admin/email password reset through the service account. See
   [docs/ldap.md](docs/ldap.md).
 - **Two-factor authentication** — optional TOTP (authenticator apps) with
   single-use recovery codes, for local and directory users alike; admins
@@ -102,14 +103,20 @@ dark on the right.</sub>
 - **Passkeys (WebAuthn)** — register device biometrics or a security key
   and sign in passwordless; a discoverable passkey is phishing-resistant
   and stands in for both password and second factor.
-- **User portal** — application launcher, profile, password change,
-  two-factor and passkey enrollment, session list with revocation.
+- **Email** — optional SMTP delivery, configured in the admin (password
+  encrypted at rest) with a test-send button. Powers self-service password
+  reset ("forgot password") and email-address verification; the OIDC
+  `email_verified` claim reflects the real state.
+- **User portal** — application launcher, profile, password change, email
+  verification, two-factor and passkey enrollment, session list with
+  revocation.
 - **Admin** — an overview dashboard; an application wizard (OIDC or
   forward-auth) with the client secret displayed and rotatable, editable
   token lifetimes and uploadable icons; group-based access policies;
-  directory management with a connection test; per-instance branding (name
-  and logo); user impersonation for support; manual OIDC signing-key
-  rotation; and an append-only audit trail you can filter and export to CSV.
+  directory management with a connection test; user impersonation for
+  support; an append-only audit trail you can filter and export to CSV; and
+  a grouped Settings area — branding, email/SMTP, and read-only system
+  diagnostics with manual OIDC signing-key rotation.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP, login
   rate limiting, all secrets hashed or encrypted at rest.
 - **SQLite or PostgreSQL** — SQLite by default (zero external services);

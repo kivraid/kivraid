@@ -27,6 +27,7 @@ import (
 
 	"github.com/lporcheron/kivraid/internal/audit"
 	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/lporcheron/kivraid/internal/mailer"
 	"github.com/lporcheron/kivraid/internal/mfa"
 	"github.com/lporcheron/kivraid/internal/oidcserver"
 	"github.com/lporcheron/kivraid/internal/secrets"
@@ -34,6 +35,7 @@ import (
 	"github.com/lporcheron/kivraid/internal/sources/ldap"
 	"github.com/lporcheron/kivraid/internal/sources/local"
 	"github.com/lporcheron/kivraid/internal/store"
+	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 	"github.com/lporcheron/kivraid/internal/web"
 	"github.com/lporcheron/kivraid/internal/webauthn"
 )
@@ -150,6 +152,10 @@ func serve(args []string) error {
 				if err := st.DeleteAuditBefore(ctx, time.Now().UTC().AddDate(0, 0, -90)); err != nil {
 					log.Warn("audit cleanup", "err", err)
 				}
+				// Expired password-reset / verification tokens.
+				if err := st.DeleteExpiredEmailTokens(ctx, time.Now().UTC()); err != nil {
+					log.Warn("email token cleanup", "err", err)
+				}
 				// Return heap freed since the last tick (e.g. after a
 				// login burst) to the OS instead of waiting for the lazy
 				// scavenger, keeping idle RSS low.
@@ -166,6 +172,7 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
+	mailManager := mailer.New(st, secrets.DeriveKey(cfg.SecretKey, "smtp-password"), log)
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,
 		Version:   version,
@@ -176,6 +183,7 @@ func serve(args []string) error {
 		LDAP:      ldapManager,
 		MFA:       mfaManager,
 		WebAuthn:  webauthnManager,
+		Mailer:    mailManager,
 		Log:       log,
 	})
 	if err != nil {
@@ -260,6 +268,12 @@ func userAdd(args []string) error {
 
 	user, err := local.NewSource(st).CreateUser(ctx, *username, *email, *name, pw, *admin)
 	if err != nil {
+		return err
+	}
+	// An operator-created account has an operator-attested email.
+	if err := st.SetEmailVerified(ctx, sqlcgen.SetEmailVerifiedParams{
+		EmailVerified: true, UpdatedAt: time.Now().UTC(), ID: user.ID,
+	}); err != nil {
 		return err
 	}
 	audit.NewRecorder(st, newLogger(cfg.LogLevel)).

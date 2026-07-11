@@ -156,7 +156,7 @@ func (s *Server) handleAdminBrandingSave(w http.ResponseWriter, r *http.Request)
 
 	s.loadBranding(r.Context())
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionBrandingUpdate, "", "", s.clientIP(r))
-	http.Redirect(w, r, "/admin/branding?saved=1", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/settings/branding?saved=1", http.StatusSeeOther)
 }
 
 func (s *Server) handleAdminBrandingLogoDelete(w http.ResponseWriter, r *http.Request) {
@@ -166,5 +166,5 @@ func (s *Server) handleAdminBrandingLogoDelete(w http.ResponseWriter, r *http.Re
 	}
 	s.loadBranding(r.Context())
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionBrandingUpdate, "", "logo removed", s.clientIP(r))
-	http.Redirect(w, r, "/admin/branding?saved=1", http.StatusSeeOther)
+	http.Redirect(w, r, "/admin/settings/branding?saved=1", http.StatusSeeOther)
 }

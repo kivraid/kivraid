@@ -1,14 +1,12 @@
 {{define "content"}}
-<div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Branding</h1>
-  <p class="mt-1 text-sm text-muted">The instance name and logo shown on the sign-in screen, the header and the browser tab.</p>
-</div>
+{{template "settingstabs" .}}
+<p class="mb-6 text-sm text-muted">The instance name and logo shown on the sign-in screen, the header and the browser tab.</p>
 
 <div class="space-y-4">
   {{if .Data.Saved}}<div data-flash="Branding updated." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
-  <form method="post" action="/admin/branding" enctype="multipart/form-data" class="card space-y-5 p-6">
+  <form method="post" action="/admin/settings/branding" enctype="multipart/form-data" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div>
       <label class="label" for="brand_name">Instance name</label>
@@ -40,7 +38,7 @@
   </form>
 
   {{if .Data.HasLogo}}
-  <form method="post" action="/admin/branding/logo/delete" id="remove-logo" class="hidden"
+  <form method="post" action="/admin/settings/branding/logo/delete" id="remove-logo" class="hidden"
         data-confirm="Remove the custom logo and fall back to the default mark?"
         data-confirm-title="Remove logo" data-confirm-variant="danger" data-confirm-label="Remove">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">

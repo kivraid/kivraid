@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{.CSRF}}">
-  <title>Sign in · {{brandName}}</title>
+  <title>Reset password · {{brandName}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{asset "app.css"}}">
@@ -30,40 +30,31 @@
         </svg>
         {{end}}
         <div class="text-center">
-          <h1 class="aurora-title">Sign in to {{brandName}}</h1>
-          <p class="aurora-sub">Use your directory credentials</p>
+          <h1 class="aurora-title">Reset your password</h1>
+          <p class="aurora-sub">We'll email you a link to choose a new one</p>
         </div>
       </div>
 
-      {{if .Error}}
-      <div class="alert-danger mb-4" role="alert">{{.Error}}</div>
-      {{end}}
-      {{if .Notice}}
-      <div class="alert-success mb-4" role="status">{{.Notice}}</div>
-      {{end}}
-
-      <form method="post" action="/login" class="auth-card space-y-4 p-6">
+      {{if .Sent}}
+      <div class="auth-card p-6 text-center">
+        <p class="text-sm text-fg">If an account matches, a reset link is on its way. Check your inbox and spam folder.</p>
+        <a href="/login" class="btn-secondary mt-5 inline-flex">Back to sign in</a>
+      </div>
+      {{else}}
+      {{if .Error}}<div class="alert-danger mb-4" role="alert">{{.Error}}</div>{{end}}
+      <form method="post" action="/forgot" class="auth-card space-y-4 p-6">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <input type="hidden" name="next" value="{{.Next}}">
         <div>
-          <label class="label" for="username">Username or email</label>
-          <input class="input" id="username" name="username" value="{{.Username}}"
+          <label class="label" for="identifier">Username or email</label>
+          <input class="input" id="identifier" name="identifier"
                  autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
         </div>
-        <button type="submit" class="btn-primary w-full">Continue</button>
+        <button type="submit" class="btn-primary w-full">Email me a reset link</button>
       </form>
-
-      <div data-passkey-login hidden class="mt-4">
-        <div class="flex items-center gap-3 text-xs aurora-foot">
-          <span class="h-px flex-1 bg-white/20"></span>or<span class="h-px flex-1 bg-white/20"></span>
-        </div>
-        <button type="button" data-passkey-login-btn data-next="{{.Next}}"
-                class="btn-secondary mt-4 flex w-full items-center justify-center gap-2">
-          <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M10 12a6 6 0 0 0-6 6v2h8"/><circle cx="17.5" cy="14.5" r="2.5"/><path d="M17.5 17v4l1.5-1.5-1.5-1.5"/></svg>
-          Sign in with a passkey
-        </button>
-        <p data-passkey-error class="alert-danger mt-3" role="alert" hidden></p>
-      </div>
+      <p class="mt-4 text-center">
+        <a href="/login" class="text-sm text-white/70 underline underline-offset-2 hover:text-white">Back to sign in</a>
+      </p>
+      {{end}}
 
       <p class="mt-8 text-center aurora-foot">{{brandName}} — lightweight identity</p>
     </div>

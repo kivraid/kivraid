@@ -90,6 +90,12 @@ minimal) is a default pick, easy to re-skin later via design tokens.
   Requires a service account with write permission, or the operation can
   be performed on the user's own bound connection where the directory's
   ACLs allow self-service password change.
+- **Password reset** (opt-in per source, default off) is distinct from
+  write-back: the "forgot password" email flow and admin-initiated resets
+  set a new password *without* knowing the current one, so they bind as the
+  **service account** and require it to hold write permission on user
+  passwords. Write-back only ever binds as the user, so the two are
+  separate flags.
 - Multiple LDAP sources supported; each source maps directory groups to
   Kivraid groups.
 
@@ -260,7 +266,13 @@ Delivered post-v1: TOTP and WebAuthn/passkeys; an admin overview dashboard,
 audit-log filtering and CSV export, per-instance branding (instance name and
 logo — the first database-backed setting, held in `instance_settings` rather
 than the config file), user impersonation for support, and manual OIDC
-signing-key rotation. Possible later: SAML, invitations/self-registration.
+signing-key rotation. Also SMTP email delivery (admin-managed in the
+database, password encrypted at rest), which powers self-service password
+reset (local accounts, and directory accounts where the per-source reset
+flag is on) and email-address verification (feeding the OIDC
+`email_verified` claim). Instance settings — branding, email and the
+read-only system/diagnostics view — are grouped under one tabbed Settings
+page. Possible later: SAML, invitations/self-registration.
 
 ## Security notes (must-hold invariants)
 

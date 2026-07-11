@@ -43,6 +43,12 @@ type adminUserDetailData struct {
 	PWSaved     bool
 	Revoked     bool
 	Self        bool
+	// Email verification (local users only).
+	EmailVerified  bool
+	CanVerifyEmail bool
+	VerifySent     bool
+	// CanResetPassword: local, or a directory that allows service-account reset.
+	CanResetPassword bool
 }
 
 type adminUserNewData struct {
@@ -240,7 +246,11 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 			Target: target, IsLDAP: target.Source == "ldap", SourceName: sourceName,
 			Groups: groups, AdminGroups: adminGroups, Sessions: sessions,
 			Error: errMsg, Saved: saved, PWSaved: pwSaved, Revoked: revoked,
-			Self: target.ID == currentUser(r).ID,
+			Self:           target.ID == currentUser(r).ID,
+			EmailVerified:    target.EmailVerified,
+			CanVerifyEmail:   target.Source == "local" && !target.EmailVerified && s.smtpEnabled.Load(),
+			VerifySent:       r.URL.Query().Get("vsent") == "1",
+			CanResetPassword: s.canResetPassword(r.Context(), target),
 		},
 	})
 }
@@ -295,6 +305,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 			fail("Name and email are required.")
 			return
 		}
+		emailChanged := email != target.Email
 		if err := s.store.UpdateUserIdentity(r.Context(), sqlcgen.UpdateUserIdentityParams{
 			Name: name, Email: email, UpdatedAt: now, ID: target.ID,
 		}); err != nil {
@@ -304,6 +315,15 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 			}
 			s.serverError(w, r, err)
 			return
+		}
+		// A new address is unverified until the user confirms it.
+		if emailChanged {
+			if err := s.store.SetEmailVerified(r.Context(), sqlcgen.SetEmailVerifiedParams{
+				EmailVerified: false, UpdatedAt: now, ID: target.ID,
+			}); err != nil {
+				s.serverError(w, r, err)
+				return
+			}
 		}
 	}
 	if err := s.store.UpdateUserFlags(r.Context(), sqlcgen.UpdateUserFlagsParams{
@@ -324,9 +344,9 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 	if !ok {
 		return
 	}
-	if target.Source != "local" {
+	if !s.canResetPassword(r.Context(), target) {
 		s.renderError(w, r, http.StatusBadRequest, "Directory-managed password",
-			"Directory users change their password in the directory, not here.")
+			"This directory does not allow Kivraid to reset passwords. Enable it on the directory (Admin → Directories), or reset the password in the directory itself.")
 		return
 	}
 	password := r.PostFormValue("password")
@@ -335,7 +355,7 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 		s.renderUserDetail(w, r, target, "The new password must be at least 8 characters.", false, false, false)
 		return
 	}
-	if err := s.local.SetPassword(r.Context(), target.ID, password); err != nil {
+	if err := s.resetPassword(r.Context(), target, password); err != nil {
 		s.serverError(w, r, err)
 		return
 	}

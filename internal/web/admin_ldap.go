@@ -32,6 +32,7 @@ type ldapForm struct {
 	GroupFilter   string
 	GroupNameAttr string
 	Writeback     bool
+	Reset         bool
 	Enabled       bool
 }
 
@@ -65,7 +66,7 @@ func formFromSource(src sqlcgen.LdapSource) ldapForm {
 		UsernameAttr: src.UsernameAttr, EmailAttr: src.EmailAttr, NameAttr: src.NameAttr,
 		PhotoAttr:   src.PhotoAttr,
 		GroupFilter: src.GroupFilter, GroupNameAttr: src.GroupNameAttr,
-		Writeback: src.PasswordWriteback, Enabled: src.Enabled,
+		Writeback: src.PasswordWriteback, Reset: src.PasswordReset, Enabled: src.Enabled,
 	}
 }
 
@@ -87,6 +88,7 @@ func parseLdapForm(r *http.Request) ldapForm {
 		GroupFilter:   str("group_filter"),
 		GroupNameAttr: str("group_name_attr"),
 		Writeback:     r.PostFormValue("password_writeback") == "on",
+		Reset:         r.PostFormValue("password_reset") == "on",
 		Enabled:       r.PostFormValue("enabled") == "on",
 	}
 	if f.UsernameAttr == "" {
@@ -186,7 +188,7 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		UserFilter: form.UserFilter, UsernameAttr: form.UsernameAttr,
 		EmailAttr: form.EmailAttr, NameAttr: form.NameAttr, PhotoAttr: form.PhotoAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
-		PasswordWriteback: form.Writeback,
+		PasswordWriteback: form.Writeback, PasswordReset: form.Reset,
 		Enabled:           form.Enabled, Position: 0, CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
@@ -251,7 +253,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		UsernameAttr: form.UsernameAttr, EmailAttr: form.EmailAttr, NameAttr: form.NameAttr,
 		PhotoAttr:   form.PhotoAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
-		PasswordWriteback: form.Writeback,
+		PasswordWriteback: form.Writeback, PasswordReset: form.Reset,
 		Enabled:           form.Enabled, UpdatedAt: now, ID: src.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {

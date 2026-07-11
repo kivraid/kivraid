@@ -91,6 +91,9 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 		http.Redirect(w, r, "/login", http.StatusSeeOther)
 		return
 	}
+	// The bootstrap owner sets their own email and cannot receive a
+	// verification link yet (SMTP is unconfigured), so trust it.
+	_ = s.markEmailVerified(r.Context(), user.ID)
 	s.audit.Record(r.Context(), user.Username, audit.ActionUserCreate, user.Username, "first-run setup", s.clientIP(r))
 
 	// Log the new administrator straight in.

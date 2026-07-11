@@ -21,6 +21,7 @@
   {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
   {{if .Data.PWSaved}}<div data-flash="Password reset." data-variant="success" hidden></div>{{end}}
   {{if .Data.Revoked}}<div data-flash="Signed the user out of all sessions." data-variant="success" hidden></div>{{end}}
+  {{if .Data.VerifySent}}<div data-flash="Verification email sent." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <form method="post" action="/admin/users/{{.Data.Target.ID}}" class="card space-y-5 p-6">
@@ -89,9 +90,34 @@
   </div>
 
   {{if not .Data.IsLDAP}}
+  <div class="card p-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold">Email verification</h2>
+        <p class="mt-1 text-sm text-muted">{{if .Data.EmailVerified}}This address is verified.{{else}}This address has not been verified yet.{{end}}</p>
+      </div>
+      {{if .Data.EmailVerified}}
+      <span class="badge-accent">Verified</span>
+      {{else if .Data.CanVerifyEmail}}
+      <form method="post" action="/admin/users/{{.Data.Target.ID}}/verify-email" class="shrink-0">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn-secondary">Send verification email</button>
+      </form>
+      {{else}}
+      <span class="badge">Unverified</span>
+      {{end}}
+    </div>
+    {{if and (not .Data.EmailVerified) (not .Data.CanVerifyEmail)}}
+    <p class="mt-3 text-xs text-faint">Configure SMTP under Admin → Settings → Email to send verification links.</p>
+    {{end}}
+  </div>
+  {{end}}
+
+  {{if .Data.CanResetPassword}}
   <form method="post" action="/admin/users/{{.Data.Target.ID}}/password" class="card space-y-4 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <h2 class="text-sm font-semibold">Reset password</h2>
+    {{if .Data.IsLDAP}}<p class="-mt-2 text-xs text-muted">Sets the password directly in the directory, using the service account.</p>{{end}}
     <div class="flex items-end gap-3">
       <div class="flex-1">
         <label class="label" for="password">New password</label>

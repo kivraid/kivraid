@@ -1,0 +1,82 @@
+{{define "content"}}
+{{template "settingstabs" .}}
+<p class="mb-6 text-sm text-muted">SMTP delivery for password resets and address verification. The password is encrypted at rest.</p>
+
+<div class="space-y-4">
+  {{if .Data.Saved}}<div data-flash="Email settings saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Tested}}<div data-flash="Test email sent." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
+
+  <form method="post" action="/admin/settings/email" class="card space-y-5 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+
+    <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+      <input type="checkbox" name="enabled" class="accent-accent" {{if .Data.Enabled}}checked{{end}}>
+      Enable email delivery
+    </label>
+
+    <div class="grid grid-cols-1 gap-5 border-t border-line pt-5 sm:grid-cols-3">
+      <div class="sm:col-span-2">
+        <label class="label" for="host">Host</label>
+        <input class="input" id="host" name="host" value="{{.Data.Host}}" placeholder="smtp.example.com" autocapitalize="none" spellcheck="false">
+      </div>
+      <div>
+        <label class="label" for="port">Port</label>
+        <input class="input tabular" id="port" name="port" value="{{.Data.Port}}" inputmode="numeric">
+      </div>
+    </div>
+
+    <div>
+      <label class="label" for="encryption">Encryption</label>
+      <select class="select" id="encryption" name="encryption">
+        <option value="starttls" {{if eq .Data.Encryption "starttls"}}selected{{end}}>STARTTLS (usually port 587)</option>
+        <option value="tls" {{if eq .Data.Encryption "tls"}}selected{{end}}>Implicit TLS / SMTPS (usually port 465)</option>
+        <option value="none" {{if eq .Data.Encryption "none"}}selected{{end}}>None (unencrypted)</option>
+      </select>
+    </div>
+
+    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
+      <div>
+        <label class="label" for="username">Username</label>
+        <input class="input" id="username" name="username" value="{{.Data.Username}}" autocomplete="off" autocapitalize="none" spellcheck="false" placeholder="Leave empty for no authentication">
+      </div>
+      <div>
+        <label class="label" for="password">Password</label>
+        <input class="input" id="password" name="password" type="password" autocomplete="new-password"
+               placeholder="{{if .Data.HasPassword}}•••••••• (leave empty to keep){{else}}Not set{{end}}">
+        {{if .Data.HasPassword}}
+        <label class="mt-2 flex cursor-pointer items-center gap-2 text-xs text-muted">
+          <input type="checkbox" name="clear_password" class="accent-accent"> Remove the stored password
+        </label>
+        {{end}}
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 gap-5 border-t border-line pt-5 sm:grid-cols-2">
+      <div>
+        <label class="label" for="from_address">Sender address</label>
+        <input class="input" id="from_address" name="from_address" type="email" value="{{.Data.FromAddress}}" placeholder="no-reply@example.com" autocapitalize="none" spellcheck="false">
+      </div>
+      <div>
+        <label class="label" for="from_name">Sender name</label>
+        <input class="input" id="from_name" name="from_name" value="{{.Data.FromName}}" placeholder="{{brandName}}">
+      </div>
+    </div>
+
+    <div class="flex justify-end border-t border-line pt-5">
+      <button type="submit" class="btn-primary">Save changes</button>
+    </div>
+  </form>
+
+  <form method="post" action="/admin/settings/email/test" class="card flex flex-wrap items-end gap-3 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div class="min-w-56 flex-1">
+      <h2 class="text-sm font-semibold">Send a test email</h2>
+      <p class="mb-3 mt-1 text-sm text-muted">Uses the saved settings above — save first, then test. Works even before enabling.</p>
+      <label class="label" for="test_to">Recipient</label>
+      <input class="input" id="test_to" name="test_to" type="email" value="{{.Data.TestTo}}" autocapitalize="none" spellcheck="false">
+    </div>
+    <button type="submit" class="btn-secondary shrink-0">Send test</button>
+  </form>
+</div>
+{{end}}

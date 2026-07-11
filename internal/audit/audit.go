@@ -46,6 +46,10 @@ const (
 	ActionGroupDelete    = "group.delete"
 	ActionKeyRotate      = "oidc.key.rotate"
 	ActionBrandingUpdate = "branding.update"
+	ActionPasswordReset  = "password.reset.request"
+	ActionEmailVerify    = "email.verify"
+	ActionEmailVerifySnt = "email.verify.sent"
+	ActionSMTPUpdate     = "smtp.update"
 )
 
 // Actions lists every action the recorder emits, grouped roughly by area.
@@ -61,8 +65,9 @@ var Actions = []string{
 	ActionLdapCreate, ActionLdapUpdate, ActionLdapDelete, ActionLdapSync,
 	ActionUserCreate, ActionUserUpdate, ActionUserDelete, ActionUserPWReset,
 	ActionImpersonate, ActionImpersonateEnd,
+	ActionPasswordReset, ActionEmailVerify, ActionEmailVerifySnt,
 	ActionGroupCreate, ActionGroupUpdate, ActionGroupDelete,
-	ActionKeyRotate, ActionBrandingUpdate,
+	ActionKeyRotate, ActionBrandingUpdate, ActionSMTPUpdate,
 }
 
 type Recorder struct {

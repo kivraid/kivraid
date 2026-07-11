@@ -185,7 +185,7 @@ func (q *Queries) ListAdminGroupMemberIDs(ctx context.Context) ([]string, error)
 }
 
 const listGroupMembers = `-- name: ListGroupMembers :many
-SELECT u.id, u.username, u.email, u.name, u.password_hash, u.source, u.is_admin, u.active, u.created_at, u.updated_at, u.ldap_source_id, u.ldap_dn, u.photo, u.photo_mime, u.totp_secret_enc, u.totp_enabled, u.totp_last_counter, u.last_login_at
+SELECT u.id, u.username, u.email, u.name, u.password_hash, u.source, u.is_admin, u.active, u.created_at, u.updated_at, u.ldap_source_id, u.ldap_dn, u.photo, u.photo_mime, u.totp_secret_enc, u.totp_enabled, u.totp_last_counter, u.last_login_at, u.email_verified
 FROM users u
 JOIN user_groups ug ON ug.user_id = u.id
 WHERE ug.group_id = $1
@@ -220,6 +220,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID string) ([]User,
 			&i.TotpEnabled,
 			&i.TotpLastCounter,
 			&i.LastLoginAt,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -322,7 +323,7 @@ func (q *Queries) ListUserAdminGroups(ctx context.Context, userID string) ([]Gro
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at FROM users ORDER BY username
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -353,6 +354,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.TotpEnabled,
 			&i.TotpLastCounter,
 			&i.LastLoginAt,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
@@ -368,7 +370,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const listUsersPage = `-- name: ListUsersPage :many
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at FROM users
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified FROM users
 WHERE lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
    OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
    OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\'
@@ -410,6 +412,7 @@ func (q *Queries) ListUsersPage(ctx context.Context, arg ListUsersPageParams) ([
 			&i.TotpEnabled,
 			&i.TotpLastCounter,
 			&i.LastLoginAt,
+			&i.EmailVerified,
 		); err != nil {
 			return nil, err
 		}
