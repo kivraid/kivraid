@@ -4,6 +4,7 @@
 package web
 
 import (
+	"context"
 	"crypto/sha256"
 	"embed"
 	"encoding/hex"
@@ -14,6 +15,7 @@ import (
 	"net/http"
 	"net/netip"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/alexedwards/scs/v2"
@@ -60,6 +62,14 @@ type Server struct {
 
 	// pages maps a page name to its parsed template set (layout + page).
 	pages map[string]*template.Template
+
+	// Branding is admin-editable and cached in memory; brandMu guards it and
+	// brandVer is a content token for cache-busting the logo URL.
+	brandMu       sync.RWMutex
+	brandName     string
+	brandLogo     []byte
+	brandLogoMime string
+	brandVer      string
 }
 
 // Deps bundles the server's collaborators.
@@ -105,6 +115,10 @@ func NewServer(d Deps) (*Server, error) {
 		pages:       map[string]*template.Template{},
 	}
 
+	// Load the admin-editable branding before first render; defaults are
+	// used if it cannot be read.
+	s.loadBranding(context.Background())
+
 	// Asset URLs carry a content hash so browsers can cache aggressively
 	// yet pick up new CSS/JS immediately after an upgrade.
 	assetV := assetVersion()
@@ -119,6 +133,11 @@ func NewServer(d Deps) (*Server, error) {
 		"asset": func(name string) string {
 			return "/static/" + name + "?v=" + assetV
 		},
+		// Branding helpers read the in-memory cache at render time, so a
+		// save is reflected on the next page load.
+		"brandName":    s.brandDisplayName,
+		"brandHasLogo": s.brandHasLogo,
+		"brandLogoURL": func() string { return "/brand/logo?v=" + s.brandVersion() },
 	}
 	standalone := []string{"login.html", "login_password.html", "login_mfa.html", "error.html", "setup.html"}
 	for _, page := range standalone {
@@ -136,6 +155,7 @@ func NewServer(d Deps) (*Server, error) {
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
 		"admin_groups.html", "admin_group_detail.html", "admin_system.html",
+		"admin_dashboard.html", "admin_branding.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -161,6 +181,8 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("POST /logout", s.handleLogout)
 	web.HandleFunc("GET /setup", s.handleSetupPage)
 	web.HandleFunc("POST /setup", s.handleSetupSubmit)
+	// Public custom logo (the login page, served before auth, references it).
+	web.HandleFunc("GET /brand/logo", s.handleBrandLogo)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))
 	web.Handle("GET /avatar/{id}", s.requireAuth(http.HandlerFunc(s.handleAvatar)))
 	web.Handle("GET /appicon/{id}", s.requireAuth(http.HandlerFunc(s.handleAppIcon)))
@@ -180,7 +202,10 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /sessions/revoke", s.requireAuth(http.HandlerFunc(s.handleSessionRevoke)))
 	web.Handle("POST /sessions/revoke-others", s.requireAuth(http.HandlerFunc(s.handleSessionsRevokeOthers)))
 	web.Handle("GET "+oidcserver.ResumePath, s.requireAuth(http.HandlerFunc(s.handleOIDCResume)))
+	web.Handle("POST /impersonate/stop", s.requireAuth(http.HandlerFunc(s.handleImpersonateStop)))
 	web.HandleFunc("GET /outpost/auth", s.handleForwardAuth)
+
+	web.Handle("GET /admin", s.requireAdmin(http.HandlerFunc(s.handleAdminDashboard)))
 
 	web.Handle("GET /admin/applications", s.requireAdmin(http.HandlerFunc(s.handleAdminApps)))
 	web.Handle("GET /admin/applications/new", s.requireAdmin(http.HandlerFunc(s.handleAdminAppNew)))
@@ -210,6 +235,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/users/{id}/password", s.requireAdmin(http.HandlerFunc(s.handleAdminUserPassword)))
 	web.Handle("POST /admin/users/{id}/mfa/reset", s.requireAdmin(http.HandlerFunc(s.handleAdminUserMFAReset)))
 	web.Handle("POST /admin/users/{id}/sessions/revoke", s.requireAdmin(http.HandlerFunc(s.handleAdminUserSessionsRevoke)))
+	web.Handle("POST /admin/users/{id}/impersonate", s.requireAdmin(http.HandlerFunc(s.handleAdminUserImpersonate)))
 	web.Handle("POST /admin/users/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDelete)))
 
 	web.Handle("GET /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroups)))
@@ -222,7 +248,12 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/groups/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDelete)))
 
 	web.Handle("GET /admin/audit", s.requireAdmin(http.HandlerFunc(s.handleAdminAudit)))
+	web.Handle("GET /admin/audit/export.csv", s.requireAdmin(http.HandlerFunc(s.handleAdminAuditExport)))
+	web.Handle("GET /admin/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBranding)))
+	web.Handle("POST /admin/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingSave)))
+	web.Handle("POST /admin/branding/logo/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingLogoDelete)))
 	web.Handle("GET /admin/system", s.requireAdmin(http.HandlerFunc(s.handleAdminSystem)))
+	web.Handle("POST /admin/system/rotate-key", s.requireAdmin(http.HandlerFunc(s.handleAdminSystemRotateKey)))
 
 	// Anything else under the web surface gets the styled 404.
 	web.HandleFunc("/", s.handleNotFound)

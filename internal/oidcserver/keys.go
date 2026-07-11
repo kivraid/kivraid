@@ -75,21 +75,33 @@ func loadSigningKeys(ctx context.Context, st *store.Store, sealKey [32]byte, alg
 	// No key for the requested algorithm yet: generate and persist one.
 	// Any existing key of a different algorithm is left active so its
 	// public half stays in the JWKS.
-	private, err := generateKey(alg)
+	active, err = generateAndStoreKey(ctx, st, sealKey, alg)
 	if err != nil {
 		return nil, nil, err
+	}
+	all = append(all, active)
+	return active, all, nil
+}
+
+// generateAndStoreKey creates a fresh private key for alg, seals it, and
+// persists it as an active signing key. It is used both on first use of an
+// algorithm and by manual rotation.
+func generateAndStoreKey(ctx context.Context, st *store.Store, sealKey [32]byte, alg jose.SignatureAlgorithm) (*signingKey, error) {
+	private, err := generateKey(alg)
+	if err != nil {
+		return nil, err
 	}
 	der, err := x509.MarshalPKCS8PrivateKey(private)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	sealed, err := secrets.Seal(sealKey, der)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	pubDER, err := x509.MarshalPKIXPublicKey(private.Public())
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 	id := uuid.NewString()
 	if err := st.CreateSigningKey(ctx, sqlcgen.CreateSigningKeyParams{
@@ -100,11 +112,9 @@ func loadSigningKeys(ctx context.Context, st *store.Store, sealKey [32]byte, alg
 		Active:        true,
 		CreatedAt:     time.Now().UTC(),
 	}); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	active = &signingKey{id: id, alg: alg, private: private}
-	all = append(all, active)
-	return active, all, nil
+	return &signingKey{id: id, alg: alg, private: private}, nil
 }
 
 func decryptSigningKey(row sqlcgen.SigningKey, sealKey [32]byte) (*signingKey, error) {

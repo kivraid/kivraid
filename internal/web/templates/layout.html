@@ -4,19 +4,28 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{.CSRF}}">
-  <title>{{.Title}} · Kivraid</title>
+  <title>{{.Title}} · {{brandName}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{asset "app.css"}}">
   <script src="{{asset "app.js"}}"></script>
 </head>
 <body class="min-h-dvh">
+  {{if .Impersonating}}
+  <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b border-warn/30 bg-warn-soft px-6 py-2 text-center text-sm text-warn">
+    <span>Viewing as <span class="font-semibold">{{.User.Name}}</span> ({{.User.Username}}).</span>
+    <form method="post" action="/impersonate/stop">
+      <input type="hidden" name="_csrf" value="{{.CSRF}}">
+      <button type="submit" class="font-semibold underline underline-offset-2 hover:no-underline">Return to {{.Impersonator}}</button>
+    </form>
+  </div>
+  {{end}}
   <header class="sticky top-0 z-10 border-b border-line bg-bg/85 backdrop-blur">
     <div class="mx-auto flex h-14 w-full max-w-3xl items-center justify-between gap-4 px-6">
       <div class="flex min-w-0 items-center gap-5">
         <a href="/" class="flex shrink-0 items-center gap-2.5 text-[15px] font-semibold tracking-tight">
-          {{template "logo" 24}}
-          <span class="hidden sm:inline">Kivraid</span>
+          {{if brandHasLogo}}<img src="{{brandLogoURL}}" alt="" class="size-6 shrink-0 rounded-md object-contain">{{else}}{{template "logo" 24}}{{end}}
+          <span class="hidden sm:inline">{{brandName}}</span>
         </a>
         <nav class="flex items-center gap-1">
           <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}" {{if eq .Active "home"}}aria-current="page"{{end}}>Home</a>
@@ -29,17 +38,20 @@
         {{if .User.IsAdmin}}
         <div class="relative" data-menu>
           <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false"
-                  class="nav-link flex items-center gap-1 {{if or (eq .Active "apps") (eq .Active "ldap") (eq .Active "users") (eq .Active "groups") (eq .Active "audit")}}nav-active{{end}}">
+                  class="nav-link flex items-center gap-1 {{if or (eq .Active "dashboard") (eq .Active "apps") (eq .Active "ldap") (eq .Active "users") (eq .Active "groups") (eq .Active "audit") (eq .Active "branding") (eq .Active "system")}}nav-active{{end}}">
             Admin
             <svg class="size-3.5 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
           </button>
           <div class="menu-panel">
+            <a href="/admin" class="menu-item {{if eq .Active "dashboard"}}bg-raised{{end}}">Overview</a>
+            <div class="menu-divider"></div>
             <a href="/admin/applications" class="menu-item {{if eq .Active "apps"}}bg-raised{{end}}">Applications</a>
             <a href="/admin/ldap" class="menu-item {{if eq .Active "ldap"}}bg-raised{{end}}">Directories</a>
             <a href="/admin/users" class="menu-item {{if eq .Active "users"}}bg-raised{{end}}">Users</a>
             <a href="/admin/groups" class="menu-item {{if eq .Active "groups"}}bg-raised{{end}}">Groups</a>
             <div class="menu-divider"></div>
             <a href="/admin/audit" class="menu-item {{if eq .Active "audit"}}bg-raised{{end}}">Activity</a>
+            <a href="/admin/branding" class="menu-item {{if eq .Active "branding"}}bg-raised{{end}}">Branding</a>
             <a href="/admin/system" class="menu-item {{if eq .Active "system"}}bg-raised{{end}}">System</a>
           </div>
         </div>

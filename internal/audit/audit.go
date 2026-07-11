@@ -33,6 +33,8 @@ const (
 	ActionUserUpdate     = "user.update"
 	ActionUserDelete     = "user.delete"
 	ActionUserPWReset    = "user.password.reset"
+	ActionImpersonate    = "user.impersonate"
+	ActionImpersonateEnd = "user.impersonate.end"
 	ActionMFAEnable      = "mfa.enable"
 	ActionMFADisable     = "mfa.disable"
 	ActionMFARecovery    = "mfa.recovery"
@@ -42,7 +44,26 @@ const (
 	ActionGroupCreate    = "group.create"
 	ActionGroupUpdate    = "group.update"
 	ActionGroupDelete    = "group.delete"
+	ActionKeyRotate      = "oidc.key.rotate"
+	ActionBrandingUpdate = "branding.update"
 )
+
+// Actions lists every action the recorder emits, grouped roughly by area.
+// It backs the action filter on the activity view; keep it in sync with the
+// constants above.
+var Actions = []string{
+	ActionLogin, ActionLoginFailed, ActionLoginThrottled, ActionLogout,
+	ActionPasswordChange, ActionSessionRevoke,
+	ActionMFAEnable, ActionMFADisable, ActionMFARecovery,
+	ActionPasskeyAdd, ActionPasskeyRemove, ActionPasskeyLogin,
+	ActionOIDCGrant, ActionOIDCDeny,
+	ActionAppCreate, ActionAppUpdate, ActionAppDelete, ActionSecretRotate,
+	ActionLdapCreate, ActionLdapUpdate, ActionLdapDelete, ActionLdapSync,
+	ActionUserCreate, ActionUserUpdate, ActionUserDelete, ActionUserPWReset,
+	ActionImpersonate, ActionImpersonateEnd,
+	ActionGroupCreate, ActionGroupUpdate, ActionGroupDelete,
+	ActionKeyRotate, ActionBrandingUpdate,
+}
 
 type Recorder struct {
 	store *store.Store

@@ -256,8 +256,11 @@ group cache, MFA enrollment, session ownership) — but never their password.
    docs.
 7. **M6 — Postgres**: pgx store implementation, dual-engine CI.
 
-Delivered post-v1: TOTP and WebAuthn/passkeys. Possible later: SAML,
-invitations/self-registration.
+Delivered post-v1: TOTP and WebAuthn/passkeys; an admin overview dashboard,
+audit-log filtering and CSV export, per-instance branding (instance name and
+logo — the first database-backed setting, held in `instance_settings` rather
+than the config file), user impersonation for support, and manual OIDC
+signing-key rotation. Possible later: SAML, invitations/self-registration.
 
 ## Security notes (must-hold invariants)
 

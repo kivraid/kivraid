@@ -21,6 +21,17 @@ func (q *Queries) CountActiveAdmins(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countActiveUsers = `-- name: CountActiveUsers :one
+SELECT COUNT(*) FROM users WHERE active = TRUE
+`
+
+func (q *Queries) CountActiveUsers(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countActiveUsers)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countAdminGroupMemberships = `-- name: CountAdminGroupMemberships :one
 SELECT COUNT(*)
 FROM user_groups ug
@@ -30,6 +41,28 @@ WHERE ug.user_id = $1 AND g.grants_admin = TRUE
 
 func (q *Queries) CountAdminGroupMemberships(ctx context.Context, userID string) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countAdminGroupMemberships, userID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countApplications = `-- name: CountApplications :one
+SELECT COUNT(*) FROM applications
+`
+
+func (q *Queries) CountApplications(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countApplications)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countGroups = `-- name: CountGroups :one
+SELECT COUNT(*) FROM groups
+`
+
+func (q *Queries) CountGroups(ctx context.Context) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countGroups)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

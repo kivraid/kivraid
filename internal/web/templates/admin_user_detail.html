@@ -149,6 +149,24 @@
   </div>
 
   {{if not .Data.Self}}
+  <div class="card p-6">
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold">Impersonate</h2>
+        <p class="mt-1 text-sm text-muted">View Kivraid as this user to reproduce what they see. A banner lets you return to your own account, and the switch is recorded in the activity log.</p>
+      </div>
+      <form method="post" action="/admin/users/{{.Data.Target.ID}}/impersonate" class="shrink-0"
+            data-confirm="You will browse as {{.Data.Target.Username}} until you choose to return. This is recorded in the activity log."
+            data-confirm-title="Impersonate {{.Data.Target.Username}}" data-confirm-label="Impersonate">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn-secondary" {{if not .Data.Target.Active}}disabled{{end}}>Impersonate</button>
+      </form>
+    </div>
+    {{if not .Data.Target.Active}}<p class="mt-3 text-xs text-faint">Reactivate the account before impersonating it.</p>{{end}}
+  </div>
+  {{end}}
+
+  {{if not .Data.Self}}
   <div class="card border-danger/25 p-6">
     <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
     <div class="mt-3 flex items-center justify-between gap-4">

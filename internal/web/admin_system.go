@@ -9,6 +9,8 @@ import (
 	"runtime/debug"
 	"strings"
 	"time"
+
+	"github.com/lporcheron/kivraid/internal/audit"
 )
 
 type systemRow struct {
@@ -21,6 +23,11 @@ type systemRow struct {
 type adminSystemData struct {
 	Config  []systemRow
 	Request []systemRow
+	// Signing-key card.
+	SigningAlg    string
+	PublishedKeys int
+	CanRotate     bool
+	KeyRotated    bool
 }
 
 var dsnPasswordRe = regexp.MustCompile(`(?i)password=[^ ]+`)
@@ -136,10 +143,34 @@ func (s *Server) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 		{Label: "Resolved client IP", Value: s.clientIP(r), Mono: true},
 	}
 
+	data := adminSystemData{Config: config, Request: request, KeyRotated: r.URL.Query().Get("rotated") == "1"}
+	if s.oidcStore != nil {
+		data.SigningAlg = s.oidcStore.ActiveSigningAlgorithm()
+		data.PublishedKeys = s.oidcStore.PublishedKeyCount()
+		data.CanRotate = true
+	}
 	s.render(w, r, "admin_system.html", pageData{
 		Title: "System", Active: "system", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminSystemData{Config: config, Request: request},
+		User: currentUser(r), Data: data,
 	})
+}
+
+// handleAdminSystemRotateKey generates a fresh signing key of the active
+// algorithm and makes it the signer. The previous key stays published in the
+// JWKS so tokens issued before the rotation keep verifying until they expire.
+func (s *Server) handleAdminSystemRotateKey(w http.ResponseWriter, r *http.Request) {
+	if s.oidcStore == nil {
+		http.Redirect(w, r, "/admin/system", http.StatusSeeOther)
+		return
+	}
+	if err := s.oidcStore.RotateSigningKey(r.Context()); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionKeyRotate, "",
+		"alg="+s.oidcStore.ActiveSigningAlgorithm(), s.clientIP(r))
+	s.log.Info("signing key rotated", "by", currentUser(r).Username)
+	http.Redirect(w, r, "/admin/system?rotated=1", http.StatusSeeOther)
 }
 
 func idleTimeout(d time.Duration) string {

@@ -19,6 +19,28 @@
     </dl>
   </div>
 
+  {{if .Data.CanRotate}}
+  <div class="card p-6">
+    {{if .Data.KeyRotated}}<div data-flash="Signing key rotated." data-variant="success" hidden></div>{{end}}
+    <div class="flex flex-wrap items-center justify-between gap-4">
+      <div class="min-w-0">
+        <h2 class="text-sm font-semibold">Signing keys</h2>
+        <p class="mt-1 text-sm text-muted">
+          Active algorithm <code class="code-box inline-block">{{.Data.SigningAlg}}</code> ·
+          {{.Data.PublishedKeys}} key{{if ne .Data.PublishedKeys 1}}s{{end}} published in the JWKS.
+        </p>
+      </div>
+      <form method="post" action="/admin/system/rotate-key" class="shrink-0"
+            data-confirm="Generate a new signing key and sign new tokens with it? The current key stays published in the JWKS so tokens issued before now keep verifying until they expire."
+            data-confirm-title="Rotate signing key" data-confirm-label="Rotate key">
+        <input type="hidden" name="_csrf" value="{{.CSRF}}">
+        <button type="submit" class="btn-secondary">Rotate key</button>
+      </form>
+    </div>
+    <p class="mt-3 text-xs text-muted">Rotating replaces the key used to sign new tokens. Old keys remain published until you restart with them pruned; existing sessions are unaffected.</p>
+  </div>
+  {{end}}
+
   <div class="card p-6">
     <h2 class="text-sm font-semibold">Request diagnostics</h2>
     <p class="mb-4 mt-1 text-sm text-muted">How Kivraid sees the request that loaded this page — use it to check client-IP resolution behind a reverse proxy.</p>

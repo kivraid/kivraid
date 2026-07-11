@@ -35,6 +35,8 @@
   --danger: oklch(57.7% 0.245 27.3);
   --danger-hover: oklch(52% 0.245 27.3);
   --danger-soft: oklch(96.5% 0.02 27);
+  --warn: oklch(52% 0.11 65);
+  --warn-soft: oklch(95% 0.045 80);
   --ring: oklch(52% 0.25 293 / 40%);
 
   --shadow-sm: 0 1px 2px oklch(25% 0.04 293 / 6%);
@@ -61,6 +63,8 @@
   --danger: oklch(68% 0.2 25);
   --danger-hover: oklch(72% 0.2 25);
   --danger-soft: oklch(26% 0.05 25);
+  --warn: oklch(82% 0.12 80);
+  --warn-soft: oklch(30% 0.06 70);
   --ring: oklch(70% 0.19 293 / 50%);
 
   --shadow-sm: 0 1px 2px oklch(0% 0 0 / 30%);
@@ -88,6 +92,8 @@
   --color-danger: var(--danger);
   --color-danger-hover: var(--danger-hover);
   --color-danger-soft: var(--danger-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
 
   --shadow-xs: var(--shadow-sm);
   --shadow-sm: var(--shadow);

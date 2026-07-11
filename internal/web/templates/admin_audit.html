@@ -1,14 +1,33 @@
 {{define "content"}}
-<div class="mb-8 flex items-end justify-between gap-4">
+<div class="mb-6 flex flex-wrap items-end justify-between gap-4">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Activity</h1>
     <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first.</p>
   </div>
-  {{if .Data.Entries}}
-  <input class="input w-56 shrink-0" type="search" placeholder="Filter shown rows…"
-         data-list-filter="#audit-rows" data-list-empty="#audit-empty" aria-label="Filter events">
-  {{end}}
+  <a href="/admin/audit/export.csv{{if .Data.Filtered}}?action={{.Data.Action}}&q={{.Data.Query}}{{end}}"
+     class="btn-secondary shrink-0" data-no-spinner>
+    <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
+    Export CSV
+  </a>
 </div>
+
+<form method="get" action="/admin/audit" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
+  <div class="min-w-40 flex-1">
+    <label class="label" for="action">Action</label>
+    <select class="select" id="action" name="action">
+      <option value="">All actions</option>
+      {{range .Data.Actions}}<option value="{{.}}" {{if eq . $.Data.Action}}selected{{end}}>{{.}}</option>{{end}}
+    </select>
+  </div>
+  <div class="min-w-40 flex-1">
+    <label class="label" for="q">Actor</label>
+    <input class="input" id="q" name="q" value="{{.Data.Query}}" placeholder="Username" autocapitalize="none" spellcheck="false">
+  </div>
+  <div class="flex gap-2">
+    <button type="submit" class="btn-primary">Filter</button>
+    {{if .Data.Filtered}}<a href="/admin/audit" class="btn-secondary">Clear</a>{{end}}
+  </div>
+</form>
 
 {{if .Data.Entries}}
 <div class="card overflow-x-auto">
@@ -23,9 +42,9 @@
         <th>IP</th>
       </tr>
     </thead>
-    <tbody id="audit-rows">
+    <tbody>
       {{range .Data.Entries}}
-      <tr data-list-item>
+      <tr>
         <td class="tabular whitespace-nowrap text-muted">{{.Ts.Format "Jan 2 15:04:05"}}</td>
         <td class="whitespace-nowrap font-medium">{{if .Actor}}{{.Actor}}{{else}}<span class="text-faint">—</span>{{end}}</td>
         <td><span class="badge font-mono">{{.Action}}</span></td>
@@ -36,16 +55,15 @@
       {{end}}
     </tbody>
   </table>
-  <div id="audit-empty" class="px-4 py-10 text-center text-sm text-faint" hidden>No events match your filter.</div>
 </div>
 
 <div class="mt-4 flex items-center justify-between gap-4 text-sm text-muted">
   <span class="tabular">Showing {{.Data.RangeStart}}–{{.Data.RangeEnd}} of {{.Data.Total}}</span>
   {{if gt .Data.Pages 1}}
   <div class="flex items-center gap-2">
-    {{if .Data.PrevPage}}<a href="?page={{.Data.PrevPage}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
+    {{if .Data.PrevPage}}<a href="?page={{.Data.PrevPage}}&action={{.Data.Action}}&q={{.Data.Query}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
     <span class="tabular px-1">Page {{.Data.Page}} / {{.Data.Pages}}</span>
-    {{if .Data.NextPage}}<a href="?page={{.Data.NextPage}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+    {{if .Data.NextPage}}<a href="?page={{.Data.NextPage}}&action={{.Data.Action}}&q={{.Data.Query}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
   </div>
   {{end}}
 </div>
@@ -53,8 +71,13 @@
 <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
   <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 8v4l3 3"/><circle cx="12" cy="12" r="10"/></svg>
   <div>
+    {{if .Data.Filtered}}
+    <h2 class="text-sm font-semibold">No matching events</h2>
+    <p class="mt-1 text-sm text-muted">No events match this filter. <a href="/admin/audit" class="underline">Clear it</a> to see everything.</p>
+    {{else}}
     <h2 class="text-sm font-semibold">No activity yet</h2>
     <p class="mt-1 text-sm text-muted">Logins, password changes and admin actions will appear here.</p>
+    {{end}}
   </div>
 </div>
 {{end}}

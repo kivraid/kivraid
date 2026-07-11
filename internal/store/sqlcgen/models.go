@@ -65,6 +65,14 @@ type Group struct {
 	GrantsAdmin  bool
 }
 
+type InstanceSetting struct {
+	ID        int32
+	BrandName string
+	Logo      []byte
+	LogoMime  *string
+	UpdatedAt time.Time
+}
+
 type LdapSource struct {
 	ID                string
 	Name              string

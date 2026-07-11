@@ -1,0 +1,50 @@
+{{define "content"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">Branding</h1>
+  <p class="mt-1 text-sm text-muted">The instance name and logo shown on the sign-in screen, the header and the browser tab.</p>
+</div>
+
+<div class="space-y-4">
+  {{if .Data.Saved}}<div data-flash="Branding updated." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
+
+  <form method="post" action="/admin/branding" enctype="multipart/form-data" class="card space-y-5 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div>
+      <label class="label" for="brand_name">Instance name</label>
+      <input class="input" id="brand_name" name="brand_name" value="{{.Data.Name}}"
+             placeholder="Kivraid" maxlength="64" autocomplete="off">
+      <p class="mt-1.5 text-xs text-muted">Shown in the header and page titles. Leave empty to use “Kivraid”.</p>
+    </div>
+
+    <div class="border-t border-line pt-5">
+      <span class="label">Logo</span>
+      <div class="mt-1 flex items-center gap-4">
+        {{if .Data.HasLogo}}
+        <img class="size-12 shrink-0 rounded-xl border border-line object-contain p-1" src="{{brandLogoURL}}" alt="">
+        {{else}}
+        {{template "logo" 40}}
+        {{end}}
+        <input type="file" name="logo" accept="image/jpeg,image/png,image/webp,image/gif"
+               class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
+      </div>
+      <p class="mt-1.5 text-xs text-muted">Square works best. JPEG, PNG, WebP or GIF, up to 1 MB.</p>
+    </div>
+
+    <div class="flex items-center justify-between border-t border-line pt-5">
+      {{if .Data.HasLogo}}
+      <button type="submit" form="remove-logo" class="btn-ghost">Remove logo</button>
+      {{else}}<span></span>{{end}}
+      <button type="submit" class="btn-primary">Save changes</button>
+    </div>
+  </form>
+
+  {{if .Data.HasLogo}}
+  <form method="post" action="/admin/branding/logo/delete" id="remove-logo" class="hidden"
+        data-confirm="Remove the custom logo and fall back to the default mark?"
+        data-confirm-title="Remove logo" data-confirm-variant="danger" data-confirm-label="Remove">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+  </form>
+  {{end}}
+</div>
+{{end}}

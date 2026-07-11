@@ -39,6 +39,12 @@ const (
 	// registration or passwordless login ceremony.
 	KeyWebAuthnReg   = "waReg"
 	KeyWebAuthnLogin = "waLogin"
+	// KeyImpersonator holds the administrator's own user ID while they view
+	// the instance as another user; KeyImpersonatorName carries that admin's
+	// display name for the "return to your account" banner. Both are absent
+	// in a normal session.
+	KeyImpersonator     = "impersonator"
+	KeyImpersonatorName = "impersonatorName"
 )
 
 // NewManager builds the session manager. lifetime is the absolute session

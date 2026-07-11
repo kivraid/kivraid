@@ -104,10 +104,12 @@ dark on the right.</sub>
   and stands in for both password and second factor.
 - **User portal** — application launcher, profile, password change,
   two-factor and passkey enrollment, session list with revocation.
-- **Admin** — application wizard (OIDC or forward-auth), client secret
-  displayed and rotatable, editable token lifetimes, uploadable icons and
-  descriptions, group-based access policies, directory management with
-  connection test, and an append-only audit trail.
+- **Admin** — an overview dashboard; an application wizard (OIDC or
+  forward-auth) with the client secret displayed and rotatable, editable
+  token lifetimes and uploadable icons; group-based access policies;
+  directory management with a connection test; per-instance branding (name
+  and logo); user impersonation for support; manual OIDC signing-key
+  rotation; and an append-only audit trail you can filter and export to CSV.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP, login
   rate limiting, all secrets hashed or encrypted at rest.
 - **SQLite or PostgreSQL** — SQLite by default (zero external services);

@@ -30,6 +30,10 @@ type pageData struct {
 	User   sqlcgen.User
 	Groups []sqlcgen.Group
 	Data   any
+	// Impersonating and Impersonator are filled centrally by render when the
+	// session is an admin impersonation; the layout shows a banner from them.
+	Impersonating bool
+	Impersonator  string
 }
 
 // handleLoginPage renders the first login step: the identifier form (plus
@@ -399,6 +403,15 @@ func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, dat
 	if !ok {
 		s.serverError(w, r, errors.New("unknown template "+page))
 		return
+	}
+	// Populate the impersonation banner on any full page in one place rather
+	// than in every admin/portal handler.
+	if pd, ok := data.(pageData); ok {
+		if name := impersonator(r); name != "" {
+			pd.Impersonating = true
+			pd.Impersonator = name
+			data = pd
+		}
 	}
 	w.Header().Set("Content-Type", "text/html; charset=utf-8")
 	if err := t.Execute(w, data); err != nil {

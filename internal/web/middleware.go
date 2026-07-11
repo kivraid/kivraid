@@ -17,7 +17,12 @@ import (
 
 type ctxKey int
 
-const ctxKeyUser ctxKey = iota
+const (
+	ctxKeyUser ctxKey = iota
+	// ctxKeyImpersonator carries the impersonating admin's display name when
+	// the current session is an impersonation; empty otherwise.
+	ctxKeyImpersonator
+)
 
 func (s *Server) secureHeaders(next http.Handler) http.Handler {
 	// HSTS only makes sense (and is only safe to assert) when the
@@ -67,8 +72,21 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 			}
 			user.IsAdmin = n > 0
 		}
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxKeyUser, user)))
+		ctx := context.WithValue(r.Context(), ctxKeyUser, user)
+		// Surface an active impersonation so every rendered page can show
+		// the return-to-your-account banner.
+		if name := s.sessions.GetString(r.Context(), session.KeyImpersonatorName); name != "" {
+			ctx = context.WithValue(ctx, ctxKeyImpersonator, name)
+		}
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
+}
+
+// impersonator returns the display name of the admin impersonating the
+// current user, or "" when the session is not an impersonation.
+func impersonator(r *http.Request) string {
+	name, _ := r.Context().Value(ctxKeyImpersonator).(string)
+	return name
 }
 
 func redirectToLogin(w http.ResponseWriter, r *http.Request) {

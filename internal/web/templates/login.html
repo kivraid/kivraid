@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{.CSRF}}">
-  <title>Sign in · Kivraid</title>
+  <title>Sign in · {{brandName}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{asset "app.css"}}">
@@ -20,13 +20,17 @@
   <main class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
     <div class="w-full max-w-sm">
       <div class="mb-8 flex flex-col items-center gap-4">
+        {{if brandHasLogo}}
+        <img src="{{brandLogoURL}}" alt="" width="40" height="40" class="size-10 rounded-xl object-contain">
+        {{else}}
         <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true">
           <rect width="24" height="24" rx="7" class="fill-accent"/>
           <circle cx="12" cy="10" r="3" fill="var(--on-accent)"/>
           <path d="M10 11.4 H14 L13 17.4 H11 Z" fill="var(--on-accent)"/>
         </svg>
+        {{end}}
         <div class="text-center">
-          <h1 class="aurora-title">Sign in to Kivraid</h1>
+          <h1 class="aurora-title">Sign in to {{brandName}}</h1>
           <p class="aurora-sub">Use your directory credentials</p>
         </div>
       </div>
@@ -58,7 +62,7 @@
         <p data-passkey-error class="alert-danger mt-3" role="alert" hidden></p>
       </div>
 
-      <p class="mt-8 text-center aurora-foot">Kivraid — lightweight identity</p>
+      <p class="mt-8 text-center aurora-foot">{{brandName}} — lightweight identity</p>
     </div>
   </main>
 </body>

@@ -29,6 +29,15 @@ DELETE FROM users WHERE id = $1;
 -- name: CountActiveAdmins :one
 SELECT COUNT(*) FROM users WHERE is_admin = TRUE AND active = TRUE;
 
+-- name: CountActiveUsers :one
+SELECT COUNT(*) FROM users WHERE active = TRUE;
+
+-- name: CountApplications :one
+SELECT COUNT(*) FROM applications;
+
+-- name: CountGroups :one
+SELECT COUNT(*) FROM groups;
+
 -- name: UpdateUserPhoto :exec
 UPDATE users SET photo = $1, photo_mime = $2, updated_at = $3 WHERE id = $4;
 

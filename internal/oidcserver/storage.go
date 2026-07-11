@@ -13,6 +13,7 @@ import (
 	"errors"
 	"fmt"
 	"slices"
+	"sync"
 	"time"
 
 	jose "github.com/go-jose/go-jose/v4"
@@ -35,12 +36,19 @@ const (
 
 type Storage struct {
 	store  *store.Store
-	key    *signingKey // the key tokens are signed with (the configured alg)
-	keys   []op.Key    // all active public keys, published in the JWKS
-	issuer string      // base URL, used to build absolute claim URLs
+	issuer string // base URL, used to build absolute claim URLs
 	// clientSecretKey encrypts OAuth client secrets at rest so the admin
 	// can display them again.
 	clientSecretKey [32]byte
+	// signingSealKey seals private signing keys at rest; kept so keys can
+	// be rotated at runtime.
+	signingSealKey [32]byte
+
+	// keyMu guards the signing material, which manual rotation swaps out
+	// while the provider may be signing tokens concurrently.
+	keyMu sync.RWMutex
+	key   *signingKey // the key tokens are signed with (the configured alg)
+	keys  []op.Key    // all active public keys, published in the JWKS
 }
 
 var _ op.Storage = (*Storage)(nil)
@@ -51,11 +59,48 @@ func NewStorage(ctx context.Context, st *store.Store, sealKey, clientSecretKey [
 	if err != nil {
 		return nil, fmt.Errorf("signing key: %w", err)
 	}
+	return &Storage{
+		store:           st,
+		issuer:          issuer,
+		clientSecretKey: clientSecretKey,
+		signingSealKey:  sealKey,
+		key:             active,
+		keys:            publicKeys(all),
+	}, nil
+}
+
+// publicKeys wraps decrypted signing keys as JWKS entries.
+func publicKeys(all []*signingKey) []op.Key {
 	keys := make([]op.Key, len(all))
 	for i, k := range all {
 		keys[i] = publicKey{k}
 	}
-	return &Storage{store: st, key: active, keys: keys, issuer: issuer, clientSecretKey: clientSecretKey}, nil
+	return keys
+}
+
+// RotateSigningKey generates a fresh key for the currently active algorithm
+// and makes it the signer. Existing keys stay active and published in the
+// JWKS, so tokens issued before the rotation keep verifying until they
+// expire.
+func (s *Storage) RotateSigningKey(ctx context.Context) error {
+	s.keyMu.RLock()
+	alg := s.key.alg
+	s.keyMu.RUnlock()
+
+	if _, err := generateAndStoreKey(ctx, s.store, s.signingSealKey, alg); err != nil {
+		return err
+	}
+	// Reload the full set; the just-created key is the newest and becomes
+	// the active signer (GetActiveSigningKeys orders by created_at DESC).
+	active, all, err := loadSigningKeys(ctx, s.store, s.signingSealKey, alg)
+	if err != nil {
+		return err
+	}
+	s.keyMu.Lock()
+	s.key = active
+	s.keys = publicKeys(all)
+	s.keyMu.Unlock()
+	return nil
 }
 
 // SealClientSecret encrypts a client secret for storage.
@@ -375,23 +420,38 @@ func (s *Storage) RevokeToken(ctx context.Context, tokenOrTokenID string, userID
 // --- Signing keys --------------------------------------------------------
 
 func (s *Storage) SigningKey(context.Context) (op.SigningKey, error) {
+	s.keyMu.RLock()
+	defer s.keyMu.RUnlock()
 	return s.key, nil
 }
 
 func (s *Storage) SignatureAlgorithms(context.Context) ([]jose.SignatureAlgorithm, error) {
+	s.keyMu.RLock()
+	defer s.keyMu.RUnlock()
 	return []jose.SignatureAlgorithm{s.key.alg}, nil
 }
 
 func (s *Storage) KeySet(context.Context) ([]op.Key, error) {
+	s.keyMu.RLock()
+	defer s.keyMu.RUnlock()
 	return s.keys, nil
 }
 
 // ActiveSigningAlgorithm reports the algorithm ID tokens are signed with.
-func (s *Storage) ActiveSigningAlgorithm() string { return string(s.key.alg) }
+func (s *Storage) ActiveSigningAlgorithm() string {
+	s.keyMu.RLock()
+	defer s.keyMu.RUnlock()
+	return string(s.key.alg)
+}
 
 // PublishedKeyCount reports how many public keys the JWKS exposes (more
-// than one after an algorithm switch, while old tokens still verify).
-func (s *Storage) PublishedKeyCount() int { return len(s.keys) }
+// than one after an algorithm switch or a key rotation, while tokens signed
+// by the previous key still verify).
+func (s *Storage) PublishedKeyCount() int {
+	s.keyMu.RLock()
+	defer s.keyMu.RUnlock()
+	return len(s.keys)
+}
 
 // --- Clients & userinfo --------------------------------------------------
 

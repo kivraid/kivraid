@@ -21,6 +21,44 @@ func (q *Queries) CountAudit(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countAuditActionSince = `-- name: CountAuditActionSince :one
+SELECT COUNT(*) FROM audit_log
+WHERE action = $1 AND ts >= $2
+`
+
+type CountAuditActionSinceParams struct {
+	Action string
+	Since  time.Time
+}
+
+func (q *Queries) CountAuditActionSince(ctx context.Context, arg CountAuditActionSinceParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAuditActionSince, arg.Action, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countAuditFiltered = `-- name: CountAuditFiltered :one
+SELECT COUNT(*) FROM audit_log
+WHERE ($1 = '' OR action = $1)
+  AND lower(actor) LIKE CAST($2 AS TEXT) ESCAPE '\'
+`
+
+type CountAuditFilteredParams struct {
+	Action       interface{}
+	ActorPattern string
+}
+
+// Filtered variants for the activity view. An empty action matches every
+// action; the actor pattern is lowercased and wildcard-escaped by the
+// caller ('%' for no filter), matching the users-search convention.
+func (q *Queries) CountAuditFiltered(ctx context.Context, arg CountAuditFilteredParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countAuditFiltered, arg.Action, arg.ActorPattern)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteAuditBefore = `-- name: DeleteAuditBefore :exec
 DELETE FROM audit_log WHERE ts < $1
 `
@@ -62,6 +100,100 @@ SELECT id, ts, actor, action, object, detail, ip FROM audit_log ORDER BY id DESC
 
 func (q *Queries) ListAudit(ctx context.Context, limit int32) ([]AuditLog, error) {
 	rows, err := q.db.QueryContext(ctx, listAudit, limit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLog
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ts,
+			&i.Actor,
+			&i.Action,
+			&i.Object,
+			&i.Detail,
+			&i.Ip,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditFiltered = `-- name: ListAuditFiltered :many
+SELECT id, ts, actor, action, object, detail, ip FROM audit_log
+WHERE ($1 = '' OR action = $1)
+  AND lower(actor) LIKE CAST($2 AS TEXT) ESCAPE '\'
+ORDER BY id DESC
+`
+
+type ListAuditFilteredParams struct {
+	Action       interface{}
+	ActorPattern string
+}
+
+func (q *Queries) ListAuditFiltered(ctx context.Context, arg ListAuditFilteredParams) ([]AuditLog, error) {
+	rows, err := q.db.QueryContext(ctx, listAuditFiltered, arg.Action, arg.ActorPattern)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AuditLog
+	for rows.Next() {
+		var i AuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.Ts,
+			&i.Actor,
+			&i.Action,
+			&i.Object,
+			&i.Detail,
+			&i.Ip,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listAuditFilteredPage = `-- name: ListAuditFilteredPage :many
+SELECT id, ts, actor, action, object, detail, ip FROM audit_log
+WHERE ($1 = '' OR action = $1)
+  AND lower(actor) LIKE CAST($2 AS TEXT) ESCAPE '\'
+ORDER BY id DESC
+LIMIT $4 OFFSET $3
+`
+
+type ListAuditFilteredPageParams struct {
+	Action       interface{}
+	ActorPattern string
+	PageOffset   int32
+	PageLimit    int32
+}
+
+func (q *Queries) ListAuditFilteredPage(ctx context.Context, arg ListAuditFilteredPageParams) ([]AuditLog, error) {
+	rows, err := q.db.QueryContext(ctx, listAuditFilteredPage,
+		arg.Action,
+		arg.ActorPattern,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
