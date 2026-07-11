@@ -71,11 +71,23 @@
               <div class="truncate text-xs text-muted">{{.User.Email}}</div>
             </div>
             <div class="menu-divider"></div>
-            <button type="button" class="menu-item" data-theme-toggle>
-              <svg class="size-4 dark:hidden" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-              <svg class="hidden size-4 dark:block" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-              Switch theme
-            </button>
+            <div class="px-2 py-1.5">
+              <div class="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-faint">Theme</div>
+              <div class="theme-seg" role="radiogroup" aria-label="Theme">
+                <button type="button" class="theme-seg-btn" data-theme-set="system" role="radio" aria-checked="false">
+                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
+                  System
+                </button>
+                <button type="button" class="theme-seg-btn" data-theme-set="light" role="radio" aria-checked="false">
+                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
+                  Light
+                </button>
+                <button type="button" class="theme-seg-btn" data-theme-set="dark" role="radio" aria-checked="false">
+                  <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
+                  Dark
+                </button>
+              </div>
+            </div>
             <div class="menu-divider"></div>
             <form method="post" action="/logout">
               <input type="hidden" name="_csrf" value="{{.CSRF}}">

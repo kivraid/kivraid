@@ -259,6 +259,18 @@
     @apply bg-raised text-fg;
   }
 
+  /* Segmented theme control (System / Light / Dark) in the account menu. */
+  .theme-seg {
+    @apply flex gap-0.5 rounded-lg border border-line bg-raised p-0.5;
+  }
+  .theme-seg-btn {
+    @apply flex flex-1 cursor-pointer flex-col items-center gap-1 rounded-md px-2 py-1.5 text-[11px] font-medium text-muted transition-colors duration-100 hover:text-fg;
+  }
+  .theme-seg-active {
+    @apply bg-surface text-fg;
+    box-shadow: var(--shadow-sm);
+  }
+
   /* Settings tab strip: underlined links, one URL per tab. */
   .tab {
     @apply -mb-px inline-flex shrink-0 cursor-pointer whitespace-nowrap border-b-2 border-transparent px-3 py-2 text-sm font-medium text-muted transition-colors duration-150 hover:text-fg;

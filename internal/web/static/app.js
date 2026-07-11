@@ -1,25 +1,64 @@
-// Theme boot: runs synchronously from <head> so the correct theme is set
-// before first paint (no flash of the wrong theme).
+// Theme: the stored preference is "system" | "light" | "dark". The effective
+// light/dark theme is derived from it and, in system mode, tracks the OS
+// live. data-theme-pref holds the preference; data-theme holds the effective
+// theme the stylesheet keys off.
+const themeMedia = window.matchMedia("(prefers-color-scheme: dark)");
+function themePref() {
+  return document.documentElement.dataset.themePref || "system";
+}
+function themeIsDark(pref) {
+  return pref === "dark" || (pref === "system" && themeMedia.matches);
+}
+
+// Boot synchronously (from <head>) so the correct theme is set before first
+// paint — no flash of the wrong theme.
 (() => {
-  const stored = localStorage.getItem("kivraid-theme");
-  const dark = stored
-    ? stored === "dark"
-    : matchMedia("(prefers-color-scheme: dark)").matches;
-  document.documentElement.dataset.theme = dark ? "dark" : "light";
+  const pref = localStorage.getItem("kivraid-theme") || "system";
+  const root = document.documentElement;
+  root.dataset.themePref = pref;
+  root.dataset.theme = themeIsDark(pref) ? "dark" : "light";
 })();
 
-document.addEventListener("DOMContentLoaded", () => {
-  for (const btn of document.querySelectorAll("[data-theme-toggle]")) {
-    btn.addEventListener("click", () => {
-      const root = document.documentElement;
-      const next = root.dataset.theme === "dark" ? "light" : "dark";
-      // Soft cross-fade, enabled only for the duration of the switch.
-      root.classList.add("theme-transition");
-      root.dataset.theme = next;
-      localStorage.setItem("kivraid-theme", next);
-      setTimeout(() => root.classList.remove("theme-transition"), 300);
-    });
+// While in system mode, follow the OS as it flips light/dark at runtime.
+themeMedia.addEventListener("change", () => {
+  if (themePref() === "system") {
+    document.documentElement.dataset.theme = themeMedia.matches ? "dark" : "light";
   }
+});
+
+function setThemePref(pref) {
+  const root = document.documentElement;
+  root.classList.add("theme-transition"); // soft cross-fade for this switch
+  root.dataset.themePref = pref;
+  root.dataset.theme = themeIsDark(pref) ? "dark" : "light";
+  localStorage.setItem("kivraid-theme", pref);
+  syncThemeControls();
+  setTimeout(() => root.classList.remove("theme-transition"), 300);
+}
+
+// Reflect the active preference on any theme controls (segmented buttons).
+function syncThemeControls() {
+  const pref = themePref();
+  for (const btn of document.querySelectorAll("[data-theme-set]")) {
+    const on = btn.dataset.themeSet === pref;
+    btn.classList.toggle("theme-seg-active", on);
+    btn.setAttribute("aria-checked", on ? "true" : "false");
+  }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+  // Segmented control: each button sets a specific preference.
+  for (const btn of document.querySelectorAll("[data-theme-set]")) {
+    btn.addEventListener("click", () => setThemePref(btn.dataset.themeSet));
+  }
+  // Compact control (auth pages): one button cycles system → light → dark.
+  const themeOrder = ["system", "light", "dark"];
+  for (const btn of document.querySelectorAll("[data-theme-toggle]")) {
+    btn.addEventListener("click", () =>
+      setThemePref(themeOrder[(themeOrder.indexOf(themePref()) + 1) % themeOrder.length]),
+    );
+  }
+  syncThemeControls();
 
   // Instant client-side filtering of lists. An [data-list-filter] input
   // hides sibling-scoped [data-list-item] rows that do not match.
