@@ -72,6 +72,64 @@ func (q *Queries) CreateUpstreamProvider(ctx context.Context, arg CreateUpstream
 	return i, err
 }
 
+const createUpstreamUser = `-- name: CreateUpstreamUser :one
+INSERT INTO users (id, username, email, name, source, upstream_source_id, external_id,
+                   email_verified, is_admin, active, created_at, updated_at)
+VALUES ($1, $2, $3, $4, 'upstream', $5, $6, $7, FALSE, TRUE, $8, $9)
+RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id
+`
+
+type CreateUpstreamUserParams struct {
+	ID               string
+	Username         string
+	Email            string
+	Name             string
+	UpstreamSourceID *string
+	ExternalID       *string
+	EmailVerified    bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+}
+
+func (q *Queries) CreateUpstreamUser(ctx context.Context, arg CreateUpstreamUserParams) (User, error) {
+	row := q.db.QueryRowContext(ctx, createUpstreamUser,
+		arg.ID,
+		arg.Username,
+		arg.Email,
+		arg.Name,
+		arg.UpstreamSourceID,
+		arg.ExternalID,
+		arg.EmailVerified,
+		arg.CreatedAt,
+		arg.UpdatedAt,
+	)
+	var i User
+	err := row.Scan(
+		&i.ID,
+		&i.Username,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.Source,
+		&i.IsAdmin,
+		&i.Active,
+		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.LdapSourceID,
+		&i.LdapDn,
+		&i.Photo,
+		&i.PhotoMime,
+		&i.TotpSecretEnc,
+		&i.TotpEnabled,
+		&i.TotpLastCounter,
+		&i.LastLoginAt,
+		&i.EmailVerified,
+		&i.UpstreamSourceID,
+		&i.ExternalID,
+	)
+	return i, err
+}
+
 const deleteUpstreamProvider = `-- name: DeleteUpstreamProvider :exec
 DELETE FROM upstream_providers WHERE id = $1
 `

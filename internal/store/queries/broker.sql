@@ -42,3 +42,9 @@ SELECT * FROM users WHERE upstream_source_id = $1 AND external_id = $2;
 
 -- name: SetUserUpstreamIdentity :exec
 UPDATE users SET upstream_source_id = $1, external_id = $2, updated_at = $3 WHERE id = $4;
+
+-- name: CreateUpstreamUser :one
+INSERT INTO users (id, username, email, name, source, upstream_source_id, external_id,
+                   email_verified, is_admin, active, created_at, updated_at)
+VALUES ($1, $2, $3, $4, 'upstream', $5, $6, $7, FALSE, TRUE, $8, $9)
+RETURNING *;

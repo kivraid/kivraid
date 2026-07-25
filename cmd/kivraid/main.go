@@ -174,7 +174,11 @@ func serve(args []string) error {
 		return err
 	}
 	mailManager := mailer.New(st, secrets.DeriveKey(cfg.SecretKey, "smtp-password"), log)
-	brokerManager := broker.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "upstream-secrets"), cfg.BaseURL)
+	brokerManager := broker.NewManager(st,
+		secrets.DeriveKey(cfg.SecretKey, "upstream-secrets"),
+		secrets.DeriveKey(cfg.SecretKey, "upstream-cookie-hash"),
+		secrets.DeriveKey(cfg.SecretKey, "upstream-cookie-enc"),
+		cfg.BaseURL)
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,
 		Version:   version,

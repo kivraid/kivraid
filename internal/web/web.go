@@ -204,6 +204,8 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("GET /reset", s.handleResetPage)
 	web.HandleFunc("POST /reset", s.handleResetSubmit)
 	web.HandleFunc("GET /verify-email", s.handleVerifyEmail)
+	web.HandleFunc("GET /login/upstream/{id}/start", s.handleUpstreamLoginStart)
+	web.HandleFunc("GET /login/upstream/{id}/callback", s.handleUpstreamLoginCallback)
 	// Public custom logo (the login page, served before auth, references it).
 	web.HandleFunc("GET /brand/logo", s.handleBrandLogo)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))

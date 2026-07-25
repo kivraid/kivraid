@@ -65,6 +65,19 @@
         <p data-passkey-error class="alert-danger mt-3" role="alert" hidden></p>
       </div>
 
+      {{if .Providers}}
+      <div class="mt-4">
+        <div class="flex items-center gap-3 text-xs aurora-foot">
+          <span class="h-px flex-1 bg-white/20"></span>or continue with<span class="h-px flex-1 bg-white/20"></span>
+        </div>
+        <div class="mt-4 space-y-2">
+          {{range .Providers}}
+          <a href="/login/upstream/{{.ID}}/start?next={{$.Next}}" class="btn-secondary flex w-full items-center justify-center">{{.Name}}</a>
+          {{end}}
+        </div>
+      </div>
+      {{end}}
+
       <p class="mt-8 text-center aurora-foot">{{brandName}} — lightweight identity</p>
     </div>
   </main>

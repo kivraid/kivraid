@@ -1,7 +1,5 @@
 // Package broker turns Kivraid into an OpenID Connect client (relying party)
-// to upstream identity providers, so users can be federated from them. This
-// file covers provider configuration helpers; the login ceremony lives
-// alongside the web layer.
+// to upstream identity providers, so users can be federated from them.
 package broker
 
 import (
@@ -10,10 +8,15 @@ import (
 	"strings"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/zitadel/oidc/v3/pkg/client"
+	"github.com/zitadel/oidc/v3/pkg/client/rp"
+	httphelper "github.com/zitadel/oidc/v3/pkg/http"
+	"github.com/zitadel/oidc/v3/pkg/oidc"
 
 	"github.com/lporcheron/kivraid/internal/secrets"
 	"github.com/lporcheron/kivraid/internal/store"
+	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
 )
 
 type Manager struct {
@@ -21,14 +24,22 @@ type Manager struct {
 	sealKey [32]byte
 	baseURL string // Kivraid's own base URL, for building redirect URIs
 	http    *http.Client
+	cookies *httphelper.CookieHandler // signs/encrypts the OAuth state + PKCE cookies
 }
 
-func NewManager(st *store.Store, sealKey [32]byte, baseURL string) *Manager {
+// NewManager builds the broker. cookieHash/cookieEnc protect the short-lived
+// state and PKCE cookies exchanged during a login ceremony.
+func NewManager(st *store.Store, sealKey, cookieHash, cookieEnc [32]byte, baseURL string) *Manager {
+	opts := []httphelper.CookieHandlerOpt{httphelper.WithMaxAge(600)}
+	if !strings.HasPrefix(baseURL, "https://") {
+		opts = append(opts, httphelper.WithUnsecure())
+	}
 	return &Manager{
 		store:   st,
 		sealKey: sealKey,
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		http:    &http.Client{Timeout: 10 * time.Second},
+		cookies: httphelper.NewCookieHandler(cookieHash[:], cookieEnc[:], opts...),
 	}
 }
 
@@ -43,8 +54,7 @@ func (m *Manager) RedirectURI(providerID string) string {
 	return m.baseURL + "/login/upstream/" + providerID + "/callback"
 }
 
-// Discovery is a trimmed view of an upstream's OIDC metadata, enough to
-// confirm a configuration in the admin.
+// Discovery is a trimmed view of an upstream's OIDC metadata.
 type Discovery struct {
 	Issuer                string
 	AuthorizationEndpoint string
@@ -52,9 +62,7 @@ type Discovery struct {
 	UserinfoEndpoint      string
 }
 
-// Discover fetches and validates the upstream's discovery document. It errors
-// if the issuer is unreachable or the returned issuer does not match (a
-// standard OIDC safeguard enforced by the client).
+// Discover fetches and validates the upstream's discovery document.
 func (m *Manager) Discover(ctx context.Context, issuer string) (*Discovery, error) {
 	cfg, err := client.Discover(ctx, strings.TrimSuffix(strings.TrimSpace(issuer), "/"), m.http)
 	if err != nil {
@@ -66,4 +74,97 @@ func (m *Manager) Discover(ctx context.Context, issuer string) (*Discovery, erro
 		TokenEndpoint:         cfg.TokenEndpoint,
 		UserinfoEndpoint:      cfg.UserinfoEndpoint,
 	}, nil
+}
+
+// relyingParty builds an OIDC relying party for the provider. Discovery runs
+// per call; fine for the low volume of interactive logins.
+func (m *Manager) relyingParty(ctx context.Context, p sqlcgen.UpstreamProvider) (rp.RelyingParty, error) {
+	secret := ""
+	if len(p.ClientSecretEnc) > 0 {
+		plain, err := secrets.Open(m.sealKey, p.ClientSecretEnc)
+		if err != nil {
+			return nil, err
+		}
+		secret = string(plain)
+	}
+	opts := []rp.Option{rp.WithHTTPClient(m.http), rp.WithCookieHandler(m.cookies)}
+	// Public clients (no secret) rely on PKCE to protect the code exchange.
+	if secret == "" {
+		opts = append(opts, rp.WithPKCE(m.cookies))
+	}
+	return rp.NewRelyingPartyOIDC(ctx, p.Issuer, p.ClientID, secret,
+		m.RedirectURI(p.ID), strings.Fields(p.Scopes), opts...)
+}
+
+// StartLogin redirects the browser to the provider's authorization endpoint,
+// stashing state (and a PKCE verifier for public clients) in signed cookies.
+func (m *Manager) StartLogin(w http.ResponseWriter, r *http.Request, p sqlcgen.UpstreamProvider) error {
+	relyingParty, err := m.relyingParty(r.Context(), p)
+	if err != nil {
+		return err
+	}
+	rp.AuthURLHandler(func() string { return uuid.NewString() }, relyingParty).ServeHTTP(w, r)
+	return nil
+}
+
+// Identity is the mapped result of a successful upstream login.
+type Identity struct {
+	Subject       string
+	Email         string
+	EmailVerified bool
+	Name          string
+}
+
+// HandleCallback completes the OAuth code exchange and returns the mapped
+// identity. A (nil, nil) return means the ceremony already wrote an error
+// response (e.g. bad state) and the caller should simply stop.
+func (m *Manager) HandleCallback(w http.ResponseWriter, r *http.Request, p sqlcgen.UpstreamProvider) (*Identity, error) {
+	relyingParty, err := m.relyingParty(r.Context(), p)
+	if err != nil {
+		return nil, err
+	}
+	var ident *Identity
+	var cbErr error
+	cb := func(w http.ResponseWriter, r *http.Request, tokens *oidc.Tokens[*oidc.IDTokenClaims], _ string, relyingParty rp.RelyingParty) {
+		ui, err := rp.Userinfo[*oidc.UserInfo](r.Context(), tokens.AccessToken, tokens.TokenType,
+			tokens.IDTokenClaims.GetSubject(), relyingParty)
+		if err != nil {
+			cbErr = err
+			return
+		}
+		ident = m.mapIdentity(p, ui)
+	}
+	rp.CodeExchangeHandler(cb, relyingParty).ServeHTTP(w, r)
+	return ident, cbErr
+}
+
+// mapIdentity applies the provider's claim mapping to the userinfo response.
+func (m *Manager) mapIdentity(p sqlcgen.UpstreamProvider, ui *oidc.UserInfo) *Identity {
+	return &Identity{
+		Subject:       ui.GetSubject(),
+		Email:         strings.ToLower(strings.TrimSpace(claimString(ui, p.ClaimEmail))),
+		EmailVerified: bool(ui.EmailVerified),
+		Name:          claimString(ui, p.ClaimName),
+	}
+}
+
+// claimString reads a claim by name, preferring the standard typed fields and
+// falling back to the extra-claims map for custom mappings.
+func claimString(ui *oidc.UserInfo, key string) string {
+	switch key {
+	case "email":
+		return ui.Email
+	case "name":
+		return ui.Name
+	case "preferred_username":
+		return ui.PreferredUsername
+	case "given_name":
+		return ui.GivenName
+	case "family_name":
+		return ui.FamilyName
+	}
+	if v, ok := ui.Claims[key].(string); ok {
+		return v
+	}
+	return ""
 }

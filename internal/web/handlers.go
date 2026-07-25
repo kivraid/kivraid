@@ -17,11 +17,18 @@ import (
 )
 
 type loginData struct {
-	CSRF     string
-	Error    string
-	Notice   string
-	Username string
-	Next     string
+	CSRF      string
+	Error     string
+	Notice    string
+	Username  string
+	Next      string
+	Providers []loginProvider
+}
+
+// loginProvider is an upstream sign-in option shown on the login page.
+type loginProvider struct {
+	ID   string
+	Name string
 }
 
 type pageData struct {
@@ -60,10 +67,28 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		notice = "Your email address is now verified."
 	}
 	s.render(w, r, "login.html", loginData{
-		CSRF:   s.csrfToken(r.Context()),
-		Notice: notice,
-		Next:   s.safeNext(r.URL.Query().Get("next"), ""),
+		CSRF:      s.csrfToken(r.Context()),
+		Notice:    notice,
+		Next:      s.safeNext(r.URL.Query().Get("next"), ""),
+		Providers: s.enabledLoginProviders(r.Context()),
 	})
+}
+
+// enabledLoginProviders lists upstream providers offered as sign-in buttons.
+func (s *Server) enabledLoginProviders(ctx context.Context) []loginProvider {
+	if s.broker == nil {
+		return nil
+	}
+	ups, err := s.store.ListEnabledUpstreamProviders(ctx)
+	if err != nil {
+		s.log.Warn("list upstream providers", "err", err)
+		return nil
+	}
+	out := make([]loginProvider, len(ups))
+	for i, p := range ups {
+		out[i] = loginProvider{ID: p.ID, Name: p.Name}
+	}
+	return out
 }
 
 // handleLoginIdentify handles the first step: it records the entered
