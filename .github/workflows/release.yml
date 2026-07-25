@@ -1,15 +1,13 @@
 name: release
 
-# Every push to main cuts a release versioned by UTC build time
-# (YYYYMMDD.HHmmss): prebuilt binaries on GitHub Releases and a
-# multi-arch image on GHCR. Doc-only changes are skipped.
+# Releases are cut by pushing a YYYY.MM.DD.HHMMSS tag, or via the Actions
+# "Run workflow" button (which computes such a version and tags it for you).
+# Each release ships prebuilt binaries on GitHub Releases and a multi-arch
+# image on GHCR; the `latest` image tag tracks the newest one.
 on:
   push:
-    branches: [main]
-    paths-ignore:
-      - '**.md'
-      - 'docs/**'
-      - 'LICENSE'
+    tags:
+      - "[0-9][0-9][0-9][0-9].[0-9][0-9].[0-9][0-9].[0-9][0-9][0-9][0-9][0-9][0-9]"
   workflow_dispatch:
 
 permissions:
@@ -24,18 +22,25 @@ jobs:
   release:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4
 
-      - uses: actions/setup-go@v5
+      - name: Determine version
+        id: version
+        run: |
+          if [[ "${{ github.ref_type }}" == "tag" ]]; then
+            echo "version=${{ github.ref_name }}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=$(date -u +'%Y.%m.%d.%H%M%S')" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Set up Go
+        uses: actions/setup-go@40f1582b2485089dde7abd97c1529aa768e1baff # v5
         with:
           go-version-file: go.mod
 
       - name: Run tests
         run: go test ./...
-
-      - name: Compute version
-        id: version
-        run: echo "version=$(date -u +%Y%m%d.%H%M%S)" >> "$GITHUB_OUTPUT"
 
       - name: Build CSS
         run: make css
@@ -55,32 +60,40 @@ jobs:
             tar -C "$out" -czf "$out.tar.gz" kivraid
           done
 
-      - name: Create tag and GitHub release
+      - name: Create and push tag
+        if: github.ref_type != 'tag'
         env:
-          GH_TOKEN: ${{ github.token }}
           VERSION: ${{ steps.version.outputs.version }}
         run: |
           git tag "$VERSION"
-          git push origin "refs/tags/$VERSION"
-          gh release create "$VERSION" dist/*.tar.gz \
-            --title "$VERSION" --generate-notes
+          git push origin "$VERSION"
 
-      - uses: docker/setup-buildx-action@v3
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
+        with:
+          tag_name: ${{ steps.version.outputs.version }}
+          name: ${{ steps.version.outputs.version }}
+          generate_release_notes: true
+          files: dist/*.tar.gz
 
-      - uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
-          password: ${{ github.token }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
 
       - name: Build and push image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: .
-          platforms: linux/amd64,linux/arm64
           push: true
+          platforms: linux/amd64,linux/arm64
           build-args: |
             VERSION=${{ steps.version.outputs.version }}
           tags: |
-            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}
             ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ steps.version.outputs.version }}

@@ -164,8 +164,9 @@ first run — no init step. Open the instance and register the administrator
 account on first visit. See [docs/deployment.md](docs/deployment.md) for
 systemd and the resource footprint.
 
-Releases are cut automatically from `main` and versioned by build date
-(`YYYYMMDD.HHmmss`); the `latest` image tag always tracks the newest one.
+Releases are cut by pushing a `YYYY.MM.DD.HHMMSS` tag (or the workflow's
+"Run workflow" button, which computes and pushes one for you); the `latest`
+image tag always tracks the newest one.
 
 ## How it compares
 
