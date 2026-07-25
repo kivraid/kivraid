@@ -106,6 +106,15 @@ type LdapSource struct {
 	PasswordReset     bool
 }
 
+type LoginRoute struct {
+	ID         string
+	Kind       string
+	MatchValue string
+	Target     string
+	Position   int32
+	CreatedAt  time.Time
+}
+
 type MfaRecoveryCode struct {
 	ID        string
 	UserID    string
@@ -170,26 +179,45 @@ type SmtpSetting struct {
 	UpdatedAt   time.Time
 }
 
-type User struct {
+type UpstreamProvider struct {
 	ID              string
-	Username        string
-	Email           string
 	Name            string
-	PasswordHash    *string
-	Source          string
-	IsAdmin         bool
-	Active          bool
+	Issuer          string
+	ClientID        string
+	ClientSecretEnc []byte
+	Scopes          string
+	ClaimEmail      string
+	ClaimName       string
+	ClaimGroups     string
+	AllowSignup     bool
+	Enabled         bool
+	Position        int32
 	CreatedAt       time.Time
 	UpdatedAt       time.Time
-	LdapSourceID    *string
-	LdapDn          *string
-	Photo           []byte
-	PhotoMime       *string
-	TotpSecretEnc   []byte
-	TotpEnabled     bool
-	TotpLastCounter int64
-	LastLoginAt     sql.NullTime
-	EmailVerified   bool
+}
+
+type User struct {
+	ID               string
+	Username         string
+	Email            string
+	Name             string
+	PasswordHash     *string
+	Source           string
+	IsAdmin          bool
+	Active           bool
+	CreatedAt        time.Time
+	UpdatedAt        time.Time
+	LdapSourceID     *string
+	LdapDn           *string
+	Photo            []byte
+	PhotoMime        *string
+	TotpSecretEnc    []byte
+	TotpEnabled      bool
+	TotpLastCounter  int64
+	LastLoginAt      sql.NullTime
+	EmailVerified    bool
+	UpstreamSourceID *string
+	ExternalID       *string
 }
 
 type UserGroup struct {
