@@ -283,8 +283,8 @@ provisioned just-in-time, linked to an existing local/LDAP account only on a
 mutually-verified email (never hijacking an unverified one), and their
 groups claim is mirrored onto Kivraid groups like the LDAP sync. Federated
 sign-in bypasses the local password/MFA steps (the upstream owns
-authentication). Deferred: RP-initiated logout to the upstream and caching
-the relying party between logins. Possible later: SAML,
+authentication), logout is propagated to the upstream (RP-initiated), and
+relying parties are cached between logins. Possible later: SAML,
 invitations/self-registration, non-OIDC social providers (e.g. GitHub).
 
 ## Security notes (must-hold invariants)

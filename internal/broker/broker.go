@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -26,6 +27,17 @@ type Manager struct {
 	baseURL string // Kivraid's own base URL, for building redirect URIs
 	http    *http.Client
 	cookies *httphelper.CookieHandler // signs/encrypts the OAuth state + PKCE cookies
+
+	// rpCache memoizes relying parties (each does OIDC discovery to build), so
+	// interactive logins don't re-discover every time. Keyed by provider id
+	// and invalidated when the provider's updated_at changes.
+	rpMu    sync.Mutex
+	rpCache map[string]cachedRP
+}
+
+type cachedRP struct {
+	rp        rp.RelyingParty
+	updatedAt time.Time
 }
 
 // NewManager builds the broker. cookieHash/cookieEnc protect the short-lived
@@ -41,6 +53,7 @@ func NewManager(st *store.Store, sealKey, cookieHash, cookieEnc [32]byte, baseUR
 		baseURL: strings.TrimSuffix(baseURL, "/"),
 		http:    &http.Client{Timeout: 10 * time.Second},
 		cookies: httphelper.NewCookieHandler(cookieHash[:], cookieEnc[:], opts...),
+		rpCache: map[string]cachedRP{},
 	}
 }
 
@@ -104,9 +117,30 @@ func (m *Manager) LogoutURL(ctx context.Context, p sqlcgen.UpstreamProvider, idT
 	return u.String(), nil
 }
 
-// relyingParty builds an OIDC relying party for the provider. Discovery runs
-// per call; fine for the low volume of interactive logins.
+// relyingParty returns a memoized relying party for the provider, rebuilding
+// (and re-running discovery) only when the provider's configuration changed.
 func (m *Manager) relyingParty(ctx context.Context, p sqlcgen.UpstreamProvider) (rp.RelyingParty, error) {
+	m.rpMu.Lock()
+	if e, ok := m.rpCache[p.ID]; ok && e.updatedAt.Equal(p.UpdatedAt) {
+		m.rpMu.Unlock()
+		return e.rp, nil
+	}
+	m.rpMu.Unlock()
+
+	// Build outside the lock (discovery is a network call); a rare duplicate
+	// build under concurrent first-use is harmless.
+	built, err := m.buildRelyingParty(ctx, p)
+	if err != nil {
+		return nil, err
+	}
+	m.rpMu.Lock()
+	m.rpCache[p.ID] = cachedRP{rp: built, updatedAt: p.UpdatedAt}
+	m.rpMu.Unlock()
+	return built, nil
+}
+
+// buildRelyingParty constructs a fresh relying party (runs OIDC discovery).
+func (m *Manager) buildRelyingParty(ctx context.Context, p sqlcgen.UpstreamProvider) (rp.RelyingParty, error) {
 	secret := ""
 	if len(p.ClientSecretEnc) > 0 {
 		plain, err := secrets.Open(m.sealKey, p.ClientSecretEnc)
