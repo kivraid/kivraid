@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -102,14 +103,23 @@ func (s *Server) handleLoginIdentify(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		s.render(w, r, "login.html", loginData{
 			CSRF: s.csrfToken(r.Context()), Error: "Enter your username or email.", Next: next,
+			Providers: s.enabledLoginProviders(r.Context()),
 		})
 		return
 	}
+	// Home-realm discovery: a matching rule routes the identifier to an
+	// upstream provider; otherwise fall through to the local password step.
+	if s.broker != nil {
+		if target := s.resolveLoginTarget(r.Context(), identifier); target != "local" {
+			if p, err := s.store.GetUpstreamProvider(r.Context(), target); err == nil && p.Enabled {
+				http.Redirect(w, r, "/login/upstream/"+p.ID+"/start?next="+url.QueryEscape(next), http.StatusSeeOther)
+				return
+			}
+			// Unknown or disabled target: fall back to local, never dead-end.
+		}
+	}
 	s.sessions.Put(r.Context(), session.KeyPendingLogin, identifier)
 	s.sessions.Put(r.Context(), session.KeyPendingNext, next)
-	// Broker seam: a future version resolves the identifier's email domain
-	// against configured upstream-IdP rules here and may redirect to an
-	// external provider instead of the local password step.
 	http.Redirect(w, r, "/login/password", http.StatusSeeOther)
 }
 

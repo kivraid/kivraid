@@ -5,7 +5,10 @@
     <h1 class="text-2xl font-semibold tracking-tight">Providers</h1>
     <p class="mt-1 text-sm text-muted">Upstream OpenID Connect providers users can sign in through. Kivraid federates their accounts.</p>
   </div>
-  <a href="/admin/providers/new" class="btn-primary shrink-0">New provider</a>
+  <div class="flex shrink-0 items-center gap-3">
+    <a href="/admin/routing" class="btn-secondary">Login routing</a>
+    <a href="/admin/providers/new" class="btn-primary">New provider</a>
+  </div>
 </div>
 
 {{if .Data.Providers}}

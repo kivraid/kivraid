@@ -170,7 +170,7 @@ func NewServer(d Deps) (*Server, error) {
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
 		"admin_proxy_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
-		"admin_providers.html", "admin_providers_form.html",
+		"admin_providers.html", "admin_providers_form.html", "admin_routing.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
 		"admin_groups.html", "admin_group_detail.html", "admin_system.html",
 		"admin_dashboard.html", "admin_branding.html", "admin_smtp.html",
@@ -261,6 +261,10 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/providers/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderUpdate)))
 	web.Handle("POST /admin/providers/{id}/test", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderTest)))
 	web.Handle("POST /admin/providers/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderDelete)))
+	web.Handle("GET /admin/routing", s.requireAdmin(http.HandlerFunc(s.handleAdminRouting)))
+	web.Handle("POST /admin/routing", s.requireAdmin(http.HandlerFunc(s.handleAdminRoutingAdd)))
+	web.Handle("POST /admin/routing/default", s.requireAdmin(http.HandlerFunc(s.handleAdminRoutingDefault)))
+	web.Handle("POST /admin/routing/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminRoutingDelete)))
 
 	web.Handle("GET /admin/users", s.requireAdmin(http.HandlerFunc(s.handleAdminUsers)))
 	web.Handle("GET /admin/users/new", s.requireAdmin(http.HandlerFunc(s.handleAdminUserNew)))

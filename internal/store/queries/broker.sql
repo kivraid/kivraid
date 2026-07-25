@@ -35,6 +35,19 @@ SELECT * FROM login_routes ORDER BY kind, match_value;
 -- name: GetLoginRoute :one
 SELECT * FROM login_routes WHERE kind = $1 AND match_value = $2;
 
+-- name: CreateLoginRoute :one
+INSERT INTO login_routes (id, kind, match_value, target, position, created_at)
+VALUES ($1, $2, $3, $4, 0, $5)
+RETURNING *;
+
+-- name: DeleteLoginRoute :exec
+DELETE FROM login_routes WHERE id = $1;
+
+-- name: SetDefaultRoute :exec
+INSERT INTO login_routes (id, kind, match_value, target, position, created_at)
+VALUES ($1, 'default', '', $2, 0, $3)
+ON CONFLICT (kind, match_value) DO UPDATE SET target = excluded.target;
+
 -- --- Federated identity on users ----------------------------------------
 
 -- name: GetUserByExternalID :one

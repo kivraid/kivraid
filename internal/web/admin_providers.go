@@ -68,8 +68,8 @@ func parseProviderForm(r *http.Request) providerForm {
 		ClientSecret: r.PostFormValue("client_secret"),
 		Scopes:       str("scopes"),
 		ClaimEmail:   str("claim_email"), ClaimName: str("claim_name"), ClaimGroups: str("claim_groups"),
-		AllowSignup:  r.PostFormValue("allow_signup") == "on",
-		Enabled:      r.PostFormValue("enabled") == "on",
+		AllowSignup: r.PostFormValue("allow_signup") == "on",
+		Enabled:     r.PostFormValue("enabled") == "on",
 	}
 	if f.Scopes == "" {
 		f.Scopes = "openid profile email"

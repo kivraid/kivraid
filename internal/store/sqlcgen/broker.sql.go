@@ -10,6 +10,40 @@ import (
 	"time"
 )
 
+const createLoginRoute = `-- name: CreateLoginRoute :one
+INSERT INTO login_routes (id, kind, match_value, target, position, created_at)
+VALUES ($1, $2, $3, $4, 0, $5)
+RETURNING id, kind, match_value, target, position, created_at
+`
+
+type CreateLoginRouteParams struct {
+	ID         string
+	Kind       string
+	MatchValue string
+	Target     string
+	CreatedAt  time.Time
+}
+
+func (q *Queries) CreateLoginRoute(ctx context.Context, arg CreateLoginRouteParams) (LoginRoute, error) {
+	row := q.db.QueryRowContext(ctx, createLoginRoute,
+		arg.ID,
+		arg.Kind,
+		arg.MatchValue,
+		arg.Target,
+		arg.CreatedAt,
+	)
+	var i LoginRoute
+	err := row.Scan(
+		&i.ID,
+		&i.Kind,
+		&i.MatchValue,
+		&i.Target,
+		&i.Position,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUpstreamProvider = `-- name: CreateUpstreamProvider :one
 INSERT INTO upstream_providers (id, name, issuer, client_id, client_secret_enc, scopes,
                                 claim_email, claim_name, claim_groups, allow_signup, enabled,
@@ -128,6 +162,15 @@ func (q *Queries) CreateUpstreamUser(ctx context.Context, arg CreateUpstreamUser
 		&i.ExternalID,
 	)
 	return i, err
+}
+
+const deleteLoginRoute = `-- name: DeleteLoginRoute :exec
+DELETE FROM login_routes WHERE id = $1
+`
+
+func (q *Queries) DeleteLoginRoute(ctx context.Context, id string) error {
+	_, err := q.db.ExecContext(ctx, deleteLoginRoute, id)
+	return err
 }
 
 const deleteUpstreamProvider = `-- name: DeleteUpstreamProvider :exec
@@ -346,6 +389,23 @@ func (q *Queries) ListUpstreamProviders(ctx context.Context) ([]UpstreamProvider
 		return nil, err
 	}
 	return items, nil
+}
+
+const setDefaultRoute = `-- name: SetDefaultRoute :exec
+INSERT INTO login_routes (id, kind, match_value, target, position, created_at)
+VALUES ($1, 'default', '', $2, 0, $3)
+ON CONFLICT (kind, match_value) DO UPDATE SET target = excluded.target
+`
+
+type SetDefaultRouteParams struct {
+	ID        string
+	Target    string
+	CreatedAt time.Time
+}
+
+func (q *Queries) SetDefaultRoute(ctx context.Context, arg SetDefaultRouteParams) error {
+	_, err := q.db.ExecContext(ctx, setDefaultRoute, arg.ID, arg.Target, arg.CreatedAt)
+	return err
 }
 
 const setUserUpstreamIdentity = `-- name: SetUserUpstreamIdentity :exec

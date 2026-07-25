@@ -49,6 +49,7 @@ const (
 	ActionProviderCreate = "provider.create"
 	ActionProviderUpdate = "provider.update"
 	ActionProviderDelete = "provider.delete"
+	ActionRouteUpdate    = "route.update"
 	ActionPasswordReset  = "password.reset.request"
 	ActionEmailVerify    = "email.verify"
 	ActionEmailVerifySnt = "email.verify.sent"
@@ -70,7 +71,7 @@ var Actions = []string{
 	ActionImpersonate, ActionImpersonateEnd,
 	ActionPasswordReset, ActionEmailVerify, ActionEmailVerifySnt,
 	ActionGroupCreate, ActionGroupUpdate, ActionGroupDelete,
-	ActionProviderCreate, ActionProviderUpdate, ActionProviderDelete,
+	ActionProviderCreate, ActionProviderUpdate, ActionProviderDelete, ActionRouteUpdate,
 	ActionKeyRotate, ActionBrandingUpdate, ActionSMTPUpdate,
 }
 
