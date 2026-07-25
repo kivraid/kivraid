@@ -97,6 +97,12 @@ dark on the right.</sub>
   self-service password change written back via RFC 3062, and optional
   admin/email password reset through the service account. See
   [docs/ldap.md](docs/ldap.md).
+- **Upstream federation (broker)** — sign users in through an upstream
+  OpenID Connect provider (Authentik, Keycloak, Google, …); Kivraid acts as
+  the relying party. Home-realm discovery routes each entered identifier to
+  the right provider by exact match or email domain (falling back to a
+  default). Accounts are provisioned on first login, linked to an existing
+  account only on a mutually-verified email, and their groups mirrored.
 - **Two-factor authentication** — optional TOTP (authenticator apps) with
   single-use recovery codes, for local and directory users alike; admins
   can reset a locked-out user.
@@ -174,7 +180,7 @@ narrow to broad.
 | Required services | none (SQLite) | none (SQLite) | none (SQLite; Redis for HA) | PostgreSQL + Redis |
 | Idle memory | tens of MB | ~26 MB | tens of MB | hundreds of MB |
 | Managed via | web admin | web admin | config files | web admin |
-| User sources | local (passkey) | local + LDAP | file / LDAP | local / LDAP / social |
+| User sources | local (passkey) | local + LDAP + OIDC upstream | file / LDAP | local / LDAP / social |
 | Auth methods | passkeys | password, TOTP, passkeys | password, TOTP, WebAuthn, Duo | many |
 | Forward auth | ✗ | ✓ | ✓ (its core job) | ✓ (proxy outpost) |
 | Protocols | OIDC | OIDC, forward auth | OIDC, forward auth | OIDC, SAML, LDAP/RADIUS, proxy |

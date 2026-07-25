@@ -272,7 +272,20 @@ reset (local accounts, and directory accounts where the per-source reset
 flag is on) and email-address verification (feeding the OIDC
 `email_verified` claim). Instance settings — branding, email and the
 read-only system/diagnostics view — are grouped under one tabbed Settings
-page. Possible later: SAML, invitations/self-registration.
+page.
+
+Also **identity brokering**: Kivraid additionally acts as an OIDC relying
+party to upstream providers (generic OIDC; built on `zitadel/oidc`'s client
+package). Admins register providers in a dedicated section; home-realm
+discovery rules (`login_routes`) route an entered identifier to a provider
+by exact match, then email domain, then a default. Federated users are
+provisioned just-in-time, linked to an existing local/LDAP account only on a
+mutually-verified email (never hijacking an unverified one), and their
+groups claim is mirrored onto Kivraid groups like the LDAP sync. Federated
+sign-in bypasses the local password/MFA steps (the upstream owns
+authentication). Deferred: RP-initiated logout to the upstream and caching
+the relying party between logins. Possible later: SAML,
+invitations/self-registration, non-OIDC social providers (e.g. GitHub).
 
 ## Security notes (must-hold invariants)
 
