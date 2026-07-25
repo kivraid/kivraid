@@ -175,21 +175,25 @@ identity platforms. Kivraid sits in the middle: more than a passkey-only
 OIDC provider, far lighter than a platform. The table is a spectrum from
 narrow to broad.
 
-| | Pocket ID | **Kivraid** | Authelia | Authentik |
-|---|---|---|---|---|
-| Runtime | one Go binary | one Go binary | one Go binary | Python + workers |
-| Required services | none (SQLite) | none (SQLite) | none (SQLite; Redis for HA) | PostgreSQL + Redis |
-| Idle memory | tens of MB | ~26 MB | tens of MB | hundreds of MB |
-| Managed via | web admin | web admin | config files | web admin |
-| User sources | local (passkey) | local + LDAP + OIDC upstream | file / LDAP | local / LDAP / social |
-| Auth methods | passkeys | password, TOTP, passkeys | password, TOTP, WebAuthn, Duo | many |
-| Forward auth | ✗ | ✓ | ✓ (its core job) | ✓ (proxy outpost) |
-| Protocols | OIDC | OIDC, forward auth | OIDC, forward auth | OIDC, SAML, LDAP/RADIUS, proxy |
-| SAML | ✗ | ✗ | ✗ | ✓ |
+| | Pocket ID | TinyAuth | **Kivraid** | Authelia | Authentik |
+|---|---|---|---|---|---|
+| Runtime | one Go binary | one Go binary | one Go binary | one Go binary | Python + workers |
+| Required services | none (SQLite) | none | none (SQLite; Postgres optional) | none (SQLite; Redis for HA) | PostgreSQL + Redis |
+| Idle memory | tens of MB | tens of MB | ~26 MB | tens of MB | hundreds of MB |
+| Managed via | web admin | env vars | web admin | config files | web admin |
+| User sources | local (passkey) | local + LDAP + social | local + LDAP + OIDC upstream | file / LDAP | local / LDAP / social |
+| Auth methods | passkeys | password, TOTP, OAuth | password, TOTP, passkeys | password, TOTP, WebAuthn, Duo | many |
+| Forward auth | ✗ | ✓ (its origin) | ✓ | ✓ (its core job) | ✓ (proxy outpost) |
+| Protocols | OIDC | OIDC, forward auth | OIDC, forward auth | OIDC, forward auth | OIDC, SAML, LDAP/RADIUS, proxy |
+| SAML | ✗ | ✗ | ✗ | ✗ | ✓ |
 
 **Reading it:** [Pocket ID](https://github.com/pocket-id/pocket-id) is the
 closest in spirit — same single-binary-plus-SQLite DNA — but deliberately
 passkey-only and OIDC-only; pick it if that's genuinely all you need.
+[TinyAuth](https://tinyauth.app/) is close in footprint — also a single Go
+binary, now an OIDC provider with forward auth and upstream/social login —
+but declarative like Authelia: configured entirely by environment
+variables, with no database or admin UI.
 [Authelia](https://www.authelia.com/) overlaps heavily (Go, lightweight,
 forward auth, OIDC) but is declarative: users and rules live in config
 files, with powerful per-resource access control and no admin UI — great
