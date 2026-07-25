@@ -8,8 +8,8 @@ import (
 	"log/slog"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 const (

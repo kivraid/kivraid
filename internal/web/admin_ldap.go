@@ -11,9 +11,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/secrets"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/secrets"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 type ldapForm struct {

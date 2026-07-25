@@ -14,7 +14,7 @@ import (
 	_ "github.com/jackc/pgx/v5/stdlib"
 	_ "modernc.org/sqlite"
 
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 type Store struct {

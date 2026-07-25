@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lporcheron/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/sources/local"
 )
 
 func TestAdminUsersSearchAndPagination(t *testing.T) {

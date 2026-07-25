@@ -8,8 +8,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // resolveLoginTarget applies the home-realm-discovery rules to an entered

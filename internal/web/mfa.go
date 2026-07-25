@@ -4,9 +4,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/mfa"
-	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/mfa"
+	"github.com/kivraid/kivraid/internal/session"
 )
 
 type mfaEnrollData struct {

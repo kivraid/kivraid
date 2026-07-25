@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/session"
 )
 
 // writeJSONRaw sends an already-marshalled JSON payload.

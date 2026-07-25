@@ -19,13 +19,13 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/client/rp"
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 
-	"github.com/lporcheron/kivraid/internal/config"
-	"github.com/lporcheron/kivraid/internal/oidcserver"
-	"github.com/lporcheron/kivraid/internal/session"
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/config"
+	"github.com/kivraid/kivraid/internal/oidcserver"
+	"github.com/kivraid/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/storetest"
 )
 
 const (

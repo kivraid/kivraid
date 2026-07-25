@@ -13,16 +13,16 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/config"
-	"github.com/lporcheron/kivraid/internal/mfa"
-	"github.com/lporcheron/kivraid/internal/oidcserver"
-	"github.com/lporcheron/kivraid/internal/secrets"
-	"github.com/lporcheron/kivraid/internal/session"
-	"github.com/lporcheron/kivraid/internal/sources/ldap"
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
-	"github.com/lporcheron/kivraid/internal/webauthn"
+	"github.com/kivraid/kivraid/internal/config"
+	"github.com/kivraid/kivraid/internal/mfa"
+	"github.com/kivraid/kivraid/internal/oidcserver"
+	"github.com/kivraid/kivraid/internal/secrets"
+	"github.com/kivraid/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/sources/ldap"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/webauthn"
 )
 
 // newServerForStore wires a full web server around an existing store.

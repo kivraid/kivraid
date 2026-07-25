@@ -5,8 +5,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/storetest"
 )
 
 // TestStoreRoundtrip exercises migrations and basic CRUD on whichever

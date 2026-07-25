@@ -12,10 +12,10 @@ import (
 	"testing"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/storetest"
 )
 
 func adminClient(t *testing.T) (*httptest.Server, *store.Store, *http.Client, string) {

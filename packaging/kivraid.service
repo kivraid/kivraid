@@ -11,7 +11,7 @@
 
 [Unit]
 Description=Kivraid identity provider
-Documentation=https://github.com/lporcheron/kivraid
+Documentation=https://github.com/kivraid/kivraid
 After=network-online.target
 Wants=network-online.target
 

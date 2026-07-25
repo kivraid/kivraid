@@ -9,8 +9,8 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // ErrBadCredentials is returned for every authentication failure —

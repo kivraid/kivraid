@@ -8,7 +8,7 @@
 # `docker compose ps` reports real health.
 services:
   kivraid:
-    image: ghcr.io/lporcheron/kivraid:latest
+    image: ghcr.io/kivraid/kivraid:latest
     container_name: kivraid
     restart: unless-stopped
     ports:

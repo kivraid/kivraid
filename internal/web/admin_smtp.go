@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/mailer"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/mailer"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 type adminSMTPData struct {

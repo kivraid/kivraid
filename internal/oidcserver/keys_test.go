@@ -5,8 +5,8 @@ import (
 
 	jose "github.com/go-jose/go-jose/v4"
 
-	"github.com/lporcheron/kivraid/internal/secrets"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/secrets"
+	"github.com/kivraid/kivraid/internal/store/storetest"
 )
 
 func TestSigningAlgorithm(t *testing.T) {

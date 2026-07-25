@@ -14,11 +14,11 @@ import (
 
 	"github.com/jimlambrt/gldap"
 
-	"github.com/lporcheron/kivraid/internal/secrets"
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/secrets"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/storetest"
 )
 
 const (

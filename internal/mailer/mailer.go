@@ -12,9 +12,9 @@ import (
 
 	"github.com/wneessen/go-mail"
 
-	"github.com/lporcheron/kivraid/internal/secrets"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/secrets"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // ErrNotConfigured is returned when SMTP is disabled or has no host, so

@@ -17,9 +17,9 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/lporcheron/kivraid/actions/workflows/ci.yml"><img src="https://github.com/lporcheron/kivraid/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
-  <a href="https://github.com/lporcheron/kivraid/releases/latest"><img src="https://img.shields.io/github/v/release/lporcheron/kivraid?label=release" alt="Latest release"></a>
-  <a href="LICENSE"><img src="https://img.shields.io/github/license/lporcheron/kivraid" alt="License: Apache-2.0"></a>
+  <a href="https://github.com/kivraid/kivraid/actions/workflows/ci.yml"><img src="https://github.com/kivraid/kivraid/actions/workflows/ci.yml/badge.svg" alt="CI status"></a>
+  <a href="https://github.com/kivraid/kivraid/releases/latest"><img src="https://img.shields.io/github/v/release/kivraid/kivraid?label=release" alt="Latest release"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/github/license/kivraid/kivraid" alt="License: Apache-2.0"></a>
 </p>
 
 ---
@@ -130,7 +130,7 @@ runs unprivileged, all state in `/data`:
 ```sh
 docker volume create kivraid
 docker run -d --name kivraid -v kivraid:/data -p 9000:9000 \
-  ghcr.io/lporcheron/kivraid
+  ghcr.io/kivraid/kivraid
 ```
 
 Or with Compose: copy [docker-compose.yml](docker-compose.yml) and
@@ -138,7 +138,7 @@ Or with Compose: copy [docker-compose.yml](docker-compose.yml) and
 [PostgreSQL-backed variant](docker-compose.postgres.yml).
 
 **Binary** — prebuilt for Linux and macOS (amd64/arm64) on the
-[releases page](https://github.com/lporcheron/kivraid/releases):
+[releases page](https://github.com/kivraid/kivraid/releases):
 
 ```sh
 tar xzf kivraid_*_$(uname -s | tr A-Z a-z)_$(uname -m | sed 's/x86_64/amd64/').tar.gz

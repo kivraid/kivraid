@@ -9,9 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/session"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 const usersPageSize = 50

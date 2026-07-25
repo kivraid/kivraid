@@ -10,9 +10,9 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/lporcheron/kivraid/internal/broker"
-	"github.com/lporcheron/kivraid/internal/session"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/broker"
+	"github.com/kivraid/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // Outcomes of federated provisioning that map to specific user-facing pages.

@@ -6,9 +6,9 @@ import (
 	"html"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/mailer"
-	"github.com/lporcheron/kivraid/internal/oidcserver"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/mailer"
+	"github.com/kivraid/kivraid/internal/oidcserver"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 const (

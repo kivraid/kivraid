@@ -22,17 +22,17 @@ import (
 	"github.com/alexedwards/scs/v2"
 	"golang.org/x/time/rate"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/broker"
-	"github.com/lporcheron/kivraid/internal/config"
-	"github.com/lporcheron/kivraid/internal/mailer"
-	"github.com/lporcheron/kivraid/internal/mfa"
-	"github.com/lporcheron/kivraid/internal/oidcserver"
-	"github.com/lporcheron/kivraid/internal/ratelimit"
-	"github.com/lporcheron/kivraid/internal/sources/ldap"
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/webauthn"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/broker"
+	"github.com/kivraid/kivraid/internal/config"
+	"github.com/kivraid/kivraid/internal/mailer"
+	"github.com/kivraid/kivraid/internal/mfa"
+	"github.com/kivraid/kivraid/internal/oidcserver"
+	"github.com/kivraid/kivraid/internal/ratelimit"
+	"github.com/kivraid/kivraid/internal/sources/ldap"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/webauthn"
 )
 
 //go:embed templates/*.html

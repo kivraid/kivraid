@@ -12,11 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/session"
-	"github.com/lporcheron/kivraid/internal/sources/ldap"
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/sources/ldap"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 type homeData struct {

@@ -8,7 +8,7 @@ import (
 	"github.com/zitadel/oidc/v3/pkg/oidc"
 	"github.com/zitadel/oidc/v3/pkg/op"
 
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // LoginPath builds the path clients are redirected to for authentication.

@@ -14,9 +14,9 @@ import (
 	jose "github.com/go-jose/go-jose/v4"
 	"github.com/google/uuid"
 
-	"github.com/lporcheron/kivraid/internal/secrets"
-	"github.com/lporcheron/kivraid/internal/store"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/secrets"
+	"github.com/kivraid/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // signingKey is the in-memory, decrypted form of a signing_keys row. The

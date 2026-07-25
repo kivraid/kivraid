@@ -1,6 +1,7 @@
 # Binaries
 /kivraid
 /dist/
+/tools/screenshots/screenshots
 
 # Build tooling (downloaded by make)
 /.tools/

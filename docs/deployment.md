@@ -8,7 +8,7 @@ A multi-arch (amd64/arm64) image is published on GHCR for every release;
 ```sh
 docker volume create kivraid
 docker run -d --name kivraid -v kivraid:/data -p 9000:9000 \
-  ghcr.io/lporcheron/kivraid
+  ghcr.io/kivraid/kivraid
 ```
 
 For Compose, [docker-compose.yml](../docker-compose.yml) at the

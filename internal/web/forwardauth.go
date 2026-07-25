@@ -7,9 +7,9 @@ import (
 	"net/url"
 	"strings"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/session"
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/session"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // handleForwardAuth is the auth_request-style endpoint for reverse

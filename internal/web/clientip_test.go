@@ -5,7 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/lporcheron/kivraid/internal/config"
+	"github.com/kivraid/kivraid/internal/config"
 )
 
 func TestClientIP(t *testing.T) {

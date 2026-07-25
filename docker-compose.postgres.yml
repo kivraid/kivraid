@@ -6,7 +6,7 @@
 # before deploying. Kivraid runs its migrations automatically on start.
 services:
   kivraid:
-    image: ghcr.io/lporcheron/kivraid:latest
+    image: ghcr.io/kivraid/kivraid:latest
     container_name: kivraid
     restart: unless-stopped
     ports:

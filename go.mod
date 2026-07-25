@@ -1,4 +1,4 @@
-module github.com/lporcheron/kivraid
+module github.com/kivraid/kivraid
 
 go 1.26.4
 

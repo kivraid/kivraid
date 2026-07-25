@@ -9,8 +9,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/lporcheron/kivraid/internal/sources/local"
-	"github.com/lporcheron/kivraid/internal/store/storetest"
+	"github.com/kivraid/kivraid/internal/sources/local"
+	"github.com/kivraid/kivraid/internal/store/storetest"
 )
 
 var secretRe = regexp.MustCompile(`[0-9a-f]{64}`)

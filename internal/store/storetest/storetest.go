@@ -15,7 +15,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/lporcheron/kivraid/internal/store"
+	"github.com/kivraid/kivraid/internal/store"
 )
 
 // EnvPostgresDSN selects the Postgres backend for tests when set. It must

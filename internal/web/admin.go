@@ -17,10 +17,10 @@ import (
 
 	"github.com/google/uuid"
 
-	"github.com/lporcheron/kivraid/internal/audit"
-	"github.com/lporcheron/kivraid/internal/oidcserver"
+	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/oidcserver"
 
-	"github.com/lporcheron/kivraid/internal/store/sqlcgen"
+	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 func (s *Server) requireAdmin(next http.Handler) http.Handler {

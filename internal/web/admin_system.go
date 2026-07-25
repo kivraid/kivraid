@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/lporcheron/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/audit"
 )
 
 type systemRow struct {
