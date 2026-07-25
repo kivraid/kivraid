@@ -66,12 +66,13 @@ type EmailToken struct {
 }
 
 type Group struct {
-	ID           string
-	Name         string
-	CreatedAt    time.Time
-	Source       string
-	LdapSourceID *string
-	GrantsAdmin  bool
+	ID               string
+	Name             string
+	CreatedAt        time.Time
+	Source           string
+	LdapSourceID     *string
+	GrantsAdmin      bool
+	UpstreamSourceID *string
 }
 
 type InstanceSetting struct {

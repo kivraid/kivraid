@@ -90,7 +90,7 @@ func (q *Queries) ListAppPolicyGroupIDs(ctx context.Context, applicationID strin
 }
 
 const listGroups = `-- name: ListGroups :many
-SELECT id, name, created_at, source, ldap_source_id, grants_admin FROM groups ORDER BY name
+SELECT id, name, created_at, source, ldap_source_id, grants_admin, upstream_source_id FROM groups ORDER BY name
 `
 
 func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
@@ -109,6 +109,7 @@ func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
 			&i.Source,
 			&i.LdapSourceID,
 			&i.GrantsAdmin,
+			&i.UpstreamSourceID,
 		); err != nil {
 			return nil, err
 		}

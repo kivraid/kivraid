@@ -56,6 +56,19 @@ SELECT * FROM users WHERE upstream_source_id = $1 AND external_id = $2;
 -- name: SetUserUpstreamIdentity :exec
 UPDATE users SET upstream_source_id = $1, external_id = $2, updated_at = $3 WHERE id = $4;
 
+-- name: UpdateUserDisplayName :exec
+UPDATE users SET name = $1, updated_at = $2 WHERE id = $3;
+
+-- name: CreateUpstreamGroup :one
+INSERT INTO groups (id, name, source, upstream_source_id, created_at)
+VALUES ($1, $2, 'upstream', $3, $4)
+RETURNING *;
+
+-- name: DeleteUserGroupsFromProvider :exec
+DELETE FROM user_groups
+WHERE user_id = $1
+  AND group_id IN (SELECT id FROM groups WHERE source = 'upstream' AND upstream_source_id = $2);
+
 -- name: CreateUpstreamUser :one
 INSERT INTO users (id, username, email, name, source, upstream_source_id, external_id,
                    email_verified, is_admin, active, created_at, updated_at)

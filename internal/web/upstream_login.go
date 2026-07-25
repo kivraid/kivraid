@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -96,6 +97,9 @@ func (s *Server) handleUpstreamLoginCallback(w http.ResponseWriter, r *http.Requ
 		return
 	}
 
+	// Best-effort profile + group refresh; never block the login on it.
+	s.refreshUpstreamProfile(r.Context(), p, user, ident)
+
 	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
 	s.sessions.Remove(r.Context(), session.KeyPendingNext)
 	if err := s.completeLogin(r, user, next); err != nil {
@@ -167,4 +171,58 @@ func (s *Server) provisionUpstreamUser(ctx context.Context, p sqlcgen.UpstreamPr
 		return sqlcgen.User{}, errEmailCollision
 	}
 	return user, cerr
+}
+
+// refreshUpstreamProfile updates the display name and mirrors the provider's
+// groups onto the user. Best-effort: failures are logged, not fatal — stale
+// profile data must not block authentication.
+func (s *Server) refreshUpstreamProfile(ctx context.Context, p sqlcgen.UpstreamProvider, user sqlcgen.User, ident *broker.Identity) {
+	if ident.Name != "" && ident.Name != user.Name {
+		if err := s.store.UpdateUserDisplayName(ctx, sqlcgen.UpdateUserDisplayNameParams{
+			Name: ident.Name, UpdatedAt: time.Now().UTC(), ID: user.ID,
+		}); err != nil {
+			s.log.Warn("refresh federated name", "user", user.Username, "err", err)
+		}
+	}
+	if err := s.syncUpstreamGroups(ctx, p, user.ID, ident.Groups); err != nil {
+		s.log.Warn("sync federated groups", "user", user.Username, "err", err)
+	}
+}
+
+// syncUpstreamGroups replaces the user's memberships in this provider's groups
+// with the current set from the claim, creating provider-owned groups by name
+// as needed (mirroring the LDAP group model).
+func (s *Server) syncUpstreamGroups(ctx context.Context, p sqlcgen.UpstreamProvider, userID string, groups []string) error {
+	tx, err := s.store.DB.BeginTx(ctx, nil)
+	if err != nil {
+		return err
+	}
+	defer tx.Rollback()
+	q := s.store.Queries.WithTx(tx)
+
+	if err := q.DeleteUserGroupsFromProvider(ctx, sqlcgen.DeleteUserGroupsFromProviderParams{
+		UserID: userID, UpstreamSourceID: &p.ID,
+	}); err != nil {
+		return err
+	}
+	now := time.Now().UTC()
+	for _, name := range groups {
+		if name = strings.TrimSpace(name); name == "" {
+			continue
+		}
+		g, err := q.GetGroupByName(ctx, name)
+		if errors.Is(err, sql.ErrNoRows) {
+			g, err = q.CreateUpstreamGroup(ctx, sqlcgen.CreateUpstreamGroupParams{
+				ID: uuid.NewString(), Name: name, UpstreamSourceID: &p.ID, CreatedAt: now,
+			})
+		}
+		if err != nil {
+			return err
+		}
+		// Ignore a duplicate membership (user already in a same-named group).
+		if err := q.AddUserGroup(ctx, sqlcgen.AddUserGroupParams{UserID: userID, GroupID: g.ID}); err != nil && !isUniqueViolation(err) {
+			return err
+		}
+	}
+	return tx.Commit()
 }

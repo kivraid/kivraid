@@ -113,6 +113,7 @@ type Identity struct {
 	Email         string
 	EmailVerified bool
 	Name          string
+	Groups        []string
 }
 
 // HandleCallback completes the OAuth code exchange and returns the mapped
@@ -145,7 +146,31 @@ func (m *Manager) mapIdentity(p sqlcgen.UpstreamProvider, ui *oidc.UserInfo) *Id
 		Email:         strings.ToLower(strings.TrimSpace(claimString(ui, p.ClaimEmail))),
 		EmailVerified: bool(ui.EmailVerified),
 		Name:          claimString(ui, p.ClaimName),
+		Groups:        claimStrings(ui, p.ClaimGroups),
 	}
+}
+
+// claimStrings reads a string-list claim (groups), tolerating the several
+// shapes IdPs use: a JSON array of strings, or a single string.
+func claimStrings(ui *oidc.UserInfo, key string) []string {
+	switch t := ui.Claims[key].(type) {
+	case []string:
+		return t
+	case string:
+		if t == "" {
+			return nil
+		}
+		return []string{t}
+	case []any:
+		out := make([]string, 0, len(t))
+		for _, e := range t {
+			if s, ok := e.(string); ok && s != "" {
+				out = append(out, s)
+			}
+		}
+		return out
+	}
+	return nil
 }
 
 // claimString reads a claim by name, preferring the standard typed fields and

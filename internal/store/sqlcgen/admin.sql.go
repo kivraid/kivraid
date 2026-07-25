@@ -121,7 +121,7 @@ func (q *Queries) DeleteUser(ctx context.Context, id string) error {
 }
 
 const getGroup = `-- name: GetGroup :one
-SELECT id, name, created_at, source, ldap_source_id, grants_admin FROM groups WHERE id = $1
+SELECT id, name, created_at, source, ldap_source_id, grants_admin, upstream_source_id FROM groups WHERE id = $1
 `
 
 func (q *Queries) GetGroup(ctx context.Context, id string) (Group, error) {
@@ -134,6 +134,7 @@ func (q *Queries) GetGroup(ctx context.Context, id string) (Group, error) {
 		&i.Source,
 		&i.LdapSourceID,
 		&i.GrantsAdmin,
+		&i.UpstreamSourceID,
 	)
 	return i, err
 }
@@ -238,7 +239,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID string) ([]User,
 }
 
 const listGroupsWithCounts = `-- name: ListGroupsWithCounts :many
-SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin, COUNT(ug.user_id) AS member_count
+SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin, g.upstream_source_id, COUNT(ug.user_id) AS member_count
 FROM groups g
 LEFT JOIN user_groups ug ON ug.group_id = g.id
 GROUP BY g.id
@@ -246,13 +247,14 @@ ORDER BY g.name
 `
 
 type ListGroupsWithCountsRow struct {
-	ID           string
-	Name         string
-	CreatedAt    time.Time
-	Source       string
-	LdapSourceID *string
-	GrantsAdmin  bool
-	MemberCount  int64
+	ID               string
+	Name             string
+	CreatedAt        time.Time
+	Source           string
+	LdapSourceID     *string
+	GrantsAdmin      bool
+	UpstreamSourceID *string
+	MemberCount      int64
 }
 
 func (q *Queries) ListGroupsWithCounts(ctx context.Context) ([]ListGroupsWithCountsRow, error) {
@@ -271,6 +273,7 @@ func (q *Queries) ListGroupsWithCounts(ctx context.Context) ([]ListGroupsWithCou
 			&i.Source,
 			&i.LdapSourceID,
 			&i.GrantsAdmin,
+			&i.UpstreamSourceID,
 			&i.MemberCount,
 		); err != nil {
 			return nil, err
@@ -287,7 +290,7 @@ func (q *Queries) ListGroupsWithCounts(ctx context.Context) ([]ListGroupsWithCou
 }
 
 const listUserAdminGroups = `-- name: ListUserAdminGroups :many
-SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin
+SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin, g.upstream_source_id
 FROM groups g
 JOIN user_groups ug ON ug.group_id = g.id
 WHERE ug.user_id = $1 AND g.grants_admin = TRUE
@@ -310,6 +313,7 @@ func (q *Queries) ListUserAdminGroups(ctx context.Context, userID string) ([]Gro
 			&i.Source,
 			&i.LdapSourceID,
 			&i.GrantsAdmin,
+			&i.UpstreamSourceID,
 		); err != nil {
 			return nil, err
 		}

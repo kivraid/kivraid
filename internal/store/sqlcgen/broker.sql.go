@@ -44,6 +44,39 @@ func (q *Queries) CreateLoginRoute(ctx context.Context, arg CreateLoginRoutePara
 	return i, err
 }
 
+const createUpstreamGroup = `-- name: CreateUpstreamGroup :one
+INSERT INTO groups (id, name, source, upstream_source_id, created_at)
+VALUES ($1, $2, 'upstream', $3, $4)
+RETURNING id, name, created_at, source, ldap_source_id, grants_admin, upstream_source_id
+`
+
+type CreateUpstreamGroupParams struct {
+	ID               string
+	Name             string
+	UpstreamSourceID *string
+	CreatedAt        time.Time
+}
+
+func (q *Queries) CreateUpstreamGroup(ctx context.Context, arg CreateUpstreamGroupParams) (Group, error) {
+	row := q.db.QueryRowContext(ctx, createUpstreamGroup,
+		arg.ID,
+		arg.Name,
+		arg.UpstreamSourceID,
+		arg.CreatedAt,
+	)
+	var i Group
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.CreatedAt,
+		&i.Source,
+		&i.LdapSourceID,
+		&i.GrantsAdmin,
+		&i.UpstreamSourceID,
+	)
+	return i, err
+}
+
 const createUpstreamProvider = `-- name: CreateUpstreamProvider :one
 INSERT INTO upstream_providers (id, name, issuer, client_id, client_secret_enc, scopes,
                                 claim_email, claim_name, claim_groups, allow_signup, enabled,
@@ -179,6 +212,22 @@ DELETE FROM upstream_providers WHERE id = $1
 
 func (q *Queries) DeleteUpstreamProvider(ctx context.Context, id string) error {
 	_, err := q.db.ExecContext(ctx, deleteUpstreamProvider, id)
+	return err
+}
+
+const deleteUserGroupsFromProvider = `-- name: DeleteUserGroupsFromProvider :exec
+DELETE FROM user_groups
+WHERE user_id = $1
+  AND group_id IN (SELECT id FROM groups WHERE source = 'upstream' AND upstream_source_id = $2)
+`
+
+type DeleteUserGroupsFromProviderParams struct {
+	UserID           string
+	UpstreamSourceID *string
+}
+
+func (q *Queries) DeleteUserGroupsFromProvider(ctx context.Context, arg DeleteUserGroupsFromProviderParams) error {
+	_, err := q.db.ExecContext(ctx, deleteUserGroupsFromProvider, arg.UserID, arg.UpstreamSourceID)
 	return err
 }
 
@@ -480,5 +529,20 @@ type UpdateUpstreamProviderSecretParams struct {
 
 func (q *Queries) UpdateUpstreamProviderSecret(ctx context.Context, arg UpdateUpstreamProviderSecretParams) error {
 	_, err := q.db.ExecContext(ctx, updateUpstreamProviderSecret, arg.ClientSecretEnc, arg.UpdatedAt, arg.ID)
+	return err
+}
+
+const updateUserDisplayName = `-- name: UpdateUserDisplayName :exec
+UPDATE users SET name = $1, updated_at = $2 WHERE id = $3
+`
+
+type UpdateUserDisplayNameParams struct {
+	Name      string
+	UpdatedAt time.Time
+	ID        string
+}
+
+func (q *Queries) UpdateUserDisplayName(ctx context.Context, arg UpdateUserDisplayNameParams) error {
+	_, err := q.db.ExecContext(ctx, updateUserDisplayName, arg.Name, arg.UpdatedAt, arg.ID)
 	return err
 }
