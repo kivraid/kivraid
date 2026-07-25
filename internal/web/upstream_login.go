@@ -106,6 +106,9 @@ func (s *Server) handleUpstreamLoginCallback(w http.ResponseWriter, r *http.Requ
 		s.serverError(w, r, err)
 		return
 	}
+	// Remember the federation so logout can propagate to the upstream.
+	s.sessions.Put(r.Context(), session.KeyUpstreamProvider, p.ID)
+	s.sessions.Put(r.Context(), session.KeyUpstreamIDToken, ident.IDToken)
 	s.log.Info("federated login", "user", user.Username, "provider", p.Name)
 	http.Redirect(w, r, next, http.StatusSeeOther)
 }

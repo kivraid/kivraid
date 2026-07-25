@@ -5,6 +5,7 @@ package broker
 import (
 	"context"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -60,6 +61,7 @@ type Discovery struct {
 	AuthorizationEndpoint string
 	TokenEndpoint         string
 	UserinfoEndpoint      string
+	EndSessionEndpoint    string
 }
 
 // Discover fetches and validates the upstream's discovery document.
@@ -73,7 +75,33 @@ func (m *Manager) Discover(ctx context.Context, issuer string) (*Discovery, erro
 		AuthorizationEndpoint: cfg.AuthorizationEndpoint,
 		TokenEndpoint:         cfg.TokenEndpoint,
 		UserinfoEndpoint:      cfg.UserinfoEndpoint,
+		EndSessionEndpoint:    cfg.EndSessionEndpoint,
 	}, nil
+}
+
+// LogoutURL builds the RP-initiated logout redirect to the upstream's
+// end-session endpoint. Returns "" when the provider advertises no such
+// endpoint (the caller then just ends the local session).
+func (m *Manager) LogoutURL(ctx context.Context, p sqlcgen.UpstreamProvider, idToken, postLogoutRedirect string) (string, error) {
+	d, err := m.Discover(ctx, p.Issuer)
+	if err != nil {
+		return "", err
+	}
+	if d.EndSessionEndpoint == "" {
+		return "", nil
+	}
+	u, err := url.Parse(d.EndSessionEndpoint)
+	if err != nil {
+		return "", err
+	}
+	q := u.Query()
+	q.Set("id_token_hint", idToken)
+	q.Set("client_id", p.ClientID)
+	if postLogoutRedirect != "" {
+		q.Set("post_logout_redirect_uri", postLogoutRedirect)
+	}
+	u.RawQuery = q.Encode()
+	return u.String(), nil
 }
 
 // relyingParty builds an OIDC relying party for the provider. Discovery runs
@@ -114,6 +142,7 @@ type Identity struct {
 	EmailVerified bool
 	Name          string
 	Groups        []string
+	IDToken       string // raw id_token, kept for RP-initiated logout
 }
 
 // HandleCallback completes the OAuth code exchange and returns the mapped
@@ -134,6 +163,7 @@ func (m *Manager) HandleCallback(w http.ResponseWriter, r *http.Request, p sqlcg
 			return
 		}
 		ident = m.mapIdentity(p, ui)
+		ident.IDToken = tokens.IDToken
 	}
 	rp.CodeExchangeHandler(cb, relyingParty).ServeHTTP(w, r)
 	return ident, cbErr

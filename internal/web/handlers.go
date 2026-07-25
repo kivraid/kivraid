@@ -292,6 +292,8 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 }
 
 func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
+	// Resolve the upstream logout target before the session is destroyed.
+	upstreamURL := s.upstreamLogoutURL(r.Context())
 	if userID := s.sessions.GetString(r.Context(), session.KeyUserID); userID != "" {
 		if user, err := s.store.GetUserByID(r.Context(), userID); err == nil {
 			s.audit.Record(r.Context(), user.Username, audit.ActionLogout, "", "", s.clientIP(r))
@@ -301,7 +303,37 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	if upstreamURL != "" {
+		// RP-initiated logout: sign the user out at the upstream too. It
+		// redirects back to our login via post_logout_redirect_uri.
+		http.Redirect(w, r, upstreamURL, http.StatusSeeOther)
+		return
+	}
 	http.Redirect(w, r, "/login", http.StatusSeeOther)
+}
+
+// upstreamLogoutURL returns the upstream end-session redirect for a federated
+// session, or "" when the session is local or the provider has no
+// end-session endpoint. Must be called before the session is destroyed.
+func (s *Server) upstreamLogoutURL(ctx context.Context) string {
+	if s.broker == nil {
+		return ""
+	}
+	provID := s.sessions.GetString(ctx, session.KeyUpstreamProvider)
+	idToken := s.sessions.GetString(ctx, session.KeyUpstreamIDToken)
+	if provID == "" || idToken == "" {
+		return ""
+	}
+	p, err := s.store.GetUpstreamProvider(ctx, provID)
+	if err != nil {
+		return ""
+	}
+	u, err := s.broker.LogoutURL(ctx, p, idToken, s.issuer()+"/login")
+	if err != nil {
+		s.log.Warn("upstream logout url", "provider", p.Name, "err", err)
+		return ""
+	}
+	return u
 }
 
 // handleEndSession terminates the Kivraid session before delegating the

@@ -45,6 +45,11 @@ const (
 	// in a normal session.
 	KeyImpersonator     = "impersonator"
 	KeyImpersonatorName = "impersonatorName"
+	// KeyUpstreamProvider and KeyUpstreamIDToken record the federated login's
+	// provider and its id_token, so logout can redirect to the upstream's
+	// end-session endpoint (RP-initiated logout). Absent for local sessions.
+	KeyUpstreamProvider = "upstreamProvider"
+	KeyUpstreamIDToken  = "upstreamIDToken"
 )
 
 // NewManager builds the session manager. lifetime is the absolute session

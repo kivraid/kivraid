@@ -43,14 +43,15 @@ type adminProvidersListData struct {
 }
 
 type adminProviderFormData struct {
-	IsNew       bool
-	ID          string
-	Form        providerForm
-	RedirectURI string
-	HasSecret   bool
-	Error       string
-	Saved       bool
-	TestResult  *providerTestResult
+	IsNew         bool
+	ID            string
+	Form          providerForm
+	RedirectURI   string
+	PostLogoutURI string
+	HasSecret     bool
+	Error         string
+	Saved         bool
+	TestResult    *providerTestResult
 }
 
 func formFromProvider(p sqlcgen.UpstreamProvider) providerForm {
@@ -196,7 +197,7 @@ func (s *Server) handleAdminProviderEdit(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.renderProviderForm(w, r, adminProviderFormData{
-		ID: p.ID, Form: formFromProvider(p), RedirectURI: s.broker.RedirectURI(p.ID),
+		ID: p.ID, Form: formFromProvider(p), RedirectURI: s.broker.RedirectURI(p.ID), PostLogoutURI: s.issuer() + "/login",
 		HasSecret: len(p.ClientSecretEnc) > 0, Saved: r.URL.Query().Get("saved") == "1",
 	})
 }
@@ -210,7 +211,7 @@ func (s *Server) handleAdminProviderUpdate(w http.ResponseWriter, r *http.Reques
 	fail := func(msg string) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		s.renderProviderForm(w, r, adminProviderFormData{
-			ID: p.ID, Form: form, RedirectURI: s.broker.RedirectURI(p.ID),
+			ID: p.ID, Form: form, RedirectURI: s.broker.RedirectURI(p.ID), PostLogoutURI: s.issuer() + "/login",
 			HasSecret: len(p.ClientSecretEnc) > 0, Error: msg,
 		})
 	}
@@ -296,7 +297,7 @@ func (s *Server) handleAdminProviderTest(w http.ResponseWriter, r *http.Request)
 	}
 	form := parseProviderForm(r)
 	s.renderProviderForm(w, r, adminProviderFormData{
-		ID: p.ID, Form: form, RedirectURI: s.broker.RedirectURI(p.ID),
+		ID: p.ID, Form: form, RedirectURI: s.broker.RedirectURI(p.ID), PostLogoutURI: s.issuer() + "/login",
 		HasSecret: len(p.ClientSecretEnc) > 0, TestResult: s.runProviderTest(r.Context(), form.Issuer),
 	})
 }
