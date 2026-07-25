@@ -214,6 +214,8 @@ they move fast, so verify current capabilities before relying on them.</sub>
   Grafana, Nextcloud, Gitea, Proxmox, and a generic reference.
 - [LDAP directories](docs/ldap.md) — bind auth, group models, write-back.
 - [Forward auth](docs/forward-auth.md) — protecting apps without native SSO.
+- [Federation](docs/federation.md) — sign users in through an upstream OIDC
+  provider, with home-realm-discovery routing.
 - [Deployment](docs/deployment.md) — Docker, systemd, resource footprint.
 - [DESIGN.md](DESIGN.md) — architecture decisions and roadmap.
 

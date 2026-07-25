@@ -408,11 +408,14 @@ func captureAll() (map[string][2][]byte, error) {
 	}
 	shots["login"] = pair
 
-	// Log in, then the portal launcher.
+	// Log in (identifier-first: username, then password on the next step),
+	// then the portal launcher.
 	if err := chromedp.Run(ctx,
 		chromedp.SendKeys(`#username`, adminUser),
-		chromedp.SendKeys(`#password`, adminPass),
 		chromedp.Click(`form[action="/login"] button[type=submit]`),
+		chromedp.WaitVisible(`#password`),
+		chromedp.SendKeys(`#password`, adminPass),
+		chromedp.Click(`form[action="/login/password"] button[type=submit]`),
 		chromedp.WaitVisible(`h1`),
 		chromedp.EmulateViewport(1440, 570, chromedp.EmulateScale(2)),
 	); err != nil {
