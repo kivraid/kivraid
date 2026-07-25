@@ -246,7 +246,7 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 			Target: target, IsLDAP: target.Source == "ldap", SourceName: sourceName,
 			Groups: groups, AdminGroups: adminGroups, Sessions: sessions,
 			Error: errMsg, Saved: saved, PWSaved: pwSaved, Revoked: revoked,
-			Self:           target.ID == currentUser(r).ID,
+			Self:             target.ID == currentUser(r).ID,
 			EmailVerified:    target.EmailVerified,
 			CanVerifyEmail:   target.Source == "local" && !target.EmailVerified && s.smtpEnabled.Load(),
 			VerifySent:       r.URL.Query().Get("vsent") == "1",

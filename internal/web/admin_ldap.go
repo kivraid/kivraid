@@ -189,7 +189,7 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		EmailAttr: form.EmailAttr, NameAttr: form.NameAttr, PhotoAttr: form.PhotoAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
 		PasswordWriteback: form.Writeback, PasswordReset: form.Reset,
-		Enabled:           form.Enabled, Position: 0, CreatedAt: now, UpdatedAt: now,
+		Enabled: form.Enabled, Position: 0, CreatedAt: now, UpdatedAt: now,
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
@@ -254,7 +254,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		PhotoAttr:   form.PhotoAttr,
 		GroupFilter: form.GroupFilter, GroupNameAttr: form.GroupNameAttr,
 		PasswordWriteback: form.Writeback, PasswordReset: form.Reset,
-		Enabled:           form.Enabled, UpdatedAt: now, ID: src.ID,
+		Enabled: form.Enabled, UpdatedAt: now, ID: src.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
 			fail("A directory with this name already exists.")
