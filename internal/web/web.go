@@ -23,6 +23,7 @@ import (
 	"golang.org/x/time/rate"
 
 	"github.com/lporcheron/kivraid/internal/audit"
+	"github.com/lporcheron/kivraid/internal/broker"
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/mailer"
 	"github.com/lporcheron/kivraid/internal/mfa"
@@ -53,6 +54,7 @@ type Server struct {
 	webauthn  *webauthn.Manager
 	audit     *audit.Recorder
 	mailer    *mailer.Mailer
+	broker    *broker.Manager
 	log       *slog.Logger
 
 	// smtpEnabled caches whether email delivery is configured, so templates
@@ -93,6 +95,7 @@ type Deps struct {
 	WebAuthn  *webauthn.Manager
 	Audit     *audit.Recorder
 	Mailer    *mailer.Mailer
+	Broker    *broker.Manager
 	Log       *slog.Logger
 }
 
@@ -118,6 +121,7 @@ func NewServer(d Deps) (*Server, error) {
 		webauthn:       d.WebAuthn,
 		audit:          d.Audit,
 		mailer:         d.Mailer,
+		broker:         d.Broker,
 		log:            d.Log,
 		// 10 attempts/minute per IP, 5 failures/minute per username.
 		ipLimiter:   ratelimit.New(rate.Every(6*time.Second), 10),
@@ -166,6 +170,7 @@ func NewServer(d Deps) (*Server, error) {
 		"admin_apps.html", "admin_app_new.html", "admin_app_secret.html", "admin_app_detail.html",
 		"admin_proxy_detail.html",
 		"admin_ldap.html", "admin_ldap_form.html", "admin_audit.html",
+		"admin_providers.html", "admin_providers_form.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
 		"admin_groups.html", "admin_group_detail.html", "admin_system.html",
 		"admin_dashboard.html", "admin_branding.html", "admin_smtp.html",
@@ -245,6 +250,15 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("POST /admin/ldap/{id}/test", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapTest)))
 	web.Handle("POST /admin/ldap/{id}/sync", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapSync)))
 	web.Handle("POST /admin/ldap/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminLdapDelete)))
+
+	web.Handle("GET /admin/providers", s.requireAdmin(http.HandlerFunc(s.handleAdminProviders)))
+	web.Handle("GET /admin/providers/new", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderNew)))
+	web.Handle("POST /admin/providers", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderCreate)))
+	web.Handle("POST /admin/providers/test", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderTestDraft)))
+	web.Handle("GET /admin/providers/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderEdit)))
+	web.Handle("POST /admin/providers/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderUpdate)))
+	web.Handle("POST /admin/providers/{id}/test", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderTest)))
+	web.Handle("POST /admin/providers/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminProviderDelete)))
 
 	web.Handle("GET /admin/users", s.requireAdmin(http.HandlerFunc(s.handleAdminUsers)))
 	web.Handle("GET /admin/users/new", s.requireAdmin(http.HandlerFunc(s.handleAdminUserNew)))

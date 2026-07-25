@@ -46,6 +46,9 @@ const (
 	ActionGroupDelete    = "group.delete"
 	ActionKeyRotate      = "oidc.key.rotate"
 	ActionBrandingUpdate = "branding.update"
+	ActionProviderCreate = "provider.create"
+	ActionProviderUpdate = "provider.update"
+	ActionProviderDelete = "provider.delete"
 	ActionPasswordReset  = "password.reset.request"
 	ActionEmailVerify    = "email.verify"
 	ActionEmailVerifySnt = "email.verify.sent"
@@ -67,6 +70,7 @@ var Actions = []string{
 	ActionImpersonate, ActionImpersonateEnd,
 	ActionPasswordReset, ActionEmailVerify, ActionEmailVerifySnt,
 	ActionGroupCreate, ActionGroupUpdate, ActionGroupDelete,
+	ActionProviderCreate, ActionProviderUpdate, ActionProviderDelete,
 	ActionKeyRotate, ActionBrandingUpdate, ActionSMTPUpdate,
 }
 

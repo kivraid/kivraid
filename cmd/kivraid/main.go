@@ -26,6 +26,7 @@ import (
 	"golang.org/x/term"
 
 	"github.com/lporcheron/kivraid/internal/audit"
+	"github.com/lporcheron/kivraid/internal/broker"
 	"github.com/lporcheron/kivraid/internal/config"
 	"github.com/lporcheron/kivraid/internal/mailer"
 	"github.com/lporcheron/kivraid/internal/mfa"
@@ -173,6 +174,7 @@ func serve(args []string) error {
 		return err
 	}
 	mailManager := mailer.New(st, secrets.DeriveKey(cfg.SecretKey, "smtp-password"), log)
+	brokerManager := broker.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "upstream-secrets"), cfg.BaseURL)
 	srv, err := web.NewServer(web.Deps{
 		Config:    cfg,
 		Version:   version,
@@ -184,6 +186,7 @@ func serve(args []string) error {
 		MFA:       mfaManager,
 		WebAuthn:  webauthnManager,
 		Mailer:    mailManager,
+		Broker:    brokerManager,
 		Log:       log,
 	})
 	if err != nil {

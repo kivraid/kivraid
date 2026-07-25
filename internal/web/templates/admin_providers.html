@@ -1,0 +1,37 @@
+{{define "content"}}
+{{if .Data.Deleted}}<div data-flash="Provider deleted." data-variant="success" hidden></div>{{end}}
+<div class="mb-8 flex items-end justify-between gap-4">
+  <div>
+    <h1 class="text-2xl font-semibold tracking-tight">Providers</h1>
+    <p class="mt-1 text-sm text-muted">Upstream OpenID Connect providers users can sign in through. Kivraid federates their accounts.</p>
+  </div>
+  <a href="/admin/providers/new" class="btn-primary shrink-0">New provider</a>
+</div>
+
+{{if .Data.Providers}}
+<div class="card divide-y divide-line">
+  {{range .Data.Providers}}
+  <a href="/admin/providers/{{.ID}}" class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
+    <span class="avatar">{{initials .Name}}</span>
+    <div class="min-w-0 flex-1">
+      <div class="flex items-center gap-2">
+        <span class="truncate text-sm font-medium">{{.Name}}</span>
+        {{if not .Enabled}}<span class="badge">Disabled</span>{{end}}
+      </div>
+      <div class="mt-0.5 truncate font-mono text-xs text-faint">{{.Issuer}}</div>
+    </div>
+    <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
+  </a>
+  {{end}}
+</div>
+{{else}}
+<div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
+  <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
+  <div>
+    <h2 class="text-sm font-semibold">No providers yet</h2>
+    <p class="mt-1 text-sm text-muted">Add an OpenID Connect provider (Authentik, Keycloak, Google…) to let its users sign in.</p>
+  </div>
+  <a href="/admin/providers/new" class="btn-primary mt-2">New provider</a>
+</div>
+{{end}}
+{{end}}
