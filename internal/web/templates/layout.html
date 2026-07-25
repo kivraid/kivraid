@@ -38,7 +38,7 @@
         {{if .User.IsAdmin}}
         <div class="relative" data-menu>
           <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false"
-                  class="nav-link flex items-center gap-1 {{if or (eq .Active "dashboard") (eq .Active "apps") (eq .Active "ldap") (eq .Active "providers") (eq .Active "users") (eq .Active "groups") (eq .Active "audit") (eq .Active "branding") (eq .Active "email") (eq .Active "system")}}nav-active{{end}}">
+                  class="nav-link flex items-center gap-1 {{if or (eq .Active "dashboard") (eq .Active "apps") (eq .Active "ldap") (eq .Active "providers") (eq .Active "routing") (eq .Active "users") (eq .Active "groups") (eq .Active "audit") (eq .Active "branding") (eq .Active "email") (eq .Active "system")}}nav-active{{end}}">
             Admin
             <svg class="size-3.5 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
           </button>
@@ -47,7 +47,7 @@
             <div class="menu-divider"></div>
             <a href="/admin/applications" class="menu-item {{if eq .Active "apps"}}bg-raised{{end}}">Applications</a>
             <a href="/admin/ldap" class="menu-item {{if eq .Active "ldap"}}bg-raised{{end}}">Directories</a>
-            <a href="/admin/providers" class="menu-item {{if eq .Active "providers"}}bg-raised{{end}}">Providers</a>
+            <a href="/admin/providers" class="menu-item {{if or (eq .Active "providers") (eq .Active "routing")}}bg-raised{{end}}">Federation</a>
             <a href="/admin/users" class="menu-item {{if eq .Active "users"}}bg-raised{{end}}">Users</a>
             <a href="/admin/groups" class="menu-item {{if eq .Active "groups"}}bg-raised{{end}}">Groups</a>
             <div class="menu-divider"></div>
@@ -133,6 +133,16 @@
     {{end}}
   </div>
   <p class="text-xs text-muted">Shown in the launcher. JPEG, PNG, WebP or GIF, up to 1 MB.</p>
+</div>
+{{end}}
+
+{{define "federationtabs"}}
+<div class="mb-8">
+  <h1 class="text-2xl font-semibold tracking-tight">Federation</h1>
+  <nav class="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="Federation sections">
+    <a href="/admin/providers" class="tab {{if eq .Active "providers"}}tab-active{{end}}" {{if eq .Active "providers"}}aria-current="page"{{end}}>Providers</a>
+    <a href="/admin/routing" class="tab {{if eq .Active "routing"}}tab-active{{end}}" {{if eq .Active "routing"}}aria-current="page"{{end}}>Routing</a>
+  </nav>
 </div>
 {{end}}
 

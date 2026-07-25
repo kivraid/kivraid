@@ -1,9 +1,6 @@
 {{define "content"}}
-<a href="/admin/providers" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Providers</a>
-<div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Login routing</h1>
-  <p class="mt-1 text-sm text-muted">Send users to a provider based on what they type at sign-in. The entered identifier is matched most-specific first: exact identifier, then email domain, then the default.</p>
-</div>
+{{template "federationtabs" .}}
+<p class="mb-6 text-sm text-muted">Send users to a provider based on what they type at sign-in. The entered identifier is matched most-specific first: exact identifier, then email domain, then the default.</p>
 
 <div class="space-y-4">
   {{if .Data.Saved}}<div data-flash="Routing updated." data-variant="success" hidden></div>{{end}}

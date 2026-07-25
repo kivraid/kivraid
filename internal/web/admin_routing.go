@@ -84,7 +84,7 @@ func (s *Server) renderRouting(w http.ResponseWriter, r *http.Request, errMsg st
 		})
 	}
 	s.render(w, r, "admin_routing.html", pageData{
-		Title: "Login routing", Active: "providers", CSRF: s.csrfToken(r.Context()),
+		Title: "Login routing", Active: "routing", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r), Data: data,
 	})
 }
