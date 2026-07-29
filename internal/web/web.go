@@ -323,10 +323,16 @@ func (s *Server) Handler() http.Handler {
 	// RP-initiated logout also terminates the Kivraid session.
 	if s.oidc != nil {
 		for _, pattern := range oidcserver.Routes() {
-			if pattern == "/end_session" {
+			switch pattern {
+			case "/end_session":
 				continue
+			case "/authorize":
+				// Turn op's bare 400 for an unknown client / unregistered
+				// redirect_uri into a branded, actionable error page.
+				root.Handle(pattern, s.guardAuthorize(s.oidc))
+			default:
+				root.Handle(pattern, s.oidc)
 			}
-			root.Handle(pattern, s.oidc)
 		}
 		root.Handle("/end_session", s.sessions.LoadAndSave(http.HandlerFunc(s.handleEndSession)))
 	}
