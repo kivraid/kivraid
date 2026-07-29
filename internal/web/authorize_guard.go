@@ -58,6 +58,23 @@ func (s *Server) authorizeConfigError(ctx context.Context, clientID, redirectURI
 			"under Admin → Applications → %s → Redirect URIs.", redirectURI, name, name), true
 }
 
+// isRegisteredPostLogout reports whether uri is a registered post-logout
+// redirect URI for any provider. Used to give RP-initiated logout a friendly
+// error instead of op's raw JSON; op still does the strict per-client check.
+// On a lookup error it returns true (don't block — let op decide).
+func (s *Server) isRegisteredPostLogout(ctx context.Context, uri string) bool {
+	lists, err := s.store.ListPostLogoutRedirectURIs(ctx)
+	if err != nil {
+		return true
+	}
+	for _, raw := range lists {
+		if slices.Contains(decodeList(raw), uri) {
+			return true
+		}
+	}
+	return false
+}
+
 // isLoopbackRedirect reports whether the redirect URI targets the local
 // machine, where op applies relaxed (port-agnostic) matching for native apps.
 func isLoopbackRedirect(raw string) bool {

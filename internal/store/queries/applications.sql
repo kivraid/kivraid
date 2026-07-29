@@ -54,3 +54,6 @@ UPDATE providers SET public = $1, client_secret_hash = $2, client_secret_enc = $
 
 -- name: DeleteApplication :exec
 DELETE FROM applications WHERE id = $1;
+
+-- name: ListPostLogoutRedirectURIs :many
+SELECT post_logout_redirect_uris FROM providers;
