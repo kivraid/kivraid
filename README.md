@@ -207,7 +207,7 @@ engines, federation, multi-tenancy) at the cost of a much heavier runtime.
 no RADIUS or LDAP-server outposts, no SCIM provisioning, no multi-tenancy.
 If you need those, reach for Authentik or Keycloak.
 
-<sub>Comparisons reflect these projects as of mid-2026 and are simplified;
+<sub>Comparisons reflect these projects as of 2026 and are simplified;
 they move fast, so verify current capabilities before relying on them.</sub>
 
 ## Documentation
