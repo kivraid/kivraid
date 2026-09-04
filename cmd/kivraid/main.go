@@ -11,8 +11,8 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"io"
 	"log/slog"
+	"math"
 	"net"
 	"net/http"
 	"os"
@@ -115,11 +115,9 @@ func serve(args []string) error {
 	log := newLogger(cfg.LogLevel)
 
 	// Set GOMEMLIMIT from the cgroup memory limit so the GC respects the
-	// container's budget. Silently ignored where there is no cgroup limit
-	// (bare metal), which is expected, not an error.
-	if lim, err := memlimit.SetGoMemLimitWithOpts(
-		memlimit.WithLogger(slog.New(slog.NewTextHandler(io.Discard, nil))),
-	); err == nil {
+	// container's budget. Where there is no cgroup limit (bare metal) the
+	// limit is left effectively unbounded, which is expected, not an error.
+	if lim, err := memlimit.Set(); err == nil && lim != math.MaxInt64 {
 		log.Debug("GOMEMLIMIT set from cgroup", "bytes", lim)
 	}
 

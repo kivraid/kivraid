@@ -1,5 +1,5 @@
-TAILWIND_VERSION := v4.1.11
-SQLC_VERSION     := v1.30.0
+TAILWIND_VERSION := v4.3.3
+SQLC_VERSION     := v1.31.1
 
 OS   := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)

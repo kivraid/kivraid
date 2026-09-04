@@ -21,7 +21,7 @@ jobs:
         run: go vet ./...
       - name: Check sqlc output is current
         run: |
-          go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0 generate
+          go run github.com/sqlc-dev/sqlc/cmd/sqlc@v1.31.1 generate
           git diff --exit-code internal/store/sqlcgen
       - name: Test (SQLite)
         run: go test ./...
