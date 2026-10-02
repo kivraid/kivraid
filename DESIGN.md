@@ -38,7 +38,8 @@ minimal) is a default pick, easy to re-skin later via design tokens.
   user-designed flow graphs. This is the single biggest simplification
   versus Authentik and the main source of the resource savings.
 - Outposts (LDAP server emulation, RADIUS, proxy deployed separately).
-- SCIM provisioning, invitations, self-registration (later, maybe).
+- SCIM provisioning, self-registration (later, maybe). Admin-sent
+  invitations exist (see "Delivered post-v1").
 - Multi-tenancy.
 
 ## Decisions
@@ -151,7 +152,10 @@ well to reality and eases migration:
 - **Provider** (OIDC): client_id, client secret (hashed), redirect URIs,
   allowed scopes, token lifetimes, signing key.
 - **Application**: name, slug, icon, launch URL, linked provider, and an
-  access policy (v1: "allow these groups"; richer policies later).
+  access policy: everyone signed in, or only selected groups, plus an
+  optional two-factor requirement. The restriction is stored explicitly
+  (`applications.restricted`) so access fails closed: deleting the last
+  group of a restricted application locks it rather than opening it.
 - The admin UI offers a combined "create application + provider" wizard,
   like Authentik's, so the common case is one screen.
 
@@ -160,11 +164,19 @@ well to reality and eases migration:
 Fixed sequence, configurable via settings (not a flow graph):
 
 1. Identify (username or email; sources tried in configured order:
-   local first, then LDAP sources).
+   local first, then LDAP sources). The step never looks the account up,
+   so it reveals nothing about which accounts exist. A browser that has
+   signed in before offers its remembered accounts instead (an encrypted
+   cookie; name and avatar are only shown to that browser).
 2. Password (local: Argon2id verify; LDAP: user bind).
 3. MFA step — TOTP (authenticator apps) with single-use recovery codes,
    held in a pending session until the second factor is verified.
-4. Session established (server-side session, cookie holds only the ID).
+4. Session established (server-side session, cookie holds only the ID),
+   recording how it was authenticated: password, password + TOTP, passkey
+   or federated. Two-factor requirements (instance policy, per
+   application) accept anything but a bare password; a session lacking a
+   required factor is sent to enroll one first. An administrator-chosen
+   password must likewise be replaced before going anywhere.
 
 A discoverable **passkey (WebAuthn)** is an alternative to the whole
 pipeline: being phishing-resistant it authenticates the user outright,
@@ -214,8 +226,10 @@ internal/
 ### Token & key management
 
 - Signing keys (ES256 default) generated at first start, stored encrypted
-  at rest in SQLite, exposed via JWKS, with manual rotation in the admin
-  (automatic rotation later).
+  at rest in the database, exposed via JWKS, rotated manually or
+  automatically (every 30/90/180 days). Superseded keys stay published
+  for 7 days — far beyond the one-day maximum token lifetime — then are
+  retired by the periodic maintenance.
 - Access tokens: JWT, short-lived (default 5 min). Refresh tokens: opaque,
   hashed in DB, rotated on use. Authorization codes: opaque, single-use,
   10-min TTL.
@@ -284,8 +298,21 @@ mutually-verified email (never hijacking an unverified one), and their
 groups claim is mirrored onto Kivraid groups like the LDAP sync. Federated
 sign-in bypasses the local password/MFA steps (the upstream owns
 authentication), logout is propagated to the upstream (RP-initiated), and
-relying parties are cached between logins. Possible later: SAML,
-invitations/self-registration, non-OIDC social providers (e.g. GitHub).
+relying parties are cached between logins.
+
+Also, later: an account chooser on the sign-in page (remembered accounts
+in an encrypted cookie, never revealing unknown accounts) and a custom
+sign-in background; access policies that fail closed; ready-to-paste
+setup snippets for common applications; admin-sent invitations, generated
+passwords and a forced password change at first sign-in; a Security
+settings tab with a two-factor policy (optional, administrators,
+everyone) plus a per-application requirement, new-device sign-in alerts by
+email, automatic signing-key rotation with retirement of old keys, and a
+configurable activity-log retention; a readable, filterable activity log
+and a 7-day sign-in chart on the overview.
+
+Possible later: SAML, self-registration, non-OIDC social providers (e.g.
+GitHub), SCIM.
 
 ## Security notes (must-hold invariants)
 
@@ -298,3 +325,8 @@ invitations/self-registration, non-OIDC social providers (e.g. GitHub).
   identical error for "unknown user" and "bad password".
 - Open-redirect protection: exact-match redirect URIs only.
 - No password ever logged; audit log records events, not credentials.
+- Account existence never leaks before authentication: the identifier step
+  does no lookup, and the account chooser only shows accounts the browser
+  itself has authenticated as.
+- Access control fails closed: a restricted application with no group left
+  admits nobody.
