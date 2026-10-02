@@ -38,7 +38,7 @@
         {{if .User.IsAdmin}}
         <div class="relative" data-menu>
           <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false"
-                  class="nav-link flex items-center gap-1 {{if or (eq .Active "dashboard") (eq .Active "apps") (eq .Active "ldap") (eq .Active "providers") (eq .Active "routing") (eq .Active "users") (eq .Active "groups") (eq .Active "audit") (eq .Active "branding") (eq .Active "email") (eq .Active "system")}}nav-active{{end}}">
+                  class="nav-link flex items-center gap-1 {{if or (eq .Active "dashboard") (eq .Active "apps") (eq .Active "ldap") (eq .Active "providers") (eq .Active "routing") (eq .Active "users") (eq .Active "groups") (eq .Active "audit") (eq .Active "branding") (eq .Active "email") (eq .Active "system") (eq .Active "security")}}nav-active{{end}}">
             Admin
             <svg class="size-3.5 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
           </button>
@@ -52,7 +52,7 @@
             <a href="/admin/groups" class="menu-item {{if eq .Active "groups"}}bg-raised{{end}}">Groups</a>
             <div class="menu-divider"></div>
             <a href="/admin/audit" class="menu-item {{if eq .Active "audit"}}bg-raised{{end}}">Activity</a>
-            <a href="/admin/settings" class="menu-item {{if or (eq .Active "branding") (eq .Active "email") (eq .Active "system")}}bg-raised{{end}}">Settings</a>
+            <a href="/admin/settings" class="menu-item {{if or (eq .Active "branding") (eq .Active "email") (eq .Active "system") (eq .Active "security")}}bg-raised{{end}}">Settings</a>
           </div>
         </div>
         {{end}}
@@ -188,6 +188,13 @@
     <p class="text-xs text-muted">No groups exist yet. Create one under Admin → Groups (or sync them from a directory) to restrict access.</p>
     {{end}}
   </div>
+  <label class="mt-4 flex cursor-pointer items-start gap-2 text-sm">
+    <input type="checkbox" name="require_mfa" class="mt-0.5 accent-accent" {{if .Data.App.RequireMfa}}checked{{end}}>
+    <span>
+      <span class="font-medium">Require two-factor authentication</span>
+      <span class="block text-xs text-muted">Users must have signed in with an authenticator code, a passkey or an upstream provider; others are asked to set up two-factor first.</span>
+    </span>
+  </label>
 </div>
 {{end}}
 
@@ -244,6 +251,7 @@
     <a href="/admin/settings/system" class="tab {{if eq .Active "system"}}tab-active{{end}}" {{if eq .Active "system"}}aria-current="page"{{end}}>System</a>
     <a href="/admin/settings/branding" class="tab {{if eq .Active "branding"}}tab-active{{end}}" {{if eq .Active "branding"}}aria-current="page"{{end}}>Branding</a>
     <a href="/admin/settings/email" class="tab {{if eq .Active "email"}}tab-active{{end}}" {{if eq .Active "email"}}aria-current="page"{{end}}>Email</a>
+    <a href="/admin/settings/security" class="tab {{if eq .Active "security"}}tab-active{{end}}" {{if eq .Active "security"}}aria-current="page"{{end}}>Security</a>
   </nav>
 </div>
 {{end}}

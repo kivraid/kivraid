@@ -1,0 +1,33 @@
+{{define "content"}}
+{{template "settingstabs" .}}
+<p class="mb-6 text-sm text-muted">Sign-in requirements for this instance.</p>
+
+<div class="space-y-4">
+  {{if .Data.Saved}}<div data-flash="Security settings saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
+
+  <form method="post" action="/admin/settings/security" class="card space-y-5 p-6">
+    <input type="hidden" name="_csrf" value="{{.CSRF}}">
+    <div>
+      <h2 class="text-sm font-semibold">Two-factor authentication</h2>
+      <p class="mt-1 text-sm text-muted">Who must sign in with a second factor: an authenticator code, a passkey, or an upstream identity provider (which owns authentication for federated users). Anyone required but not enrolled is asked to set it up before going further, and cannot turn it off.</p>
+    </div>
+    <div class="grid gap-2 sm:grid-cols-3">
+      {{range $p := list "off" "admins" "all"}}
+      <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+        <input type="radio" name="mfa_policy" value="{{$p}}" class="mt-0.5 accent-accent" {{if eq $p $.Data.MFAPolicy}}checked{{end}}>
+        <span>
+          {{if eq $p "off"}}<span class="block text-sm font-medium">Optional</span><span class="block text-xs text-muted">Users choose. Applications can still require it.</span>{{end}}
+          {{if eq $p "admins"}}<span class="block text-sm font-medium">Administrators</span><span class="block text-xs text-muted">Required for anyone with the administrator role.</span>{{end}}
+          {{if eq $p "all"}}<span class="block text-sm font-medium">Everyone</span><span class="block text-xs text-muted">Required for every account.</span>{{end}}
+        </span>
+      </label>
+      {{end}}
+    </div>
+    <p class="text-xs text-muted">To require it for a single application only, use the option in that application's Access section.</p>
+    <div class="flex justify-end border-t border-line pt-5">
+      <button type="submit" class="btn-primary">Save changes</button>
+    </div>
+  </form>
+</div>
+{{end}}

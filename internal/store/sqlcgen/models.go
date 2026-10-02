@@ -38,6 +38,7 @@ type Application struct {
 	IconMime    *string
 	ProxyHosts  string
 	Restricted  bool
+	RequireMfa  bool
 }
 
 type AuditLog struct {
@@ -84,6 +85,7 @@ type InstanceSetting struct {
 	UpdatedAt           time.Time
 	LoginBackground     []byte
 	LoginBackgroundMime *string
+	MfaPolicy           string
 }
 
 type LdapSource struct {

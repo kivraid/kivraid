@@ -23,6 +23,12 @@ const (
 	KeyIP        = "ip"
 	KeyUserAgent = "ua"
 	KeyLoginAt   = "loginAt"
+	// KeyLoginMethod records how the session was authenticated (see the
+	// login method constants in package web); two-factor requirements read
+	// it. KeyMFANext is where to resume once a required second factor is
+	// set up.
+	KeyLoginMethod = "loginMethod"
+	KeyMFANext     = "mfaNext"
 	// KeyPendingLogin holds the identifier entered on the first login step,
 	// carried to the password step. It grants no access on its own.
 	KeyPendingLogin = "pendingLogin"

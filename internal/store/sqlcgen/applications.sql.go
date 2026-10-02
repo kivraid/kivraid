@@ -14,7 +14,7 @@ import (
 const createApplication = `-- name: CreateApplication :one
 INSERT INTO applications (id, name, slug, kind, description, launch_url, proxy_hosts, created_at, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts, restricted
+RETURNING id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts, restricted, require_mfa
 `
 
 type CreateApplicationParams struct {
@@ -55,6 +55,7 @@ func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationPa
 		&i.IconMime,
 		&i.ProxyHosts,
 		&i.Restricted,
+		&i.RequireMfa,
 	)
 	return i, err
 }
@@ -128,7 +129,7 @@ func (q *Queries) DeleteApplication(ctx context.Context, id string) error {
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts, restricted FROM applications WHERE id = $1
+SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts, restricted, require_mfa FROM applications WHERE id = $1
 `
 
 func (q *Queries) GetApplication(ctx context.Context, id string) (Application, error) {
@@ -147,6 +148,7 @@ func (q *Queries) GetApplication(ctx context.Context, id string) (Application, e
 		&i.IconMime,
 		&i.ProxyHosts,
 		&i.Restricted,
+		&i.RequireMfa,
 	)
 	return i, err
 }
@@ -218,7 +220,7 @@ func (q *Queries) GetProviderByClientID(ctx context.Context, clientID string) (P
 }
 
 const listApplicationsAdmin = `-- name: ListApplicationsAdmin :many
-SELECT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted, p.client_id, p.public, p.redirect_uris
+SELECT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted, a.require_mfa, p.client_id, p.public, p.redirect_uris
 FROM applications a
 LEFT JOIN providers p ON p.application_id = a.id
 ORDER BY a.name
@@ -253,6 +255,7 @@ func (q *Queries) ListApplicationsAdmin(ctx context.Context) ([]ListApplications
 			&i.Application.IconMime,
 			&i.Application.ProxyHosts,
 			&i.Application.Restricted,
+			&i.Application.RequireMfa,
 			&i.ClientID,
 			&i.Public,
 			&i.RedirectUris,
@@ -271,7 +274,7 @@ func (q *Queries) ListApplicationsAdmin(ctx context.Context) ([]ListApplications
 }
 
 const listProxyApplications = `-- name: ListProxyApplications :many
-SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts, restricted FROM applications WHERE kind = 'proxy' ORDER BY name
+SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts, restricted, require_mfa FROM applications WHERE kind = 'proxy' ORDER BY name
 `
 
 func (q *Queries) ListProxyApplications(ctx context.Context) ([]Application, error) {
@@ -296,6 +299,7 @@ func (q *Queries) ListProxyApplications(ctx context.Context) ([]Application, err
 			&i.IconMime,
 			&i.ProxyHosts,
 			&i.Restricted,
+			&i.RequireMfa,
 		); err != nil {
 			return nil, err
 		}

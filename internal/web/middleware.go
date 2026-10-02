@@ -9,6 +9,7 @@ import (
 	"errors"
 	"net/http"
 	"net/url"
+	"slices"
 	"strings"
 
 	"github.com/kivraid/kivraid/internal/session"
@@ -81,6 +82,14 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 		if user.MustChangePassword && r.URL.Path != passwordChangePath &&
 			s.sessions.GetString(r.Context(), session.KeyImpersonatorName) == "" {
 			http.Redirect(w, r, passwordChangePath+"?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
+			return
+		}
+		// A second factor required by the instance policy must be set up (or
+		// used to sign in) before anything else.
+		if s.mfaRequiredFor(user) && !s.sessionHasSecondFactor(r.Context()) &&
+			!slices.Contains(mfaSetupPaths, r.URL.Path) &&
+			s.sessions.GetString(r.Context(), session.KeyImpersonatorName) == "" {
+			s.redirectToMFASetup(w, r, r.URL.RequestURI())
 			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyUser, user)

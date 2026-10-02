@@ -102,7 +102,7 @@ func (s *Server) handleUpstreamLoginCallback(w http.ResponseWriter, r *http.Requ
 
 	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
 	s.sessions.Remove(r.Context(), session.KeyPendingNext)
-	if err := s.completeLogin(w, r, user, next); err != nil {
+	if err := s.completeLogin(w, r, user, next, loginFederated); err != nil {
 		s.serverError(w, r, err)
 		return
 	}

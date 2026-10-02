@@ -53,6 +53,11 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, "forbidden", http.StatusForbidden)
 			return
 		}
+		if app.RequireMfa && !s.sessionHasSecondFactor(r.Context()) &&
+			s.sessions.GetString(r.Context(), session.KeyImpersonatorName) == "" {
+			s.forwardAuthRedirect(w, r, mfaRequiredPath)
+			return
+		}
 	}
 
 	groups, err := s.store.ListUserGroups(r.Context(), user.ID)

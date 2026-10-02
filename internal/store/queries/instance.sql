@@ -15,3 +15,6 @@ UPDATE instance_settings SET login_background = $1, login_background_mime = $2, 
 
 -- name: ClearLoginBackground :exec
 UPDATE instance_settings SET login_background = NULL, login_background_mime = NULL, updated_at = $1 WHERE id = 1;
+
+-- name: SetMFAPolicy :exec
+UPDATE instance_settings SET mfa_policy = $1, updated_at = $2 WHERE id = 1;

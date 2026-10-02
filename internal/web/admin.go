@@ -691,8 +691,8 @@ func (s *Server) handleAdminProxyUpdate(w http.ResponseWriter, r *http.Request, 
 	http.Redirect(w, r, "/admin/applications/"+app.ID+"?saved=1", http.StatusSeeOther)
 }
 
-// replacePolicy resets an application's group access policy from the
-// submitted form: access=everyone opens it to every authenticated user,
+// replacePolicy resets an application's access settings from the submitted
+// form — its two-factor requirement and its group policy: access=everyone opens it to every authenticated user,
 // access=groups restricts it to the policy_groups values (possibly none,
 // which locks it). Without an access field, any group restricts it.
 func (s *Server) replacePolicy(r *http.Request, appID string) error {
@@ -722,6 +722,11 @@ func (s *Server) replacePolicy(r *http.Request, appID string) error {
 	}
 	if err := q.SetApplicationRestricted(r.Context(), sqlcgen.SetApplicationRestrictedParams{
 		Restricted: restricted, ID: appID,
+	}); err != nil {
+		return err
+	}
+	if err := q.SetApplicationRequireMFA(r.Context(), sqlcgen.SetApplicationRequireMFAParams{
+		RequireMfa: r.PostFormValue("require_mfa") == "on", ID: appID,
 	}); err != nil {
 		return err
 	}

@@ -113,7 +113,7 @@ func (s *Server) handlePasskeyLoginFinish(w http.ResponseWriter, r *http.Request
 		s.serverError(w, r, err)
 		return
 	}
-	if err := s.completeLogin(w, r, user, next); err != nil {
+	if err := s.completeLogin(w, r, user, next, loginPasskey); err != nil {
 		s.serverError(w, r, err)
 		return
 	}

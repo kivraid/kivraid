@@ -195,7 +195,7 @@ func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
 }
 
 const listLaunchableApplications = `-- name: ListLaunchableApplications :many
-SELECT DISTINCT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted
+SELECT DISTINCT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted, a.require_mfa
 FROM applications a
 LEFT JOIN app_policies p ON p.application_id = a.id
 WHERE a.launch_url != ''
@@ -226,6 +226,7 @@ func (q *Queries) ListLaunchableApplications(ctx context.Context, userID string)
 			&i.IconMime,
 			&i.ProxyHosts,
 			&i.Restricted,
+			&i.RequireMfa,
 		); err != nil {
 			return nil, err
 		}
@@ -238,6 +239,20 @@ func (q *Queries) ListLaunchableApplications(ctx context.Context, userID string)
 		return nil, err
 	}
 	return items, nil
+}
+
+const setApplicationRequireMFA = `-- name: SetApplicationRequireMFA :exec
+UPDATE applications SET require_mfa = $1 WHERE id = $2
+`
+
+type SetApplicationRequireMFAParams struct {
+	RequireMfa bool
+	ID         string
+}
+
+func (q *Queries) SetApplicationRequireMFA(ctx context.Context, arg SetApplicationRequireMFAParams) error {
+	_, err := q.db.ExecContext(ctx, setApplicationRequireMFA, arg.RequireMfa, arg.ID)
+	return err
 }
 
 const setApplicationRestricted = `-- name: SetApplicationRestricted :exec

@@ -27,6 +27,7 @@
       <div class="flex items-center gap-2">
         <span class="truncate text-sm font-medium">{{.App.Name}}</span>
         {{if eq .App.Kind "proxy"}}<span class="badge">Forward auth</span>{{else if .Public}}<span class="badge">Public · PKCE</span>{{end}}
+        {{if .App.RequireMfa}}<span class="badge">2FA required</span>{{end}}
       </div>
       <div class="mt-0.5 truncate text-xs text-faint">
         {{if .Host}}{{.Host}}{{else}}{{.App.Slug}}{{end}}{{with .App.Description}} · {{.}}{{end}}

@@ -22,7 +22,7 @@
   </div>
 
   <div class="flex justify-end">
-    <a href="/profile" class="btn-primary">Done</a>
+    <a href="{{with .Data.Next}}{{.}}{{else}}/profile{{end}}" class="btn-primary">Done</a>
   </div>
 </div>
 {{end}}

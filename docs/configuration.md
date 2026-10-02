@@ -86,8 +86,25 @@ signed in*, or *Only selected groups*. A restricted application fails
 closed: if its groups are all deleted, nobody can sign in until you pick
 new groups or open it to everyone.
 
+The same section can **require two-factor authentication** for that
+application alone.
+
 Step-by-step recipes for common applications (Grafana, Nextcloud, Gitea,
 Proxmox) and a generic OIDC reference live in
 [docs/integrations](integrations/).
 
 For apps without native OIDC support, use [forward auth](forward-auth.md).
+
+## Two-factor requirements
+
+**Admin → Settings → Security** sets who must sign in with a second
+factor: nobody (optional, the default), administrators, or everyone. A
+session counts as two-factor when it was opened with an authenticator code,
+a passkey, or an upstream identity provider (federated users authenticate
+there). Anyone required but not enrolled is sent to set up an authenticator
+app before reaching any other page, continues right after, and can no
+longer turn two-factor off. A user who is enrolled but holds an older,
+password-only session is asked to sign in again.
+
+An application can also require two-factor on its own (its **Access**
+section); this applies to OIDC sign-ins and forward auth alike.

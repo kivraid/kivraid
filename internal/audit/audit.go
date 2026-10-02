@@ -54,6 +54,7 @@ const (
 	ActionEmailVerify    = "email.verify"
 	ActionEmailVerifySnt = "email.verify.sent"
 	ActionSMTPUpdate     = "smtp.update"
+	ActionSecurityUpdate = "security.update"
 )
 
 // Actions lists every action the recorder emits, grouped roughly by area.
@@ -72,7 +73,7 @@ var Actions = []string{
 	ActionPasswordReset, ActionEmailVerify, ActionEmailVerifySnt,
 	ActionGroupCreate, ActionGroupUpdate, ActionGroupDelete,
 	ActionProviderCreate, ActionProviderUpdate, ActionProviderDelete, ActionRouteUpdate,
-	ActionKeyRotate, ActionBrandingUpdate, ActionSMTPUpdate,
+	ActionKeyRotate, ActionBrandingUpdate, ActionSMTPUpdate, ActionSecurityUpdate,
 }
 
 type Recorder struct {
@@ -117,6 +118,7 @@ var labels = map[string]string{
 	ActionProviderCreate: "Provider added", ActionProviderUpdate: "Provider updated", ActionProviderDelete: "Provider deleted",
 	ActionRouteUpdate: "Routing updated", ActionPasswordReset: "Password reset link sent", ActionEmailVerify: "Email verified",
 	ActionEmailVerifySnt: "Verification email sent", ActionSMTPUpdate: "Email settings updated",
+	ActionSecurityUpdate: "Security settings updated",
 }
 
 // Label returns the human-readable name of an action, or the raw action

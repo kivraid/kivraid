@@ -224,7 +224,7 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 
 	s.sessions.Remove(r.Context(), session.KeyPendingLogin)
 	s.sessions.Remove(r.Context(), session.KeyPendingAccount)
-	if err := s.completeLogin(w, r, user, next); err != nil {
+	if err := s.completeLogin(w, r, user, next, loginPassword); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -234,7 +234,7 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 // completeLogin establishes a full authenticated session. A fresh token
 // on privilege change prevents session fixation. The account is remembered
 // by this browser for the login page's account chooser.
-func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user sqlcgen.User, next string) error {
+func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user sqlcgen.User, next, method string) error {
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		return err
 	}
@@ -242,6 +242,7 @@ func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user sqlc
 	s.sessions.Put(r.Context(), session.KeyIP, s.clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
+	s.sessions.Put(r.Context(), session.KeyLoginMethod, method)
 	s.rememberAccount(w, r, user.ID)
 	// Record the last login for the admin view. Best-effort: a failure
 	// here must not block sign-in.
@@ -315,7 +316,7 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
 	s.sessions.Remove(r.Context(), session.KeyPendingMFA)
 	s.sessions.Remove(r.Context(), session.KeyPendingNext)
-	if err := s.completeLogin(w, r, user, next); err != nil {
+	if err := s.completeLogin(w, r, user, next, loginPasswordTOTP); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -398,6 +399,7 @@ type profileData struct {
 	PWSuccess         bool
 	MFAOff            bool
 	MFAEnabled        bool
+	MFARequired       bool // by the instance policy: cannot be turned off
 	RecoveryRemaining int64
 	Passkeys          []sqlcgen.WebauthnCredential
 	PasskeysEnabled   bool
@@ -443,6 +445,7 @@ func (s *Server) renderProfile(w http.ResponseWriter, r *http.Request, user sqlc
 			PWSuccess:         pwSuccess,
 			MFAOff:            r.URL.Query().Get("mfa") == "off",
 			MFAEnabled:        user.TotpEnabled,
+			MFARequired:       s.mfaRequiredFor(user),
 			RecoveryRemaining: recovery,
 			Passkeys:          passkeys,
 			PasskeysEnabled:   s.webauthn != nil,
@@ -491,6 +494,10 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 			Title: "Access denied", CSRF: s.csrfToken(r.Context()),
 			User: user, Data: app,
 		})
+		return
+	}
+	if app.RequireMfa && !s.sessionHasSecondFactor(r.Context()) && impersonator(r) == "" {
+		s.redirectToMFASetup(w, r, r.URL.RequestURI())
 		return
 	}
 

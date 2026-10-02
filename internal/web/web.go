@@ -63,6 +63,9 @@ type Server struct {
 	// can gate "forgot password" / "verify email" affordances without a DB
 	// hit per render. Refreshed at startup and after an admin saves SMTP.
 	smtpEnabled atomic.Bool
+	// mfaPolicy caches the instance two-factor policy (a string), refreshed
+	// at startup and when an admin saves the security settings.
+	mfaPolicy atomic.Value
 
 	// Login brute-force protection: per-IP on attempts, per-username on
 	// failures.
@@ -140,6 +143,7 @@ func NewServer(d Deps) (*Server, error) {
 	// used if it cannot be read.
 	s.loadBranding(context.Background())
 	s.refreshSMTPCache(context.Background())
+	s.loadMFAPolicy(context.Background())
 
 	// Asset URLs carry a content hash so browsers can cache aggressively
 	// yet pick up new CSS/JS immediately after an upgrade.
@@ -147,6 +151,7 @@ func NewServer(d Deps) (*Server, error) {
 	funcs := template.FuncMap{
 		"initials":    initials,
 		"tileClass":   tileClass,
+		"list":        func(v ...string) []string { return v },
 		"since":       since,
 		"actionLabel": audit.Label,
 		"actionTone":  audit.Tone,
@@ -182,7 +187,8 @@ func NewServer(d Deps) (*Server, error) {
 		"admin_providers.html", "admin_providers_form.html", "admin_routing.html",
 		"admin_users.html", "admin_user_new.html", "admin_user_detail.html",
 		"admin_groups.html", "admin_group_detail.html", "admin_system.html",
-		"admin_dashboard.html", "admin_branding.html", "admin_smtp.html",
+		"admin_dashboard.html", "admin_branding.html", "admin_smtp.html", "admin_security.html",
+		"mfa_required.html",
 	}
 	for _, page := range withLayout {
 		t, err := template.New("layout.html").Funcs(funcs).
@@ -215,6 +221,7 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("GET /reset", s.handleResetPage)
 	web.HandleFunc("POST /reset", s.handleResetSubmit)
 	web.HandleFunc("GET /verify-email", s.handleVerifyEmail)
+	web.Handle("GET "+mfaRequiredPath, s.requireAuth(http.HandlerFunc(s.handleMFARequired)))
 	web.Handle("GET "+passwordChangePath, s.requireAuth(http.HandlerFunc(s.handlePasswordChangeRequired)))
 	web.Handle("POST "+passwordChangePath, s.requireAuth(http.HandlerFunc(s.handlePasswordChangeRequired)))
 	web.HandleFunc("GET /login/upstream/{id}/start", s.handleUpstreamLoginStart)
@@ -321,6 +328,8 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/settings/email", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTP)))
 	web.Handle("POST /admin/settings/email", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTPSave)))
 	web.Handle("POST /admin/settings/email/test", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTPTest)))
+	web.Handle("GET /admin/settings/security", s.requireAdmin(http.HandlerFunc(s.handleAdminSecurity)))
+	web.Handle("POST /admin/settings/security", s.requireAdmin(http.HandlerFunc(s.handleAdminSecuritySave)))
 	web.Handle("GET /admin/settings/system", s.requireAdmin(http.HandlerFunc(s.handleAdminSystem)))
 	web.Handle("POST /admin/settings/system/rotate-key", s.requireAdmin(http.HandlerFunc(s.handleAdminSystemRotateKey)))
 

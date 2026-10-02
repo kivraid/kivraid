@@ -13,6 +13,9 @@ INSERT INTO app_policies (application_id, group_id) VALUES ($1, $2);
 -- name: SetApplicationRestricted :exec
 UPDATE applications SET restricted = $1 WHERE id = $2;
 
+-- name: SetApplicationRequireMFA :exec
+UPDATE applications SET require_mfa = $1 WHERE id = $2;
+
 -- name: ListApplicationsByPolicyGroup :many
 -- Applications restricted to the group, with how many groups each one is
 -- bound to in total (1 means the group is its only way in).

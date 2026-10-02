@@ -17,7 +17,8 @@ type mfaEnrollData struct {
 
 type mfaRecoveryData struct {
 	Codes []string
-	New   bool // freshly regenerated (vs first enrollment)
+	New   bool   // freshly regenerated (vs first enrollment)
+	Next  string // where "Done" leads: back to what required two-factor
 }
 
 // handleMFABegin generates a pending TOTP secret and shows the enrollment
@@ -87,10 +88,14 @@ func (s *Server) handleMFAEnable(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
+	// The code just entered proves the second factor for this session too,
+	// which satisfies a two-factor requirement without signing in again.
+	s.markSecondFactor(r.Context(), loginPasswordTOTP)
+	next := s.safeNext(s.sessions.PopString(r.Context(), session.KeyMFANext), "/profile")
 	s.audit.Record(r.Context(), user.Username, audit.ActionMFAEnable, "", "", s.clientIP(r))
 	s.render(w, r, "mfa_recovery.html", pageData{
 		Title: "Recovery codes", Active: "profile", CSRF: s.csrfToken(r.Context()),
-		User: user, Data: mfaRecoveryData{Codes: codes},
+		User: user, Data: mfaRecoveryData{Codes: codes, Next: next},
 	})
 }
 
@@ -99,6 +104,10 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	if !user.TotpEnabled {
 		http.Redirect(w, r, "/profile", http.StatusSeeOther)
+		return
+	}
+	if s.mfaRequiredFor(user) {
+		s.renderProfile(w, r, user, "Two-factor authentication is required for your account, so it cannot be turned off.", false)
 		return
 	}
 	code := r.PostFormValue("code")
