@@ -47,9 +47,11 @@ import (
 
 const (
 	listenAddr = "127.0.0.1:9777"
-	baseURL    = "http://" + listenAddr
-	adminUser  = "amelia"
-	adminPass  = "demo-passw0rd"
+	// The base URL must use a host name: it is also the WebAuthn relying
+	// party ID, which may not be an IP address.
+	baseURL   = "http://localhost:9777"
+	adminUser = "amelia"
+	adminPass = "demo-passw0rd"
 )
 
 func main() {
