@@ -3,11 +3,14 @@ package web
 import (
 	"context"
 	"database/sql"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
+	"strings"
 )
 
 // guardAuthorize renders a branded, actionable error for the two authorize
@@ -58,21 +61,57 @@ func (s *Server) authorizeConfigError(ctx context.Context, clientID, redirectURI
 			"under Admin → Applications → %s → Redirect URIs.", redirectURI, name, name), true
 }
 
-// isRegisteredPostLogout reports whether uri is a registered post-logout
-// redirect URI for any provider. Used to give RP-initiated logout a friendly
-// error instead of op's raw JSON; op still does the strict per-client check.
-// On a lookup error it returns true (don't block — let op decide).
-func (s *Server) isRegisteredPostLogout(ctx context.Context, uri string) bool {
-	lists, err := s.store.ListPostLogoutRedirectURIs(ctx)
+// endSessionClientID resolves the client an end_session request targets, the
+// same way op does: the explicit client_id, else the azp of id_token_hint.
+// The hint is decoded without verification — it only selects which client's
+// list the guard checks; op still verifies the token itself.
+func endSessionClientID(r *http.Request) string {
+	if id := r.FormValue("client_id"); id != "" {
+		return id
+	}
+	parts := strings.Split(r.FormValue("id_token_hint"), ".")
+	if len(parts) != 3 {
+		return ""
+	}
+	payload, err := base64.RawURLEncoding.DecodeString(parts[1])
 	if err != nil {
-		return true
+		return ""
 	}
-	for _, raw := range lists {
-		if slices.Contains(decodeList(raw), uri) {
-			return true
-		}
+	var claims struct {
+		AuthorizedParty string `json:"azp"`
 	}
-	return false
+	if json.Unmarshal(payload, &claims) != nil {
+		return ""
+	}
+	return claims.AuthorizedParty
+}
+
+// postLogoutConfigError reports a post_logout_redirect_uri that op would
+// reject for this client with a raw JSON error. It mirrors op's per-client
+// check; bad is false when op would accept it, when op ignores the URI (no
+// client resolved), or on a lookup error (let op decide).
+func (s *Server) postLogoutConfigError(ctx context.Context, clientID, uri string) (message string, bad bool) {
+	if clientID == "" {
+		return "", false // op ignores post_logout_redirect_uri without a client
+	}
+	provider, err := s.store.GetProviderByClientID(ctx, clientID)
+	if err != nil {
+		return "", false
+	}
+	if slices.Contains(decodeList(provider.PostLogoutRedirectUris), uri) {
+		return "", false
+	}
+	// Public (native) clients get port-agnostic loopback matching from op.
+	if provider.Public && isLoopbackRedirect(uri) {
+		return "", false
+	}
+	name := clientID
+	if app, err := s.store.GetApplication(ctx, provider.ApplicationID); err == nil && app.Name != "" {
+		name = app.Name
+	}
+	return fmt.Sprintf("You are signed out. %q asked to return you to %q, which is not a registered "+
+		"post-logout redirect URI for it. An administrator can add it under "+
+		"Admin → Applications → %s → Post-logout redirect URIs.", name, uri, name), true
 }
 
 // isLoopbackRedirect reports whether the redirect URI targets the local

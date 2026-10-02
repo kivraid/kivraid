@@ -265,33 +265,6 @@ func (q *Queries) ListApplicationsAdmin(ctx context.Context) ([]ListApplications
 	return items, nil
 }
 
-const listPostLogoutRedirectURIs = `-- name: ListPostLogoutRedirectURIs :many
-SELECT post_logout_redirect_uris FROM providers
-`
-
-func (q *Queries) ListPostLogoutRedirectURIs(ctx context.Context) ([]string, error) {
-	rows, err := q.db.QueryContext(ctx, listPostLogoutRedirectURIs)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []string
-	for rows.Next() {
-		var post_logout_redirect_uris string
-		if err := rows.Scan(&post_logout_redirect_uris); err != nil {
-			return nil, err
-		}
-		items = append(items, post_logout_redirect_uris)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listProxyApplications = `-- name: ListProxyApplications :many
 SELECT id, name, slug, launch_url, created_at, updated_at, kind, description, icon, icon_mime, proxy_hosts FROM applications WHERE kind = 'proxy' ORDER BY name
 `

@@ -4,7 +4,6 @@ import (
 	"context"
 	"database/sql"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"strings"
@@ -350,14 +349,13 @@ func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	// The Kivraid session is now gone regardless. If the RP asked to be
-	// returned to an unregistered post_logout_redirect_uri, op would answer
-	// with raw JSON — show a branded, actionable page instead.
-	if plru := r.URL.Query().Get("post_logout_redirect_uri"); plru != "" && !s.isRegisteredPostLogout(r.Context(), plru) {
-		s.renderError(w, r, http.StatusBadRequest, "Sign-out redirect not allowed",
-			fmt.Sprintf("You are signed out. The application asked to return you to %q, which is not a "+
-				"registered post-logout redirect URI. An administrator can add it under "+
-				"Admin → Applications → (the app) → Post-logout redirect URIs.", plru))
-		return
+	// returned to a post_logout_redirect_uri not registered for it, op would
+	// answer with raw JSON — show a branded, actionable page instead.
+	if plru := r.FormValue("post_logout_redirect_uri"); plru != "" {
+		if msg, bad := s.postLogoutConfigError(r.Context(), endSessionClientID(r), plru); bad {
+			s.renderError(w, r, http.StatusBadRequest, "Sign-out redirect not allowed", msg)
+			return
+		}
 	}
 	s.oidc.ServeHTTP(w, r)
 }
