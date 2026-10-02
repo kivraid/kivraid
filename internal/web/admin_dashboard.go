@@ -1,6 +1,7 @@
 package web
 
 import (
+	"encoding/json"
 	"net/http"
 	"strconv"
 	"time"
@@ -18,10 +19,48 @@ type dashStat struct {
 }
 
 type adminDashboardData struct {
-	Stats       []dashStat
-	LoginsToday int64
-	FailedToday int64
-	Recent      []sqlcgen.AuditLog
+	Stats      []dashStat
+	Logins24h  int64
+	Failed24h  int64
+	Recent     []sqlcgen.AuditLog
+	SignInJSON string // hourly sign-in counts for the chart (see signInSeries)
+}
+
+// signInSeries is the dashboard chart's data: hourly counts of successful
+// and failed sign-ins, oldest first, starting at Start (Unix seconds, on an
+// hour boundary). The browser groups the hours into its own local days.
+type signInSeries struct {
+	Start int64   `json:"start"`
+	OK    []int64 `json:"ok"`
+	Fail  []int64 `json:"fail"`
+}
+
+// signInChartHours covers 7 local days whatever the viewer's offset.
+const signInChartHours = 8 * 24
+
+func buildSignInSeries(now time.Time, events []sqlcgen.ListSignInEventsSinceRow) (signInSeries, int64, int64) {
+	start := now.Truncate(time.Hour).Add(-(signInChartHours - 1) * time.Hour)
+	series := signInSeries{Start: start.Unix(), OK: make([]int64, signInChartHours), Fail: make([]int64, signInChartHours)}
+	var ok24, fail24 int64
+	for _, e := range events {
+		i := int(e.Ts.Sub(start) / time.Hour)
+		if i < 0 || i >= signInChartHours {
+			continue
+		}
+		recent := now.Sub(e.Ts) < 24*time.Hour
+		if e.Action == audit.ActionLoginFailed {
+			series.Fail[i]++
+			if recent {
+				fail24++
+			}
+		} else {
+			series.OK[i]++
+			if recent {
+				ok24++
+			}
+		}
+	}
+	return series, ok24, fail24
 }
 
 // handleAdminDashboard renders the admin landing page: a few headline counts
@@ -56,19 +95,15 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Sign-in activity since midnight UTC.
+	// Sign-in activity over the chart window and the last 24 hours.
 	now := time.Now().UTC()
-	midnight := time.Date(now.Year(), now.Month(), now.Day(), 0, 0, 0, 0, time.UTC)
-	loginsToday, err := s.store.CountAuditActionSince(ctx, sqlcgen.CountAuditActionSinceParams{
-		Action: audit.ActionLogin, Since: midnight,
-	})
+	events, err := s.store.ListSignInEventsSince(ctx, now.Add(-signInChartHours*time.Hour))
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	failedToday, err := s.store.CountAuditActionSince(ctx, sqlcgen.CountAuditActionSinceParams{
-		Action: audit.ActionLoginFailed, Since: midnight,
-	})
+	series, logins24h, failed24h := buildSignInSeries(now, events)
+	seriesJSON, err := json.Marshal(series)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -95,7 +130,8 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 		Title: "Overview", Active: "dashboard", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
 		Data: adminDashboardData{
-			Stats: stats, LoginsToday: loginsToday, FailedToday: failedToday, Recent: recent,
+			Stats: stats, Logins24h: logins24h, Failed24h: failed24h, Recent: recent,
+			SignInJSON: string(seriesJSON),
 		},
 	})
 }

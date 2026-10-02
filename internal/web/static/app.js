@@ -79,6 +79,91 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Timestamps rendered in UTC by the server, shown in the viewer's zone.
+  const thisYear = new Date().getFullYear();
+  for (const el of document.querySelectorAll("time[data-local]")) {
+    const d = new Date(el.getAttribute("datetime"));
+    if (isNaN(d)) continue;
+    el.title = el.textContent;
+    el.textContent = d.toLocaleString(undefined, {
+      year: d.getFullYear() === thisYear ? undefined : "numeric",
+      month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  // Dashboard sign-in chart: group the server's hourly counts into the
+  // viewer's local days and draw the last seven as paired bars.
+  for (const box of document.querySelectorAll("[data-signin-chart]")) {
+    let data;
+    try {
+      data = JSON.parse(box.dataset.signinChart);
+    } catch {
+      continue;
+    }
+    const days = [];
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(today);
+      d.setDate(d.getDate() - i);
+      days.push({ date: d, ok: 0, fail: 0 });
+    }
+    data.ok.forEach((ok, h) => {
+      const t = new Date((data.start + h * 3600) * 1000);
+      t.setHours(0, 0, 0, 0);
+      const day = days.find((d) => d.date.getTime() === t.getTime());
+      if (day) {
+        day.ok += ok;
+        day.fail += data.fail[h];
+      }
+    });
+    const max = Math.max(1, ...days.map((d) => Math.max(d.ok, d.fail)));
+    const el = (tag, cls, text) => {
+      const e = document.createElement(tag);
+      if (cls) e.className = cls;
+      if (text !== undefined) e.textContent = text;
+      return e;
+    };
+    const fmtDay = (d, opts) => d.toLocaleDateString(undefined, opts);
+
+    const legend = el("div", "chart-legend");
+    for (const [cls, label] of [["is-ok", "Sign-ins"], ["is-fail", "Failed"]]) {
+      const item = el("span");
+      const sw = el("span", "chart-swatch " + cls);
+      item.append(sw, label);
+      legend.append(item);
+    }
+    const plot = el("div", "chart-plot");
+    const maxLine = el("div", "chart-max");
+    maxLine.append(el("span", "", String(max)));
+    plot.append(maxLine);
+    const labels = el("div", "chart-days");
+    const table = el("table", "sr-only");
+    table.append(el("caption", "", "Sign-ins per day, last 7 days"));
+    const head = el("tr");
+    head.append(el("th", "", "Day"), el("th", "", "Sign-ins"), el("th", "", "Failed"));
+    table.append(head);
+
+    for (const d of days) {
+      const name = fmtDay(d.date, { weekday: "short", month: "short", day: "numeric" });
+      const col = el("div", "chart-col");
+      col.tabIndex = 0;
+      col.setAttribute("aria-label", `${name}: ${d.ok} sign-ins, ${d.fail} failed`);
+      for (const [cls, v] of [["is-ok", d.ok], ["is-fail", d.fail]]) {
+        const bar = el("div", "chart-bar " + cls);
+        bar.style.height = v ? Math.max(4, (v / max) * 100) + "%" : "0";
+        col.append(bar);
+      }
+      col.append(el("div", "chart-tip", `${name} · ${d.ok} sign-ins · ${d.fail} failed`));
+      plot.append(col);
+      labels.append(el("span", "", fmtDay(d.date, { weekday: "narrow" })));
+      const row = el("tr");
+      row.append(el("td", "", name), el("td", "", String(d.ok)), el("td", "", String(d.fail)));
+      table.append(row);
+    }
+    box.replaceChildren(legend, plot, labels, table);
+  }
+
   // Filter bars: apply a select as soon as it changes.
   for (const form of document.querySelectorAll("[data-autosubmit]")) {
     for (const field of form.querySelectorAll("select")) {

@@ -21,39 +21,34 @@ func (q *Queries) CountAudit(ctx context.Context) (int64, error) {
 	return count, err
 }
 
-const countAuditActionSince = `-- name: CountAuditActionSince :one
-SELECT COUNT(*) FROM audit_log
-WHERE action = $1 AND ts >= $2
-`
-
-type CountAuditActionSinceParams struct {
-	Action string
-	Since  time.Time
-}
-
-func (q *Queries) CountAuditActionSince(ctx context.Context, arg CountAuditActionSinceParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAuditActionSince, arg.Action, arg.Since)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countAuditFiltered = `-- name: CountAuditFiltered :one
 SELECT COUNT(*) FROM audit_log
 WHERE ($1 = '' OR action = $1)
   AND lower(actor) LIKE CAST($2 AS TEXT) ESCAPE '\'
+  AND (CAST($3 AS TEXT) = '' OR ip = CAST($3 AS TEXT))
+  AND ts >= $4 AND ts < $5
 `
 
 type CountAuditFilteredParams struct {
 	Action       interface{}
 	ActorPattern string
+	Ip           string
+	Since        time.Time
+	Until        time.Time
 }
 
-// Filtered variants for the activity view. An empty action matches every
-// action; the actor pattern is lowercased and wildcard-escaped by the
-// caller ('%' for no filter), matching the users-search convention.
+// Filtered variants for the activity view. An empty action or IP matches
+// everything; the actor pattern is lowercased and wildcard-escaped by the
+// caller ('%' for no filter), matching the users-search convention. The
+// caller always passes a time window (wide open when unfiltered).
 func (q *Queries) CountAuditFiltered(ctx context.Context, arg CountAuditFilteredParams) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAuditFiltered, arg.Action, arg.ActorPattern)
+	row := q.db.QueryRowContext(ctx, countAuditFiltered,
+		arg.Action,
+		arg.ActorPattern,
+		arg.Ip,
+		arg.Since,
+		arg.Until,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -133,16 +128,27 @@ const listAuditFiltered = `-- name: ListAuditFiltered :many
 SELECT id, ts, actor, action, object, detail, ip FROM audit_log
 WHERE ($1 = '' OR action = $1)
   AND lower(actor) LIKE CAST($2 AS TEXT) ESCAPE '\'
+  AND (CAST($3 AS TEXT) = '' OR ip = CAST($3 AS TEXT))
+  AND ts >= $4 AND ts < $5
 ORDER BY id DESC
 `
 
 type ListAuditFilteredParams struct {
 	Action       interface{}
 	ActorPattern string
+	Ip           string
+	Since        time.Time
+	Until        time.Time
 }
 
 func (q *Queries) ListAuditFiltered(ctx context.Context, arg ListAuditFilteredParams) ([]AuditLog, error) {
-	rows, err := q.db.QueryContext(ctx, listAuditFiltered, arg.Action, arg.ActorPattern)
+	rows, err := q.db.QueryContext(ctx, listAuditFiltered,
+		arg.Action,
+		arg.ActorPattern,
+		arg.Ip,
+		arg.Since,
+		arg.Until,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -176,13 +182,18 @@ const listAuditFilteredPage = `-- name: ListAuditFilteredPage :many
 SELECT id, ts, actor, action, object, detail, ip FROM audit_log
 WHERE ($1 = '' OR action = $1)
   AND lower(actor) LIKE CAST($2 AS TEXT) ESCAPE '\'
+  AND (CAST($3 AS TEXT) = '' OR ip = CAST($3 AS TEXT))
+  AND ts >= $4 AND ts < $5
 ORDER BY id DESC
-LIMIT $4 OFFSET $3
+LIMIT $7 OFFSET $6
 `
 
 type ListAuditFilteredPageParams struct {
 	Action       interface{}
 	ActorPattern string
+	Ip           string
+	Since        time.Time
+	Until        time.Time
 	PageOffset   int32
 	PageLimit    int32
 }
@@ -191,6 +202,9 @@ func (q *Queries) ListAuditFilteredPage(ctx context.Context, arg ListAuditFilter
 	rows, err := q.db.QueryContext(ctx, listAuditFilteredPage,
 		arg.Action,
 		arg.ActorPattern,
+		arg.Ip,
+		arg.Since,
+		arg.Until,
 		arg.PageOffset,
 		arg.PageLimit,
 	)
@@ -250,6 +264,41 @@ func (q *Queries) ListAuditPage(ctx context.Context, arg ListAuditPageParams) ([
 			&i.Detail,
 			&i.Ip,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSignInEventsSince = `-- name: ListSignInEventsSince :many
+SELECT ts, action FROM audit_log
+WHERE action IN ('login', 'login.failed') AND ts >= $1
+`
+
+type ListSignInEventsSinceRow struct {
+	Ts     time.Time
+	Action string
+}
+
+// Sign-in outcomes for the dashboard chart, bucketed by the caller. Every
+// successful sign-in (password, passkey, federated) records 'login'.
+func (q *Queries) ListSignInEventsSince(ctx context.Context, since time.Time) ([]ListSignInEventsSinceRow, error) {
+	rows, err := q.db.QueryContext(ctx, listSignInEventsSince, since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSignInEventsSinceRow
+	for rows.Next() {
+		var i ListSignInEventsSinceRow
+		if err := rows.Scan(&i.Ts, &i.Action); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

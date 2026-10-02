@@ -19,6 +19,9 @@
  * faint tint of it so the greys read cool and cohesive rather than flat. */
 :root {
   color-scheme: light;
+  /* Chart series (validated for CVD separation on both surfaces). */
+  --chart-ok: oklch(52% 0.25 293);
+  --chart-fail: oklch(57.7% 0.245 27.3);
 
   --bg: oklch(98.8% 0.003 293);
   --surface: oklch(100% 0 0);
@@ -47,6 +50,8 @@
 
 [data-theme="dark"] {
   color-scheme: dark;
+  --chart-ok: oklch(65% 0.19 293);
+  --chart-fail: oklch(64% 0.2 25);
 
   --bg: oklch(15.5% 0.012 293);
   --surface: oklch(19.5% 0.014 293);
@@ -358,6 +363,65 @@
   }
   .page-actions {
     @apply flex items-center gap-3 sm:shrink-0;
+  }
+
+  /* Dashboard sign-in chart: one column per local day, a sign-in bar and a
+   * failure bar side by side, rounded at the data end only. */
+  .signin-chart .chart-legend {
+    @apply mb-2 flex gap-4 text-xs text-muted;
+  }
+  .signin-chart .chart-swatch {
+    @apply mr-1.5 inline-block size-2.5 rounded-sm align-[-1px];
+  }
+  .signin-chart .chart-plot {
+    @apply relative flex h-24 items-end gap-1 border-b border-line pr-5;
+  }
+  .signin-chart .chart-col {
+    @apply relative flex h-full flex-1 cursor-default items-end justify-center gap-0.5 rounded-sm outline-none hover:bg-raised focus-visible:bg-raised;
+  }
+  .signin-chart .chart-bar {
+    @apply w-1.5 rounded-t-[4px];
+    min-height: 0;
+  }
+  .signin-chart .is-ok {
+    background: var(--chart-ok);
+  }
+  .signin-chart .is-fail {
+    background: var(--chart-fail);
+  }
+  .signin-chart .chart-max {
+    @apply pointer-events-none absolute inset-x-0 top-0 border-t border-dashed border-line text-[10px] text-faint;
+  }
+  .signin-chart .chart-max span {
+    @apply absolute -top-2 right-0 tabular-nums;
+  }
+  .signin-chart .chart-days {
+    @apply mt-1 flex gap-1 pr-5 text-center text-[10px] text-faint;
+  }
+  .signin-chart .chart-days span {
+    @apply flex-1;
+  }
+  .signin-chart .chart-tip {
+    @apply pointer-events-none absolute bottom-full left-1/2 z-10 mb-1 hidden -translate-x-1/2 whitespace-nowrap rounded-md border border-line bg-surface px-2 py-1 text-[11px] text-fg;
+    box-shadow: var(--shadow-md);
+  }
+  .signin-chart .chart-col:hover .chart-tip,
+  .signin-chart .chart-col:focus-visible .chart-tip {
+    @apply block;
+  }
+
+  /* Activity badges: failures in red, sensitive changes in amber. */
+  .badge-tone {
+    @apply inline-flex items-center whitespace-nowrap rounded-md border px-2 py-0.5 text-xs font-medium;
+  }
+  .tone-plain {
+    @apply border-line bg-raised text-muted;
+  }
+  .tone-danger {
+    @apply border-danger/25 bg-danger-soft text-danger;
+  }
+  .tone-warn {
+    @apply border-warn/30 bg-warn-soft text-warn;
   }
 
   .alert-danger {

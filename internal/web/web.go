@@ -143,9 +143,12 @@ func NewServer(d Deps) (*Server, error) {
 	// yet pick up new CSS/JS immediately after an upgrade.
 	assetV := assetVersion()
 	funcs := template.FuncMap{
-		"initials": initials,
-		"since":    since,
-		"deref":    deref,
+		"initials":    initials,
+		"since":       since,
+		"actionLabel": audit.Label,
+		"actionTone":  audit.Tone,
+		"localTime":   localTime,
+		"deref":       deref,
 		"asset": func(name string) string {
 			return "/static/" + name + "?v=" + assetV
 		},
@@ -351,6 +354,14 @@ func (s *Server) Handler() http.Handler {
 	}
 	root.Handle("/", webChain)
 	return root
+}
+
+// localTime renders a timestamp as a <time> element: the server shows UTC,
+// and app.js rewrites it in the viewer's timezone.
+func localTime(t time.Time) template.HTML {
+	u := t.UTC()
+	return template.HTML(fmt.Sprintf(`<time datetime="%s" data-local>%s UTC</time>`,
+		u.Format(time.RFC3339), template.HTMLEscapeString(u.Format("Jan 2, 2006 15:04"))))
 }
 
 // since renders how long ago t was, coarsely: "just now", "5 minutes ago",

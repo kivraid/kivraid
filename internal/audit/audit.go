@@ -99,3 +99,45 @@ func (r *Recorder) Record(ctx context.Context, actor, action, object, detail, ip
 		r.log.Warn("audit record failed", "action", action, "err", err)
 	}
 }
+
+// labels are the human-readable names shown in the activity views.
+var labels = map[string]string{
+	ActionLogin: "Signed in", ActionLoginFailed: "Sign-in failed", ActionLoginThrottled: "Sign-in throttled",
+	ActionLogout: "Signed out", ActionPasswordChange: "Password changed", ActionSessionRevoke: "Session revoked",
+	ActionAppCreate: "Application created", ActionAppUpdate: "Application updated", ActionAppDelete: "Application deleted",
+	ActionSecretRotate: "Client secret rotated",
+	ActionLdapCreate:   "Directory added", ActionLdapUpdate: "Directory updated", ActionLdapDelete: "Directory deleted",
+	ActionLdapSync: "Directory synced", ActionOIDCGrant: "Application access granted", ActionOIDCDeny: "Application access denied",
+	ActionUserCreate: "User created", ActionUserUpdate: "User updated", ActionUserDelete: "User deleted",
+	ActionUserPWReset: "Password reset by admin", ActionImpersonate: "Impersonation started",
+	ActionImpersonateEnd: "Impersonation ended", ActionMFAEnable: "Two-factor enabled", ActionMFADisable: "Two-factor disabled",
+	ActionMFARecovery: "Recovery codes regenerated", ActionPasskeyAdd: "Passkey added", ActionPasskeyRemove: "Passkey removed",
+	ActionPasskeyLogin: "Signed in with a passkey", ActionGroupCreate: "Group created", ActionGroupUpdate: "Group updated",
+	ActionGroupDelete: "Group deleted", ActionKeyRotate: "Signing key rotated", ActionBrandingUpdate: "Branding updated",
+	ActionProviderCreate: "Provider added", ActionProviderUpdate: "Provider updated", ActionProviderDelete: "Provider deleted",
+	ActionRouteUpdate: "Routing updated", ActionPasswordReset: "Password reset link sent", ActionEmailVerify: "Email verified",
+	ActionEmailVerifySnt: "Verification email sent", ActionSMTPUpdate: "Email settings updated",
+}
+
+// Label returns the human-readable name of an action, or the raw action
+// for an unknown one (e.g. recorded by a newer version).
+func Label(action string) string {
+	if l, ok := labels[action]; ok {
+		return l
+	}
+	return action
+}
+
+// Tone classifies an action for display: "danger" for failures and denials,
+// "warn" for destructive or sensitive changes, "" otherwise.
+func Tone(action string) string {
+	switch action {
+	case ActionLoginFailed, ActionLoginThrottled, ActionOIDCDeny:
+		return "danger"
+	case ActionAppDelete, ActionLdapDelete, ActionUserDelete, ActionGroupDelete, ActionProviderDelete,
+		ActionMFADisable, ActionPasskeyRemove, ActionImpersonate, ActionSecretRotate, ActionKeyRotate,
+		ActionUserPWReset, ActionSessionRevoke:
+		return "warn"
+	}
+	return ""
+}

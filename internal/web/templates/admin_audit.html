@@ -4,24 +4,35 @@
     <h1 class="text-2xl font-semibold tracking-tight">Activity</h1>
     <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first.</p>
   </div>
-  <a href="/admin/audit/export.csv{{if .Data.Filtered}}?action={{.Data.Action}}&q={{.Data.Query}}{{end}}"
+  <a href="/admin/audit/export.csv{{with .Data.FilterQS}}?{{.}}{{end}}"
      class="btn-secondary shrink-0" data-no-spinner>
     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><path d="M7 10l5 5 5-5"/><path d="M12 15V3"/></svg>
     Export CSV
   </a>
 </div>
 
-<form method="get" action="/admin/audit" class="card mb-4 flex flex-wrap items-end gap-3 p-4">
-  <div class="min-w-40 flex-1">
+<form method="get" action="/admin/audit" class="card mb-4 grid grid-cols-1 gap-3 p-4 sm:grid-cols-2 lg:grid-cols-[1fr_1fr_1fr_1fr_auto] lg:items-end">
+  <div>
     <label class="label" for="action">Action</label>
     <select class="select" id="action" name="action">
       <option value="">All actions</option>
-      {{range .Data.Actions}}<option value="{{.}}" {{if eq . $.Data.Action}}selected{{end}}>{{.}}</option>{{end}}
+      {{range .Data.Actions}}<option value="{{.}}" {{if eq . $.Data.Filter.Action}}selected{{end}}>{{actionLabel .}}</option>{{end}}
     </select>
   </div>
-  <div class="min-w-40 flex-1">
+  <div>
     <label class="label" for="q">Actor</label>
-    <input class="input" id="q" name="q" value="{{.Data.Query}}" placeholder="Username" autocapitalize="none" spellcheck="false">
+    <input class="input" id="q" name="q" value="{{.Data.Filter.Query}}" placeholder="Username" autocapitalize="none" spellcheck="false">
+  </div>
+  <div>
+    <label class="label" for="ip">IP address</label>
+    <input class="input font-mono" id="ip" name="ip" value="{{.Data.Filter.IP}}" placeholder="Any" spellcheck="false">
+  </div>
+  <div>
+    <label class="label" for="range">Period</label>
+    <select class="select" id="range" name="range">
+      <option value="">All time</option>
+      {{range .Data.Ranges}}<option value="{{.ID}}" {{if eq .ID $.Data.Filter.Range}}selected{{end}}>{{.Label}}</option>{{end}}
+    </select>
   </div>
   <div class="flex gap-2">
     <button type="submit" class="btn-primary">Filter</button>
@@ -45,12 +56,12 @@
     <tbody>
       {{range .Data.Entries}}
       <tr>
-        <td class="tabular whitespace-nowrap text-muted">{{.Ts.Format "Jan 2 15:04:05"}}</td>
-        <td class="whitespace-nowrap font-medium">{{if .Actor}}{{.Actor}}{{else}}<span class="text-faint">—</span>{{end}}</td>
-        <td><span class="badge font-mono">{{.Action}}</span></td>
-        <td>{{if .Object}}{{.Object}}{{else}}<span class="text-faint">—</span>{{end}}</td>
+        <td class="tabular whitespace-nowrap text-muted">{{localTime .Ts}}</td>
+        <td class="whitespace-nowrap font-medium">{{if .Actor}}<a href="/admin/audit?q={{.Actor}}" class="hover:underline" title="Show this actor's activity">{{.Actor}}</a>{{else}}<span class="text-faint">—</span>{{end}}</td>
+        <td><a href="/admin/audit?action={{.Action}}" class="badge-tone tone-{{with actionTone .Action}}{{.}}{{else}}plain{{end}}" title="{{.Action}}">{{actionLabel .Action}}</a></td>
+        <td>{{if and .Object (ne .Object .Actor)}}{{.Object}}{{else}}<span class="text-faint">—</span>{{end}}</td>
         <td class="text-muted">{{.Detail}}</td>
-        <td class="whitespace-nowrap font-mono text-xs text-faint">{{.Ip}}</td>
+        <td class="whitespace-nowrap font-mono text-xs">{{if .Ip}}<a href="/admin/audit?ip={{.Ip}}" class="text-faint hover:text-fg hover:underline" title="Show activity from this address">{{.Ip}}</a>{{end}}</td>
       </tr>
       {{end}}
     </tbody>
@@ -61,9 +72,9 @@
   <span class="tabular">Showing {{.Data.RangeStart}}–{{.Data.RangeEnd}} of {{.Data.Total}}</span>
   {{if gt .Data.Pages 1}}
   <div class="flex items-center gap-2">
-    {{if .Data.PrevPage}}<a href="?page={{.Data.PrevPage}}&action={{.Data.Action}}&q={{.Data.Query}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
+    {{if .Data.PrevPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.PrevPage}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
     <span class="tabular px-1">Page {{.Data.Page}} / {{.Data.Pages}}</span>
-    {{if .Data.NextPage}}<a href="?page={{.Data.NextPage}}&action={{.Data.Action}}&q={{.Data.Query}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+    {{if .Data.NextPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.NextPage}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
   </div>
   {{end}}
 </div>
