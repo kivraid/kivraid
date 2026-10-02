@@ -1,5 +1,6 @@
 TAILWIND_VERSION := v4.3.3
 SQLC_VERSION     := v1.31.1
+AIR_VERSION      := v1.67.4
 
 OS   := $(shell uname -s | tr '[:upper:]' '[:lower:]')
 ARCH := $(shell uname -m)
@@ -22,7 +23,7 @@ CSS_OUT  := internal/web/static/app.css
 VERSION := $(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 LDFLAGS := -X main.version=$(VERSION)
 
-.PHONY: build css css-watch sqlc test vet run clean docker screenshots
+.PHONY: build css css-watch sqlc test vet run dev clean docker screenshots
 
 build: css sqlc
 	go build -ldflags "$(LDFLAGS)" -o kivraid ./cmd/kivraid
@@ -60,6 +61,11 @@ vet:
 
 run: build
 	./kivraid serve --config kivraid.yaml
+
+# Rebuild and restart on every change to Go, templates, CSS, JS or SQL
+# (see .air.toml). Needs a kivraid.yaml, like `make run`.
+dev: $(TAILWIND)
+	go run github.com/air-verse/air@$(AIR_VERSION)
 
 clean:
 	rm -f kivraid $(CSS_OUT)

@@ -235,6 +235,8 @@ they move fast, so verify current capabilities before relying on them.</sub>
 
 ```sh
 make build          # generate CSS + sqlc code, then go build
+make run            # build, then serve with ./kivraid.yaml
+make dev            # same, rebuilding and restarting on every source change
 make css-watch      # rebuild CSS on template changes
 make test           # run tests (add KIVRAID_TEST_POSTGRES_DSN for Postgres)
 make screenshots    # regenerate the README captures (needs Chrome)
