@@ -66,6 +66,9 @@ type Server struct {
 	// mfaPolicy caches the instance two-factor policy (a string), refreshed
 	// at startup and when an admin saves the security settings.
 	mfaPolicy atomic.Value
+	// newDeviceAlerts caches whether to email users about sign-ins from
+	// unknown browsers (same refresh points as mfaPolicy).
+	newDeviceAlerts atomic.Bool
 
 	// Login brute-force protection: per-IP on attempts, per-username on
 	// failures.
@@ -143,7 +146,7 @@ func NewServer(d Deps) (*Server, error) {
 	// used if it cannot be read.
 	s.loadBranding(context.Background())
 	s.refreshSMTPCache(context.Background())
-	s.loadMFAPolicy(context.Background())
+	s.loadSecuritySettings(context.Background())
 
 	// Asset URLs carry a content hash so browsers can cache aggressively
 	// yet pick up new CSS/JS immediately after an upgrade.

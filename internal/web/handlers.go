@@ -243,6 +243,11 @@ func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user sqlc
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
 	s.sessions.Put(r.Context(), session.KeyLoginMethod, method)
+	// Alert the user about a browser that never signed in as them, unless
+	// this is the account's very first sign-in.
+	if s.newDeviceAlerts.Load() && user.LastLoginAt.Valid && user.Email != "" && !s.knownDevice(r, user.ID) {
+		s.sendNewDeviceAlert(user, r.UserAgent(), s.clientIP(r), method)
+	}
 	s.rememberAccount(w, r, user.ID)
 	// Record the last login for the admin view. Best-effort: a failure
 	// here must not block sign-in.

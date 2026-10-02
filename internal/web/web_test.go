@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/kivraid/kivraid/internal/config"
+	"github.com/kivraid/kivraid/internal/mailer"
 	"github.com/kivraid/kivraid/internal/mfa"
 	"github.com/kivraid/kivraid/internal/oidcserver"
 	"github.com/kivraid/kivraid/internal/secrets"
@@ -50,6 +51,7 @@ func newServerForStore(t *testing.T, st *store.Store, forwardAuthDomains []strin
 		LDAP:     ldap.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "ldap-bind-passwords"), log),
 		MFA:      mfa.NewManager(st, secrets.DeriveKey(cfg.SecretKey, "totp-secrets")),
 		WebAuthn: waManager,
+		Mailer:   mailer.New(st, secrets.DeriveKey(cfg.SecretKey, "smtp-password"), log),
 		Log:      log,
 	})
 	if err != nil {

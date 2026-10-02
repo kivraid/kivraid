@@ -101,6 +101,12 @@ func (s *Server) writeRememberedIDs(w http.ResponseWriter, ids []string) {
 	http.SetCookie(w, cookie)
 }
 
+// knownDevice reports whether this browser has signed in as userID before
+// (its account cookie lists the user).
+func (s *Server) knownDevice(r *http.Request, userID string) bool {
+	return slices.Contains(s.rememberedIDs(r), userID)
+}
+
 // rememberAccount moves userID to the front of the account cookie.
 func (s *Server) rememberAccount(w http.ResponseWriter, r *http.Request, userID string) {
 	ids := slices.DeleteFunc(s.rememberedIDs(r), func(id string) bool { return id == userID })

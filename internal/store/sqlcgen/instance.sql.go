@@ -29,7 +29,7 @@ func (q *Queries) ClearLoginBackground(ctx context.Context, updatedAt time.Time)
 }
 
 const getInstanceSettings = `-- name: GetInstanceSettings :one
-SELECT id, brand_name, logo, logo_mime, updated_at, login_background, login_background_mime, mfa_policy FROM instance_settings WHERE id = 1
+SELECT id, brand_name, logo, logo_mime, updated_at, login_background, login_background_mime, mfa_policy, new_device_alerts FROM instance_settings WHERE id = 1
 `
 
 func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, error) {
@@ -44,6 +44,7 @@ func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, err
 		&i.LoginBackground,
 		&i.LoginBackgroundMime,
 		&i.MfaPolicy,
+		&i.NewDeviceAlerts,
 	)
 	return i, err
 }
@@ -103,5 +104,19 @@ type SetMFAPolicyParams struct {
 
 func (q *Queries) SetMFAPolicy(ctx context.Context, arg SetMFAPolicyParams) error {
 	_, err := q.db.ExecContext(ctx, setMFAPolicy, arg.MfaPolicy, arg.UpdatedAt)
+	return err
+}
+
+const setNewDeviceAlerts = `-- name: SetNewDeviceAlerts :exec
+UPDATE instance_settings SET new_device_alerts = $1, updated_at = $2 WHERE id = 1
+`
+
+type SetNewDeviceAlertsParams struct {
+	NewDeviceAlerts bool
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) SetNewDeviceAlerts(ctx context.Context, arg SetNewDeviceAlertsParams) error {
+	_, err := q.db.ExecContext(ctx, setNewDeviceAlerts, arg.NewDeviceAlerts, arg.UpdatedAt)
 	return err
 }

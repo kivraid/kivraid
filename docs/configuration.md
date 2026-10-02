@@ -108,3 +108,14 @@ password-only session is asked to sign in again.
 
 An application can also require two-factor on its own (its **Access**
 section); this applies to OIDC sign-ins and forward auth alike.
+
+## Sign-in alerts
+
+With email delivery configured, **Admin → Settings → Security** can email
+users whenever their account signs in from a new device — a browser that
+has never signed in as them (Kivraid recognizes browsers by the encrypted
+account-chooser cookie). The message gives the browser, IP address, time
+and sign-in method, and links to the user's sessions page. An account's
+very first sign-in sends nothing. The option is off by default: right
+after it is turned on, each user's next sign-in on every browser counts as
+new.

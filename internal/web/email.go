@@ -106,6 +106,37 @@ func (s *Server) sendInvitationEmail(ctx context.Context, user sqlcgen.User) err
 	})
 }
 
+// sendNewDeviceAlert emails the user that their account was just used from
+// a browser it had never signed in on. It runs in the background so a slow
+// or failing mail server never delays the sign-in.
+func (s *Server) sendNewDeviceAlert(user sqlcgen.User, userAgent, ip, method string) {
+	if !s.smtpEnabled.Load() {
+		return
+	}
+	brand := s.brandDisplayName()
+	when := time.Now().UTC().Format("Monday, January 2, 2006 at 15:04 UTC")
+	how := map[string]string{
+		loginPassword: "password", loginPasswordTOTP: "password and authenticator code",
+		loginPasskey: "passkey", loginFederated: "your identity provider",
+	}[method]
+	intro := fmt.Sprintf("Your %s account was used to sign in from a new device: %s, from %s, on %s, with %s. "+
+		"If this was you, there is nothing to do. If not, change your password now and sign out the sessions you don't recognize.",
+		brand, summarizeUA(userAgent), ip, when, how)
+	link := s.issuer() + "/sessions"
+	text := fmt.Sprintf("Hi %s,\n\n%s\n\nReview your sessions: %s\n", user.Name, intro, link)
+	msg := mailer.Message{
+		To: user.Email, Subject: "New sign-in to your " + brand + " account", Text: text,
+		HTML: emailHTML(brand, "New sign-in", user.Name, intro, "Review my sessions", link),
+	}
+	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+		defer cancel()
+		if err := s.mailer.Send(ctx, msg); err != nil {
+			s.log.Warn("send new-device alert", "user", user.Username, "err", err)
+		}
+	}()
+}
+
 // sendVerificationEmail issues a verification token and mails the link.
 func (s *Server) sendVerificationEmail(ctx context.Context, user sqlcgen.User) error {
 	raw, err := s.issueEmailToken(ctx, purposeEmailVerify, user.ID, user.Email, verifyTokenTTL)

@@ -86,6 +86,7 @@ type InstanceSetting struct {
 	LoginBackground     []byte
 	LoginBackgroundMime *string
 	MfaPolicy           string
+	NewDeviceAlerts     bool
 }
 
 type LdapSource struct {

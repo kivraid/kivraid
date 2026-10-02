@@ -18,3 +18,6 @@ UPDATE instance_settings SET login_background = NULL, login_background_mime = NU
 
 -- name: SetMFAPolicy :exec
 UPDATE instance_settings SET mfa_policy = $1, updated_at = $2 WHERE id = 1;
+
+-- name: SetNewDeviceAlerts :exec
+UPDATE instance_settings SET new_device_alerts = $1, updated_at = $2 WHERE id = 1;

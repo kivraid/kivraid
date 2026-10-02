@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
+	"strconv"
 	"time"
 
 	"github.com/kivraid/kivraid/internal/audit"
@@ -44,11 +45,13 @@ var mfaSetupPaths = []string{
 	"/profile/passkeys/begin", "/profile/passkeys/finish",
 }
 
-func (s *Server) loadMFAPolicy(ctx context.Context) {
+// loadSecuritySettings refreshes the cached security settings (two-factor
+// policy, new-device alerts) from the database.
+func (s *Server) loadSecuritySettings(ctx context.Context) {
 	row, err := s.store.GetInstanceSettings(ctx)
 	if err != nil {
 		if s.log != nil {
-			s.log.Warn("load two-factor policy", "err", err)
+			s.log.Warn("load security settings", "err", err)
 		}
 		return
 	}
@@ -57,6 +60,7 @@ func (s *Server) loadMFAPolicy(ctx context.Context) {
 		policy = mfaPolicyOff
 	}
 	s.mfaPolicy.Store(policy)
+	s.newDeviceAlerts.Store(row.NewDeviceAlerts)
 }
 
 func (s *Server) currentMFAPolicy() string {
@@ -134,16 +138,19 @@ func (s *Server) markSecondFactor(ctx context.Context, method string) {
 // --- Settings → Security ---------------------------------------------------
 
 type adminSecurityData struct {
-	MFAPolicy string
-	Saved     bool
-	Error     string
+	MFAPolicy       string
+	NewDeviceAlerts bool
+	CanEmail        bool
+	Saved           bool
+	Error           string
 }
 
 func (s *Server) renderSecurity(w http.ResponseWriter, r *http.Request, errMsg string) {
 	s.render(w, r, "admin_security.html", pageData{
 		Title: "Security", Active: "security", CSRF: s.csrfToken(r.Context()), User: currentUser(r),
 		Data: adminSecurityData{
-			MFAPolicy: s.currentMFAPolicy(), Saved: r.URL.Query().Get("saved") == "1", Error: errMsg,
+			MFAPolicy: s.currentMFAPolicy(), NewDeviceAlerts: s.newDeviceAlerts.Load(),
+			CanEmail: s.smtpEnabled.Load(), Saved: r.URL.Query().Get("saved") == "1", Error: errMsg,
 		},
 	})
 }
@@ -159,13 +166,18 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 		s.renderSecurity(w, r, "Choose who must use two-factor authentication.")
 		return
 	}
-	if err := s.store.SetMFAPolicy(r.Context(), sqlcgen.SetMFAPolicyParams{
-		MfaPolicy: policy, UpdatedAt: time.Now().UTC(),
-	}); err != nil {
+	alerts := r.PostFormValue("new_device_alerts") == "on"
+	now := time.Now().UTC()
+	if err := s.store.SetMFAPolicy(r.Context(), sqlcgen.SetMFAPolicyParams{MfaPolicy: policy, UpdatedAt: now}); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	s.loadMFAPolicy(r.Context())
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSecurityUpdate, "", "mfa_policy="+policy, s.clientIP(r))
+	if err := s.store.SetNewDeviceAlerts(r.Context(), sqlcgen.SetNewDeviceAlertsParams{NewDeviceAlerts: alerts, UpdatedAt: now}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.loadSecuritySettings(r.Context())
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSecurityUpdate, "",
+		"mfa_policy="+policy+" new_device_alerts="+strconv.FormatBool(alerts), s.clientIP(r))
 	http.Redirect(w, r, "/admin/settings/security?saved=1", http.StatusSeeOther)
 }
