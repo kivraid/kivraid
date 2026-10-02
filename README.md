@@ -129,8 +129,8 @@ dark on the right.</sub>
   directory management with a connection test; user impersonation for
   support; an append-only audit trail you can filter and export to CSV; and
   a grouped Settings area — branding (name, logo, sign-in background),
-  email/SMTP, and read-only system diagnostics with manual OIDC signing-key
-  rotation.
+  email/SMTP, security (two-factor policy, sign-in alerts, automatic
+  signing-key rotation) and read-only system diagnostics.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP, login
   rate limiting, all secrets hashed or encrypted at rest.
 - **SQLite or PostgreSQL** — SQLite by default (zero external services);

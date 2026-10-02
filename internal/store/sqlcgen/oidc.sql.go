@@ -311,6 +311,19 @@ func (q *Queries) GetRefreshToken(ctx context.Context, id string) (RefreshToken,
 	return i, err
 }
 
+const retireSigningKeysExcept = `-- name: RetireSigningKeysExcept :execrows
+UPDATE signing_keys SET active = FALSE WHERE active = TRUE AND id != $1
+`
+
+// Unpublishes every active key but the signer.
+func (q *Queries) RetireSigningKeysExcept(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.ExecContext(ctx, retireSigningKeysExcept, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
 const setAuthRequestCode = `-- name: SetAuthRequestCode :exec
 UPDATE auth_requests SET code = $1 WHERE id = $2
 `

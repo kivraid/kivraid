@@ -18,6 +18,7 @@ import (
 	"os"
 	"os/signal"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -135,6 +136,32 @@ func serve(args []string) error {
 		return err
 	}
 
+	recorder := audit.NewRecorder(st, log)
+
+	// Signing-key upkeep: automatic rotation when enabled, and retirement
+	// of superseded keys once the grace period is over. Run at startup and
+	// with the periodic maintenance below.
+	maintainKeys := func() {
+		days := int32(0)
+		if settings, err := st.GetInstanceSettings(ctx); err == nil {
+			days = settings.KeyRotationDays
+		}
+		rotated, retired, err := oidcStorage.MaintainSigningKeys(ctx, time.Duration(days)*24*time.Hour, time.Now().UTC())
+		if err != nil {
+			log.Warn("signing key maintenance", "err", err)
+			return
+		}
+		if rotated {
+			log.Info("signing key rotated automatically", "every_days", days)
+			recorder.Record(ctx, "", audit.ActionKeyRotate, "", "automatic", "")
+		}
+		if retired > 0 {
+			log.Info("previous signing keys retired", "count", retired)
+			recorder.Record(ctx, "", audit.ActionKeyRetire, "", strconv.FormatInt(retired, 10)+" key(s)", "")
+		}
+	}
+	maintainKeys()
+
 	// Periodic garbage collection of expired tokens and auth requests.
 	go func() {
 		ticker := time.NewTicker(15 * time.Minute)
@@ -144,6 +171,7 @@ func serve(args []string) error {
 			case <-ctx.Done():
 				return
 			case <-ticker.C:
+				maintainKeys()
 				if err := oidcStorage.CleanupExpired(ctx); err != nil {
 					log.Warn("token cleanup", "err", err)
 				}
@@ -184,6 +212,7 @@ func serve(args []string) error {
 		Sessions:  sessions,
 		OIDC:      oidcProvider,
 		OIDCStore: oidcStorage,
+		Audit:     recorder,
 		LDAP:      ldapManager,
 		MFA:       mfaManager,
 		WebAuthn:  webauthnManager,

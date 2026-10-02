@@ -92,6 +92,10 @@ func (s *Storage) RotateSigningKey(ctx context.Context) error {
 	}
 	// Reload the full set; the just-created key is the newest and becomes
 	// the active signer (GetActiveSigningKeys orders by created_at DESC).
+	return s.reloadKeys(ctx, alg)
+}
+
+func (s *Storage) reloadKeys(ctx context.Context, alg jose.SignatureAlgorithm) error {
 	active, all, err := loadSigningKeys(ctx, s.store, s.signingSealKey, alg)
 	if err != nil {
 		return err
@@ -101,6 +105,44 @@ func (s *Storage) RotateSigningKey(ctx context.Context) error {
 	s.keys = publicKeys(all)
 	s.keyMu.Unlock()
 	return nil
+}
+
+// KeyRetirementGrace is how long previous keys stay published after the
+// current signer took over. Tokens signed with them (ID and access tokens
+// live at most one day) have long expired by then, and relying parties
+// have refreshed their cached JWKS.
+const KeyRetirementGrace = 7 * 24 * time.Hour
+
+// MaintainSigningKeys rotates the signer once it is older than rotateEvery
+// (0 disables automatic rotation) and unpublishes previous keys once the
+// signer has been in service for KeyRetirementGrace. It reports whether it
+// rotated and how many keys it retired. Run it periodically.
+func (s *Storage) MaintainSigningKeys(ctx context.Context, rotateEvery time.Duration, now time.Time) (rotated bool, retired int64, err error) {
+	s.keyMu.RLock()
+	current := s.key
+	s.keyMu.RUnlock()
+
+	if rotateEvery > 0 && now.Sub(current.created) >= rotateEvery {
+		if err := s.RotateSigningKey(ctx); err != nil {
+			return false, 0, err
+		}
+		return true, 0, nil
+	}
+	if now.Sub(current.created) < KeyRetirementGrace || s.PublishedKeyCount() <= 1 {
+		return false, 0, nil
+	}
+	retired, err = s.store.RetireSigningKeysExcept(ctx, current.id)
+	if err != nil || retired == 0 {
+		return false, retired, err
+	}
+	return false, retired, s.reloadKeys(ctx, current.alg)
+}
+
+// SigningKeyCreated reports when the current signing key was generated.
+func (s *Storage) SigningKeyCreated() time.Time {
+	s.keyMu.RLock()
+	defer s.keyMu.RUnlock()
+	return s.key.created
 }
 
 // SealClientSecret encrypts a client secret for storage.

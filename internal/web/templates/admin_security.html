@@ -37,6 +37,14 @@
       </label>
       {{if not .Data.CanEmail}}<p class="mt-2 text-xs text-warn">Email delivery is not configured: no alert will be sent until it is (Settings → Email).</p>{{end}}
     </div>
+    <div class="border-t border-line pt-5">
+      <h2 class="text-sm font-semibold">Token signing key</h2>
+      <p class="mt-1 text-sm text-muted">How often to replace the key that signs ID and access tokens. Previous keys stay published for 7 days, then are retired. You can also rotate now from Settings → System.</p>
+      <select name="key_rotation_days" class="select mt-3 w-auto" aria-label="Automatic key rotation">
+        {{range .Data.RotationChoices}}<option value="{{.}}" {{if eq . $.Data.RotationDays}}selected{{end}}>{{if eq . 0}}Manual only{{else}}Every {{.}} days{{end}}</option>{{end}}
+      </select>
+    </div>
+
     <div class="flex justify-end border-t border-line pt-5">
       <button type="submit" class="btn-primary">Save changes</button>
     </div>

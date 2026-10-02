@@ -25,6 +25,7 @@ type signingKey struct {
 	id      string
 	alg     jose.SignatureAlgorithm
 	private crypto.Signer
+	created time.Time
 }
 
 func (k *signingKey) ID() string                                  { return k.id }
@@ -104,17 +105,18 @@ func generateAndStoreKey(ctx context.Context, st *store.Store, sealKey [32]byte,
 		return nil, err
 	}
 	id := uuid.NewString()
+	now := time.Now().UTC()
 	if err := st.CreateSigningKey(ctx, sqlcgen.CreateSigningKeyParams{
 		ID:            id,
 		Alg:           string(alg),
 		PrivateKeyEnc: sealed,
 		PublicKeyDer:  pubDER,
 		Active:        true,
-		CreatedAt:     time.Now().UTC(),
+		CreatedAt:     now,
 	}); err != nil {
 		return nil, err
 	}
-	return &signingKey{id: id, alg: alg, private: private}, nil
+	return &signingKey{id: id, alg: alg, private: private, created: now}, nil
 }
 
 func decryptSigningKey(row sqlcgen.SigningKey, sealKey [32]byte) (*signingKey, error) {
@@ -130,5 +132,5 @@ func decryptSigningKey(row sqlcgen.SigningKey, sealKey [32]byte) (*signingKey, e
 	if !ok {
 		return nil, fmt.Errorf("signing key %s: unexpected key type %T", row.ID, parsed)
 	}
-	return &signingKey{id: row.ID, alg: jose.SignatureAlgorithm(row.Alg), private: signer}, nil
+	return &signingKey{id: row.ID, alg: jose.SignatureAlgorithm(row.Alg), private: signer, created: row.CreatedAt}, nil
 }

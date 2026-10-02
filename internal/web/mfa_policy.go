@@ -137,8 +137,14 @@ func (s *Server) markSecondFactor(ctx context.Context, method string) {
 
 // --- Settings → Security ---------------------------------------------------
 
+// keyRotationChoices are the automatic rotation periods offered, in days
+// (0 = manual only).
+var keyRotationChoices = []int32{0, 30, 90, 180}
+
 type adminSecurityData struct {
 	MFAPolicy       string
+	RotationDays    int32
+	RotationChoices []int32
 	NewDeviceAlerts bool
 	CanEmail        bool
 	Saved           bool
@@ -150,6 +156,7 @@ func (s *Server) renderSecurity(w http.ResponseWriter, r *http.Request, errMsg s
 		Title: "Security", Active: "security", CSRF: s.csrfToken(r.Context()), User: currentUser(r),
 		Data: adminSecurityData{
 			MFAPolicy: s.currentMFAPolicy(), NewDeviceAlerts: s.newDeviceAlerts.Load(),
+			RotationDays: s.keyRotationDays(r.Context()), RotationChoices: keyRotationChoices,
 			CanEmail: s.smtpEnabled.Load(), Saved: r.URL.Query().Get("saved") == "1", Error: errMsg,
 		},
 	})
@@ -167,6 +174,13 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	alerts := r.PostFormValue("new_device_alerts") == "on"
+	days64, _ := strconv.ParseInt(r.PostFormValue("key_rotation_days"), 10, 32)
+	days := int32(days64)
+	if !slices.Contains(keyRotationChoices, days) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.renderSecurity(w, r, "Choose a key rotation period.")
+		return
+	}
 	now := time.Now().UTC()
 	if err := s.store.SetMFAPolicy(r.Context(), sqlcgen.SetMFAPolicyParams{MfaPolicy: policy, UpdatedAt: now}); err != nil {
 		s.serverError(w, r, err)
@@ -176,8 +190,24 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 		s.serverError(w, r, err)
 		return
 	}
+	if err := s.store.SetKeyRotationDays(r.Context(), sqlcgen.SetKeyRotationDaysParams{KeyRotationDays: days, UpdatedAt: now}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	s.loadSecuritySettings(r.Context())
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSecurityUpdate, "",
-		"mfa_policy="+policy+" new_device_alerts="+strconv.FormatBool(alerts), s.clientIP(r))
+		"mfa_policy="+policy+" new_device_alerts="+strconv.FormatBool(alerts)+
+			" key_rotation_days="+strconv.Itoa(int(days)), s.clientIP(r))
 	http.Redirect(w, r, "/admin/settings/security?saved=1", http.StatusSeeOther)
+}
+
+// keyRotationDays reads the automatic signing-key rotation period (days,
+// 0 = manual). It is read where needed rather than cached: the key
+// maintenance loop in main reads it from the database too.
+func (s *Server) keyRotationDays(ctx context.Context) int32 {
+	settings, err := s.store.GetInstanceSettings(ctx)
+	if err != nil {
+		return 0
+	}
+	return settings.KeyRotationDays
 }

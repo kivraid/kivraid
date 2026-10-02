@@ -45,6 +45,7 @@ const (
 	ActionGroupUpdate    = "group.update"
 	ActionGroupDelete    = "group.delete"
 	ActionKeyRotate      = "oidc.key.rotate"
+	ActionKeyRetire      = "oidc.key.retire"
 	ActionBrandingUpdate = "branding.update"
 	ActionProviderCreate = "provider.create"
 	ActionProviderUpdate = "provider.update"
@@ -73,7 +74,7 @@ var Actions = []string{
 	ActionPasswordReset, ActionEmailVerify, ActionEmailVerifySnt,
 	ActionGroupCreate, ActionGroupUpdate, ActionGroupDelete,
 	ActionProviderCreate, ActionProviderUpdate, ActionProviderDelete, ActionRouteUpdate,
-	ActionKeyRotate, ActionBrandingUpdate, ActionSMTPUpdate, ActionSecurityUpdate,
+	ActionKeyRotate, ActionKeyRetire, ActionBrandingUpdate, ActionSMTPUpdate, ActionSecurityUpdate,
 }
 
 type Recorder struct {
@@ -114,7 +115,7 @@ var labels = map[string]string{
 	ActionImpersonateEnd: "Impersonation ended", ActionMFAEnable: "Two-factor enabled", ActionMFADisable: "Two-factor disabled",
 	ActionMFARecovery: "Recovery codes regenerated", ActionPasskeyAdd: "Passkey added", ActionPasskeyRemove: "Passkey removed",
 	ActionPasskeyLogin: "Signed in with a passkey", ActionGroupCreate: "Group created", ActionGroupUpdate: "Group updated",
-	ActionGroupDelete: "Group deleted", ActionKeyRotate: "Signing key rotated", ActionBrandingUpdate: "Branding updated",
+	ActionGroupDelete: "Group deleted", ActionKeyRotate: "Signing key rotated", ActionKeyRetire: "Old signing keys retired", ActionBrandingUpdate: "Branding updated",
 	ActionProviderCreate: "Provider added", ActionProviderUpdate: "Provider updated", ActionProviderDelete: "Provider deleted",
 	ActionRouteUpdate: "Routing updated", ActionPasswordReset: "Password reset link sent", ActionEmailVerify: "Email verified",
 	ActionEmailVerifySnt: "Verification email sent", ActionSMTPUpdate: "Email settings updated",

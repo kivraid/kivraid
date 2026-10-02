@@ -60,3 +60,7 @@ VALUES ($1, $2, $3, $4, $5, $6);
 
 -- name: GetActiveSigningKeys :many
 SELECT * FROM signing_keys WHERE active = TRUE ORDER BY created_at DESC;
+
+-- name: RetireSigningKeysExcept :execrows
+-- Unpublishes every active key but the signer.
+UPDATE signing_keys SET active = FALSE WHERE active = TRUE AND id != $1;

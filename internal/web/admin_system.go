@@ -27,6 +27,9 @@ type adminSystemData struct {
 	SigningAlg    string
 	PublishedKeys int
 	CanRotate     bool
+	KeyCreated    time.Time
+	RotationDays  int32 // automatic rotation period, 0 = manual
+	NextRotation  time.Time
 	KeyRotated    bool
 }
 
@@ -148,6 +151,11 @@ func (s *Server) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 		data.SigningAlg = s.oidcStore.ActiveSigningAlgorithm()
 		data.PublishedKeys = s.oidcStore.PublishedKeyCount()
 		data.CanRotate = true
+		data.KeyCreated = s.oidcStore.SigningKeyCreated()
+		if settings, err := s.store.GetInstanceSettings(r.Context()); err == nil && settings.KeyRotationDays > 0 {
+			data.RotationDays = settings.KeyRotationDays
+			data.NextRotation = data.KeyCreated.Add(time.Duration(settings.KeyRotationDays) * 24 * time.Hour)
+		}
 	}
 	s.render(w, r, "admin_system.html", pageData{
 		Title: "System", Active: "system", CSRF: s.csrfToken(r.Context()),

@@ -29,7 +29,7 @@ func (q *Queries) ClearLoginBackground(ctx context.Context, updatedAt time.Time)
 }
 
 const getInstanceSettings = `-- name: GetInstanceSettings :one
-SELECT id, brand_name, logo, logo_mime, updated_at, login_background, login_background_mime, mfa_policy, new_device_alerts FROM instance_settings WHERE id = 1
+SELECT id, brand_name, logo, logo_mime, updated_at, login_background, login_background_mime, mfa_policy, new_device_alerts, key_rotation_days FROM instance_settings WHERE id = 1
 `
 
 func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, error) {
@@ -45,6 +45,7 @@ func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, err
 		&i.LoginBackgroundMime,
 		&i.MfaPolicy,
 		&i.NewDeviceAlerts,
+		&i.KeyRotationDays,
 	)
 	return i, err
 }
@@ -75,6 +76,20 @@ type SetBrandNameParams struct {
 
 func (q *Queries) SetBrandName(ctx context.Context, arg SetBrandNameParams) error {
 	_, err := q.db.ExecContext(ctx, setBrandName, arg.BrandName, arg.UpdatedAt)
+	return err
+}
+
+const setKeyRotationDays = `-- name: SetKeyRotationDays :exec
+UPDATE instance_settings SET key_rotation_days = $1, updated_at = $2 WHERE id = 1
+`
+
+type SetKeyRotationDaysParams struct {
+	KeyRotationDays int32
+	UpdatedAt       time.Time
+}
+
+func (q *Queries) SetKeyRotationDays(ctx context.Context, arg SetKeyRotationDaysParams) error {
+	_, err := q.db.ExecContext(ctx, setKeyRotationDays, arg.KeyRotationDays, arg.UpdatedAt)
 	return err
 }
 

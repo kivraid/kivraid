@@ -35,7 +35,8 @@
         <button type="submit" class="btn-secondary">Rotate key</button>
       </form>
     </div>
-    <p class="mt-3 text-xs text-muted">Rotating replaces the key used to sign new tokens. Old keys remain published until you restart with them pruned; existing sessions are unaffected.</p>
+    <p class="mt-3 text-sm text-muted">Current key created {{since .Data.KeyCreated}}. {{if .Data.RotationDays}}Rotated automatically every {{.Data.RotationDays}} days — next around {{localTime .Data.NextRotation}}.{{else}}Automatic rotation is off (Settings → Security).{{end}}</p>
+    <p class="mt-2 text-xs text-muted">Rotating replaces the key used to sign new tokens. Previous keys stay published for 7 days, so tokens they signed keep verifying, then are retired automatically. Sessions are unaffected.</p>
   </div>
   {{end}}
 

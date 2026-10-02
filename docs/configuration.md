@@ -75,6 +75,14 @@ the algorithm (e.g. Immich, SonarQube — see
 [integrations](integrations/)): update its setting to match, or its next
 sign-in fails signature verification.
 
+### Key rotation
+
+The signing key can be rotated by hand (**Settings → System → Rotate key**)
+or automatically every 30, 90 or 180 days (**Settings → Security**). After
+a rotation — or an algorithm switch — the previous keys stay in the JWKS
+for 7 days, well beyond the one-day maximum lifetime of ID and access
+tokens, then are retired automatically.
+
 ## Connecting an application
 
 Create the application in **Admin → Applications** — the wizard issues the

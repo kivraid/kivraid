@@ -87,6 +87,7 @@ type InstanceSetting struct {
 	LoginBackgroundMime *string
 	MfaPolicy           string
 	NewDeviceAlerts     bool
+	KeyRotationDays     int32
 }
 
 type LdapSource struct {
