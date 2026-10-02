@@ -44,7 +44,7 @@
     <div>
       <label class="label" for="proxy_hosts">Protected hosts</label>
       <textarea class="textarea font-mono" id="proxy_hosts" name="proxy_hosts" rows="3" required>{{.Data.Form.ProxyHosts}}</textarea>
-      <p class="mt-1.5 text-xs text-muted">One host per line. Point your reverse proxy's auth request at <code class="code-box inline-block">{{.Data.OutURL}}</code> — requests for these hosts are matched to this application to enforce the access policy below.</p>
+      <p class="mt-1.5 text-xs text-muted">One host per line. Point your reverse proxy's auth request at <code class="code-inline">{{.Data.OutURL}}</code> — requests for these hosts are matched to this application to enforce the access policy below.</p>
     </div>
 
     {{template "accesspolicy" .}}

@@ -10,7 +10,7 @@
       <div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center">
         <dt class="w-56 shrink-0 text-[13px] font-medium text-muted">{{.Label}}</dt>
         <dd class="min-w-0 flex-1 text-sm">
-          {{if .Mono}}<code class="code-box inline-block break-all">{{.Value}}</code>{{else}}{{.Value}}{{end}}
+          {{if .Mono}}<code class="code-inline">{{.Value}}</code>{{else}}{{.Value}}{{end}}
         </dd>
       </div>
       {{end}}
@@ -24,7 +24,7 @@
       <div class="min-w-0">
         <h2 class="text-sm font-semibold">Signing keys</h2>
         <p class="mt-1 text-sm text-muted">
-          Active algorithm <code class="code-box inline-block">{{.Data.SigningAlg}}</code> ·
+          Active algorithm <code class="code-inline">{{.Data.SigningAlg}}</code> ·
           {{.Data.PublishedKeys}} key{{if ne .Data.PublishedKeys 1}}s{{end}} published in the JWKS.
         </p>
       </div>
@@ -47,7 +47,7 @@
       <div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center">
         <dt class="w-56 shrink-0 text-[13px] font-medium text-muted">{{.Label}}</dt>
         <dd class="min-w-0 flex-1 text-sm">
-          {{if .Mono}}<code class="code-box inline-block break-all">{{.Value}}</code>{{else}}{{.Value}}{{end}}
+          {{if .Mono}}<code class="code-inline">{{.Value}}</code>{{else}}{{.Value}}{{end}}
         </dd>
       </div>
       {{end}}

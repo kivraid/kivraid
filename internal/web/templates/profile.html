@@ -66,10 +66,10 @@
 <div class="card mt-4 space-y-4 p-6">
   <h2 class="text-sm font-semibold">Photo</h2>
   <div class="flex items-center gap-4">
-    <form method="post" action="/profile/photo" enctype="multipart/form-data" class="flex flex-1 items-center gap-3">
+    <form method="post" action="/profile/photo" enctype="multipart/form-data" class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required
-             class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
+             class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
       <button type="submit" class="btn-secondary shrink-0">Upload</button>
     </form>
     {{if .User.PhotoMime}}

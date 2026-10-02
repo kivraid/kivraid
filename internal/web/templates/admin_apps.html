@@ -1,13 +1,13 @@
 {{define "content"}}
 {{if .Data.Deleted}}<div data-flash="Application deleted." data-variant="success" hidden></div>{{end}}
-<div class="mb-8 flex items-end justify-between gap-4">
+<div class="page-head mb-8">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Applications</h1>
     <p class="mt-1 text-sm text-muted">Applications that authenticate through Kivraid via OpenID Connect.</p>
   </div>
-  <div class="flex shrink-0 items-center gap-3">
+  <div class="page-actions">
     {{if .Data.Apps}}
-    <input class="input w-56" type="search" placeholder="Filter applications…"
+    <input class="input min-w-0 flex-1 sm:w-56 sm:flex-none" type="search" placeholder="Filter applications…"
            data-list-filter="#apps-list" data-list-empty="#apps-empty" aria-label="Filter applications">
     {{end}}
     <a href="/admin/applications/new" class="btn-primary shrink-0">New application</a>

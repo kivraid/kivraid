@@ -21,13 +21,13 @@
   </div>
   {{end}}
   <header class="sticky top-0 z-10 border-b border-line bg-bg/85 backdrop-blur">
-    <div class="mx-auto flex h-14 w-full max-w-3xl items-center justify-between gap-4 px-6">
+    <div class="mx-auto flex h-14 w-full max-w-3xl items-center justify-between gap-4 px-4 sm:px-6">
       <div class="flex min-w-0 items-center gap-5">
         <a href="/" class="flex shrink-0 items-center gap-2.5 text-[15px] font-semibold tracking-tight">
           {{if brandHasLogo}}<img src="{{brandLogoURL}}" alt="" class="size-6 shrink-0 rounded-md object-contain">{{else}}{{template "logo" 24}}{{end}}
           <span class="hidden sm:inline">{{brandName}}</span>
         </a>
-        <nav class="flex items-center gap-1">
+        <nav class="hidden items-center gap-1 sm:flex">
           <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}" {{if eq .Active "home"}}aria-current="page"{{end}}>Home</a>
           <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}" {{if eq .Active "profile"}}aria-current="page"{{end}}>Profile</a>
           <a href="/sessions" class="nav-link {{if eq .Active "sessions"}}nav-active{{end}}" {{if eq .Active "sessions"}}aria-current="page"{{end}}>Sessions</a>
@@ -72,6 +72,12 @@
               <div class="truncate text-xs text-muted">{{.User.Email}}</div>
             </div>
             <div class="menu-divider"></div>
+            <div class="sm:hidden">
+              <a href="/" class="menu-item {{if eq .Active "home"}}bg-raised{{end}}">Home</a>
+              <a href="/profile" class="menu-item {{if eq .Active "profile"}}bg-raised{{end}}">Profile</a>
+              <a href="/sessions" class="menu-item {{if eq .Active "sessions"}}bg-raised{{end}}">Sessions</a>
+              <div class="menu-divider"></div>
+            </div>
             <div class="px-2 py-1.5">
               <div class="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-faint">Theme</div>
               <div class="theme-seg" role="radiogroup" aria-label="Theme">
@@ -102,7 +108,7 @@
       </div>
     </div>
   </header>
-  <main class="mx-auto w-full max-w-3xl px-6 py-8">
+  <main class="mx-auto w-full max-w-3xl px-4 py-8 sm:px-6">
     {{block "content" .}}{{end}}
   </main>
 </body>
@@ -117,10 +123,10 @@
     {{else}}
     <span class="avatar-lg rounded-xl">{{initials .Data.App.Name}}</span>
     {{end}}
-    <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon" enctype="multipart/form-data" class="flex flex-1 items-center gap-3">
+    <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon" enctype="multipart/form-data" class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" required
-             class="flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
+             class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
       <button type="submit" class="btn-secondary shrink-0">Upload</button>
     </form>
     {{if .Data.App.IconMime}}

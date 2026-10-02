@@ -1,7 +1,7 @@
 {{define "content"}}
 {{if .Data.Deleted}}<div data-flash="Provider deleted." data-variant="success" hidden></div>{{end}}
 {{template "federationtabs" .}}
-<div class="mb-6 flex items-end justify-between gap-4">
+<div class="page-head mb-6">
   <p class="text-sm text-muted">Upstream OpenID Connect providers users can sign in through. Kivraid federates their accounts.</p>
   <a href="/admin/providers/new" class="btn-primary shrink-0">New provider</a>
 </div>

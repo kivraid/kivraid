@@ -348,6 +348,18 @@
   .badge-accent {
     @apply inline-flex items-center rounded-md border border-transparent bg-accent-soft px-2 py-0.5 text-xs font-medium text-accent;
   }
+  /* Page header: title + description, with actions beside it on wide
+   * screens and stacked below it on phones. */
+  .page-head {
+    @apply flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between;
+  }
+  .page-head > :first-child {
+    @apply min-w-0;
+  }
+  .page-actions {
+    @apply flex items-center gap-3 sm:shrink-0;
+  }
+
   .alert-danger {
     @apply rounded-lg border border-danger/25 bg-danger-soft px-3.5 py-2.5 text-sm text-danger;
   }
@@ -365,6 +377,11 @@
 
   .code-box {
     @apply block truncate rounded-lg border border-line bg-raised px-3 py-2 font-mono text-[13px];
+  }
+  /* Inline code value that wraps instead of overflowing (long paths, URLs). */
+  .code-inline {
+    @apply inline max-w-full rounded-md border border-line bg-raised px-1.5 py-0.5 font-mono text-[13px] break-all;
+    box-decoration-break: clone;
   }
 
   /* Back link above detail pages. */

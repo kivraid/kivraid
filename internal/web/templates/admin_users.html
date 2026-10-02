@@ -1,13 +1,13 @@
 {{define "content"}}
 {{if .Data.Deleted}}<div data-flash="User deleted." data-variant="success" hidden></div>{{end}}
-<div class="mb-8 flex items-end justify-between gap-4">
+<div class="page-head mb-8">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Users</h1>
     <p class="mt-1 text-sm text-muted">Local accounts are fully managed here; directory users mirror their LDAP source.</p>
   </div>
-  <div class="flex shrink-0 items-center gap-3">
-    <form method="get" action="/admin/users">
-      <input class="input w-56" type="search" name="q" value="{{.Data.Query}}"
+  <div class="page-actions">
+    <form method="get" action="/admin/users" class="min-w-0 flex-1 sm:flex-none">
+      <input class="input w-full sm:w-56" type="search" name="q" value="{{.Data.Query}}"
              placeholder="Search users…" aria-label="Search users">
     </form>
     <a href="/admin/users/new" class="btn-primary shrink-0">New user</a>
