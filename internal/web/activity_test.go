@@ -68,3 +68,20 @@ func TestActivityFiltersAndLabels(t *testing.T) {
 		t.Error("dashboard should include the sign-in chart")
 	}
 }
+
+// Pagination links must keep the active filters as separate parameters.
+func TestPaginationKeepsFilters(t *testing.T) {
+	ts, st, c, _ := adminClient(t)
+	ctx := context.Background()
+	for i := 0; i < auditPageSize+5; i++ {
+		if err := st.InsertAudit(ctx, sqlcgen.InsertAuditParams{
+			Ts: time.Now().UTC(), Actor: "mallory", Action: audit.ActionLoginFailed, Ip: "203.0.113.9",
+		}); err != nil {
+			t.Fatal(err)
+		}
+	}
+	_, body := getPage(t, c, ts.URL+"/admin/audit?ip=203.0.113.9&action=login.failed")
+	if !strings.Contains(body, `href="?action=login.failed&amp;ip=203.0.113.9&page=2"`) {
+		t.Error("next-page link should carry the filters as query parameters")
+	}
+}

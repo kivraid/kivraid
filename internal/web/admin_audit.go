@@ -2,6 +2,7 @@ package web
 
 import (
 	"encoding/csv"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -18,8 +19,8 @@ type adminAuditData struct {
 	Entries    []sqlcgen.AuditLog
 	Actions    []string // known actions, for the filter dropdown
 	Filter     auditFilterValues
-	Filtered   bool   // a filter is applied
-	FilterQS   string // encoded filters, for pagination and export links
+	Filtered   bool         // a filter is applied
+	FilterQS   template.URL // encoded filters, for pagination and export links (already escaped)
 	Ranges     []auditRange
 	Page       int
 	Pages      int
@@ -113,7 +114,7 @@ func (s *Server) handleAdminAudit(w http.ResponseWriter, r *http.Request) {
 
 	data := adminAuditData{
 		Entries: entries, Actions: audit.Actions, Filter: f, Ranges: auditRanges,
-		Filtered: f != (auditFilterValues{}), FilterQS: f.encode(),
+		Filtered: f != (auditFilterValues{}), FilterQS: template.URL(f.encode()),
 		Page: page, Pages: pages, Total: total,
 		RangeStart: int64(page-1)*auditPageSize + 1,
 		RangeEnd:   int64(page-1)*auditPageSize + int64(len(entries)),

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"errors"
+	"html/template"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -26,7 +27,7 @@ type adminUsersData struct {
 	Status     string
 	AdminsOnly bool
 	Filtered   bool
-	FilterQS   string          // encoded filters for pagination links
+	FilterQS   template.URL    // encoded filters for pagination links (already escaped)
 	AdminVia   map[string]bool // user IDs that are admins via a granting group
 	Deleted    bool
 	Query      string
@@ -216,7 +217,7 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	data := adminUsersData{
 		Users: users, SourceNames: names, UpstreamNames: upstreamNames, AdminVia: adminVia,
 		Source: source, Status: status, AdminsOnly: adminsOnly,
-		Filtered: source != "" || status != "" || adminsOnly, FilterQS: filters.Encode(),
+		Filtered: source != "" || status != "" || adminsOnly, FilterQS: template.URL(filters.Encode()),
 		Deleted: r.URL.Query().Get("deleted") == "1",
 		Query:   query, Page: page, Pages: pages, Total: total,
 		RangeStart: int64(page-1)*usersPageSize + 1,
