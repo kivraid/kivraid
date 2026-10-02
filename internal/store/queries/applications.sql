@@ -20,7 +20,7 @@ SELECT * FROM providers WHERE application_id = $1;
 SELECT * FROM providers WHERE client_id = $1;
 
 -- name: ListApplicationsAdmin :many
-SELECT sqlc.embed(a), p.client_id, p.public
+SELECT sqlc.embed(a), p.client_id, p.public, p.redirect_uris
 FROM applications a
 LEFT JOIN providers p ON p.application_id = a.id
 ORDER BY a.name;

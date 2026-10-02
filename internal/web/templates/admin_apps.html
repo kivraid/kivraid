@@ -3,7 +3,7 @@
 <div class="page-head mb-8">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Applications</h1>
-    <p class="mt-1 text-sm text-muted">Applications that authenticate through Kivraid via OpenID Connect.</p>
+    <p class="mt-1 text-sm text-muted">Applications that sign in through Kivraid, with OpenID Connect or forward auth.</p>
   </div>
   <div class="page-actions">
     {{if .Data.Apps}}
@@ -17,20 +17,27 @@
 {{if .Data.Apps}}
 <div id="apps-list" class="card divide-y divide-line">
   {{range .Data.Apps}}
-  <a href="/admin/applications/{{.Application.ID}}" data-list-item class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
-    {{if .Application.IconMime}}
-    <img class="size-8 shrink-0 rounded-lg object-cover" src="/appicon/{{.Application.ID}}" alt="">
+  <a href="/admin/applications/{{.App.ID}}" data-list-item class="group flex items-center gap-4 p-4 transition-colors first:rounded-t-xl last:rounded-b-xl hover:bg-raised">
+    {{if .App.IconMime}}
+    <img class="size-8 shrink-0 rounded-lg object-cover" src="/appicon/{{.App.ID}}" alt="">
     {{else}}
-    <span class="avatar rounded-lg">{{initials .Application.Name}}</span>
+    <span class="avatar rounded-lg">{{initials .App.Name}}</span>
     {{end}}
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
-        <span class="truncate text-sm font-medium">{{.Application.Name}}</span>
-        {{if eq .Application.Kind "proxy"}}<span class="badge">Forward auth</span>{{end}}
+        <span class="truncate text-sm font-medium">{{.App.Name}}</span>
+        {{if eq .App.Kind "proxy"}}<span class="badge">Forward auth</span>{{else if .Public}}<span class="badge">Public · PKCE</span>{{end}}
       </div>
-      <div class="mt-0.5 truncate font-mono text-xs text-faint">
-        {{if eq .Application.Kind "proxy"}}forward auth{{else}}{{with .ClientID}}{{.}}{{end}}{{end}}
+      <div class="mt-0.5 truncate text-xs text-faint">
+        {{if .Host}}{{.Host}}{{else}}{{.App.Slug}}{{end}}{{with .App.Description}} · {{.}}{{end}}
       </div>
+    </div>
+    <div class="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex">
+      {{if .Restricted}}
+        {{range .Groups}}<span class="chip">{{.}}</span>{{else}}<span class="badge border-warn/30 bg-warn-soft text-warn">Locked: no group</span>{{end}}
+      {{else}}
+        <span class="text-xs text-faint">Everyone</span>
+      {{end}}
     </div>
     <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
   </a>

@@ -49,6 +49,10 @@ type resetData struct {
 	Token   string
 	Error   string
 	Invalid bool
+	// Forced marks the "change your password before continuing" variant
+	// shown after signing in with an administrator-chosen password.
+	Forced bool
+	Next   string
 }
 
 func (s *Server) handleForgotPage(w http.ResponseWriter, r *http.Request) {
@@ -160,4 +164,48 @@ func (s *Server) handleResetSubmit(w http.ResponseWriter, r *http.Request) {
 	s.audit.Record(r.Context(), user.Username, audit.ActionPasswordChange, "", "reset via email", s.clientIP(r))
 	s.log.Info("password reset via email", "user", user.Username)
 	http.Redirect(w, r, "/login?reset=1", http.StatusSeeOther)
+}
+
+// handlePasswordChangeRequired asks a signed-in user whose password was set
+// by an administrator to choose their own before going anywhere else.
+func (s *Server) handlePasswordChangeRequired(w http.ResponseWriter, r *http.Request) {
+	user := currentUser(r)
+	next := s.safeNext(r.FormValue("next"), "/")
+	if !user.MustChangePassword {
+		http.Redirect(w, r, next, http.StatusSeeOther)
+		return
+	}
+	render := func(status int, msg string) {
+		w.WriteHeader(status)
+		s.render(w, r, "reset.html", resetData{CSRF: s.csrfToken(r.Context()), Forced: true, Next: next, Error: msg})
+	}
+	if r.Method != http.MethodPost {
+		render(http.StatusOK, "")
+		return
+	}
+	password := r.PostFormValue("password")
+	if len(password) < 8 {
+		render(http.StatusUnprocessableEntity, "The new password must be at least 8 characters.")
+		return
+	}
+	if password != r.PostFormValue("confirm_password") {
+		render(http.StatusUnprocessableEntity, "The passwords do not match.")
+		return
+	}
+	if _, err := s.local.Authenticate(r.Context(), user.Username, password); err == nil {
+		render(http.StatusUnprocessableEntity, "Choose a password different from the one you were given.")
+		return
+	}
+	if err := s.resetPassword(r.Context(), user, password); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	if err := s.store.SetUserMustChangePassword(r.Context(), sqlcgen.SetUserMustChangePasswordParams{
+		MustChangePassword: false, ID: user.ID,
+	}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.audit.Record(r.Context(), user.Username, audit.ActionPasswordChange, "", "required at sign-in", s.clientIP(r))
+	http.Redirect(w, r, next, http.StatusSeeOther)
 }

@@ -13,7 +13,10 @@ SELECT * FROM users WHERE username = $1;
 SELECT * FROM users WHERE email = $1;
 
 -- name: UpdateUserPassword :exec
-UPDATE users SET password_hash = $1, updated_at = $2 WHERE id = $3;
+UPDATE users SET password_hash = $1, must_change_password = FALSE, updated_at = $2 WHERE id = $3;
+
+-- name: SetUserMustChangePassword :exec
+UPDATE users SET must_change_password = $1 WHERE id = $2;
 
 -- name: SetUserLastLogin :exec
 UPDATE users SET last_login_at = $1 WHERE id = $2;

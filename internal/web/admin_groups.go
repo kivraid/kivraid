@@ -23,6 +23,7 @@ type adminGroupsData struct {
 type adminGroupDetailData struct {
 	Group      sqlcgen.Group
 	IsLDAP     bool
+	Editable   bool // local group: name and members are managed here
 	SourceName string
 	Members    []sqlcgen.User
 	NonMembers []sqlcgen.User
@@ -31,6 +32,7 @@ type adminGroupDetailData struct {
 	Apps       []sqlcgen.ListApplicationsByPolicyGroupRow
 	LockedApps string
 	Error      string
+	Saved      bool
 }
 
 func (s *Server) renderGroups(w http.ResponseWriter, r *http.Request, errMsg string) {
@@ -139,8 +141,8 @@ func (s *Server) renderGroupDetail(w http.ResponseWriter, r *http.Request, group
 		Title: group.Name, Active: "groups", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
 		Data: adminGroupDetailData{
-			Group: group, IsLDAP: group.Source == "ldap", SourceName: sourceName,
-			Members: members, NonMembers: nonMembers, Apps: apps,
+			Group: group, IsLDAP: group.Source == "ldap", Editable: group.Source == "local", SourceName: sourceName,
+			Members: members, NonMembers: nonMembers, Apps: apps, Saved: r.URL.Query().Get("saved") == "1",
 			LockedApps: strings.Join(locked, ", "), Error: errMsg,
 		},
 	})
@@ -154,33 +156,51 @@ func (s *Server) handleAdminGroupDetail(w http.ResponseWriter, r *http.Request) 
 	s.renderGroupDetail(w, r, group, "")
 }
 
-func (s *Server) handleAdminGroupRename(w http.ResponseWriter, r *http.Request) {
+// handleAdminGroupUpdate saves the group settings: its name (local groups
+// only — directory and federated names mirror their source) and whether it
+// grants the administrator role, which is Kivraid-side metadata allowed on
+// every group.
+func (s *Server) handleAdminGroupUpdate(w http.ResponseWriter, r *http.Request) {
 	group, ok := s.loadGroup(w, r)
 	if !ok {
 		return
 	}
-	if group.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed group",
-			"This group is synced from a directory and is managed there.")
-		return
-	}
-	name := strings.TrimSpace(r.PostFormValue("name"))
-	if name == "" {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderGroupDetail(w, r, group, "Group name is required.")
-		return
-	}
-	if err := s.store.RenameGroup(r.Context(), sqlcgen.RenameGroupParams{Name: name, ID: group.ID}); err != nil {
-		if isUniqueViolation(err) {
+	actor := currentUser(r).Username
+	if group.Source == "local" {
+		name := strings.TrimSpace(r.PostFormValue("name"))
+		if name == "" {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			s.renderGroupDetail(w, r, group, "A group with this name already exists.")
+			s.renderGroupDetail(w, r, group, "Group name is required.")
 			return
 		}
-		s.serverError(w, r, err)
-		return
+		if name != group.Name {
+			if err := s.store.RenameGroup(r.Context(), sqlcgen.RenameGroupParams{Name: name, ID: group.ID}); err != nil {
+				if isUniqueViolation(err) {
+					w.WriteHeader(http.StatusUnprocessableEntity)
+					s.renderGroupDetail(w, r, group, "A group with this name already exists.")
+					return
+				}
+				s.serverError(w, r, err)
+				return
+			}
+			s.audit.Record(r.Context(), actor, audit.ActionGroupUpdate, name, "renamed from "+group.Name, s.clientIP(r))
+			group.Name = name
+		}
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, name, "renamed from "+group.Name, s.clientIP(r))
-	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
+	if grants := r.PostFormValue("grants_admin") == "on"; grants != group.GrantsAdmin {
+		if err := s.store.UpdateGroupGrantsAdmin(r.Context(), sqlcgen.UpdateGroupGrantsAdminParams{
+			GrantsAdmin: grants, ID: group.ID,
+		}); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		detail := "no longer grants the administrator role"
+		if grants {
+			detail = "now grants the administrator role"
+		}
+		s.audit.Record(r.Context(), actor, audit.ActionGroupUpdate, group.Name, detail, s.clientIP(r))
+	}
+	http.Redirect(w, r, "/admin/groups/"+group.ID+"?saved=1", http.StatusSeeOther)
 }
 
 func (s *Server) handleAdminGroupAddMember(w http.ResponseWriter, r *http.Request) {
@@ -193,17 +213,22 @@ func (s *Server) handleAdminGroupAddMember(w http.ResponseWriter, r *http.Reques
 			"Members of a directory group are managed in the directory.")
 		return
 	}
-	userID := r.PostFormValue("user_id")
-	if _, err := s.store.GetUserByID(r.Context(), userID); err != nil {
-		s.renderError(w, r, http.StatusBadRequest, "Unknown user",
-			"That user does not exist (it may have just been deleted).")
+	// The member field is a type-ahead on usernames; user_id is accepted too.
+	user, err := s.store.GetUserByID(r.Context(), r.PostFormValue("user_id"))
+	if username := strings.ToLower(strings.TrimSpace(r.PostFormValue("username"))); username != "" {
+		user, err = s.store.GetUserByUsername(r.Context(), username)
+	}
+	if err != nil {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.renderGroupDetail(w, r, group, "No user with that username. Pick one from the suggestions.")
 		return
 	}
+	userID := user.ID
 	if err := s.store.AddUserGroup(r.Context(), sqlcgen.AddUserGroupParams{UserID: userID, GroupID: group.ID}); err != nil && !isUniqueViolation(err) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member added", s.clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member added: "+user.Username, s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 
@@ -224,29 +249,6 @@ func (s *Server) handleAdminGroupRemoveMember(w http.ResponseWriter, r *http.Req
 		return
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, "member removed", s.clientIP(r))
-	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
-}
-
-// handleAdminGroupRole toggles whether the group grants the administrator
-// role to its members. Allowed on directory groups too: the flag is
-// Kivraid-side metadata, like the per-user flags.
-func (s *Server) handleAdminGroupRole(w http.ResponseWriter, r *http.Request) {
-	group, ok := s.loadGroup(w, r)
-	if !ok {
-		return
-	}
-	grants := r.PostFormValue("grants_admin") == "on"
-	if err := s.store.UpdateGroupGrantsAdmin(r.Context(), sqlcgen.UpdateGroupGrantsAdminParams{
-		GrantsAdmin: grants, ID: group.ID,
-	}); err != nil {
-		s.serverError(w, r, err)
-		return
-	}
-	detail := "no longer grants the administrator role"
-	if grants {
-		detail = "now grants the administrator role"
-	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, detail, s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups/"+group.ID, http.StatusSeeOther)
 }
 

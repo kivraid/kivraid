@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"slices"
-	"strconv"
 	"strings"
 	"time"
 
@@ -46,19 +45,71 @@ type appForm struct {
 	PostLogoutURIs string
 	ProxyHosts     string
 	Public         bool
-	AccessTTL      int64
-	RefreshTTL     int64
-	IDTTL          int64
+	// Token lifetimes as typed ("5m", "30d", or seconds), re-displayed
+	// verbatim after a validation error; see lifetimes.
+	AccessTTL  string
+	RefreshTTL string
+	IDTTL      string
+	// Preset is the integration template picked on creation.
+	Preset string
+}
+
+// lifetimes parses and bounds the three token lifetimes, in seconds.
+func (f *appForm) lifetimes() (access, refresh, id int64, err error) {
+	vals := []*int64{&access, &refresh, &id}
+	for i, field := range []struct{ label, raw string }{
+		{"Access token", f.AccessTTL}, {"Refresh token", f.RefreshTTL}, {"ID token", f.IDTTL},
+	} {
+		n, perr := parseDurationSeconds(field.raw)
+		if perr != nil {
+			return 0, 0, 0, fmt.Errorf("%s lifetime %s.", field.label, perr)
+		}
+		if max := tokenLifetimeLimits[field.label]; n > max {
+			return 0, 0, 0, fmt.Errorf("%s lifetime can be at most %s.", field.label, humanDuration(max))
+		}
+		*vals[i] = n
+	}
+	return access, refresh, id, nil
 }
 
 type adminAppsData struct {
-	Apps    []sqlcgen.ListApplicationsAdminRow
+	Apps    []appListItem
 	Deleted bool
 }
 
+// appListItem is one row of the applications list: where the app lives and
+// who may use it, rather than its opaque client ID.
+type appListItem struct {
+	App        sqlcgen.Application
+	Host       string
+	Public     bool
+	Restricted bool
+	Groups     []string
+}
+
+// appHost picks the most telling host for an application: its launch URL,
+// else its first protected host or redirect URI.
+func appHost(app sqlcgen.Application, redirectURIs *string) string {
+	if u, err := url.Parse(app.LaunchUrl); err == nil && u.Host != "" {
+		return u.Host
+	}
+	if hosts := decodeList(app.ProxyHosts); len(hosts) > 0 {
+		return hosts[0]
+	}
+	if redirectURIs != nil {
+		for _, raw := range decodeList(*redirectURIs) {
+			if u, err := url.Parse(raw); err == nil && u.Host != "" {
+				return u.Host
+			}
+		}
+	}
+	return ""
+}
+
 type adminAppFormData struct {
-	Form  appForm
-	Error string
+	Form    appForm
+	Error   string
+	Presets []integrationPreset
 }
 
 type adminAppSecretData struct {
@@ -67,6 +118,8 @@ type adminAppSecretData struct {
 	ClientSecret string
 	Issuer       string
 	Rotated      bool
+	Snippets     []setupSnippet
+	Preset       string
 }
 
 type adminAppDetailData struct {
@@ -79,13 +132,32 @@ type adminAppDetailData struct {
 	Groups       []sqlcgen.Group
 	Bound        map[string]bool
 	ClientSecret string // decrypted; empty for legacy hashed-only rows
+	Snippets     []setupSnippet
+	Preset       string
 }
 
 func (s *Server) handleAdminApps(w http.ResponseWriter, r *http.Request) {
-	apps, err := s.store.ListApplicationsAdmin(r.Context())
+	rows, err := s.store.ListApplicationsAdmin(r.Context())
 	if err != nil {
 		s.serverError(w, r, err)
 		return
+	}
+	policies, err := s.store.ListAppPolicyGroupNames(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	groupsByApp := map[string][]string{}
+	for _, p := range policies {
+		groupsByApp[p.ApplicationID] = append(groupsByApp[p.ApplicationID], p.Name)
+	}
+	apps := make([]appListItem, len(rows))
+	for i, row := range rows {
+		apps[i] = appListItem{
+			App: row.Application, Host: appHost(row.Application, row.RedirectUris),
+			Public: row.Public.Bool, Restricted: row.Application.Restricted,
+			Groups: groupsByApp[row.Application.ID],
+		}
 	}
 	s.render(w, r, "admin_apps.html", pageData{
 		Title: "Applications", Active: "apps", CSRF: s.csrfToken(r.Context()),
@@ -96,7 +168,7 @@ func (s *Server) handleAdminApps(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminAppNew(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "admin_app_new.html", pageData{
 		Title: "New application", Active: "apps", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminAppFormData{},
+		User: currentUser(r), Data: adminAppFormData{Presets: integrationPresets},
 	})
 }
 
@@ -111,9 +183,10 @@ func parseAppForm(r *http.Request) appForm {
 		PostLogoutURIs: r.PostFormValue("post_logout_uris"),
 		ProxyHosts:     r.PostFormValue("proxy_hosts"),
 		Public:         r.PostFormValue("client_type") == "public",
-		AccessTTL:      parseTTL(r.PostFormValue("access_ttl"), 300),
-		RefreshTTL:     parseTTL(r.PostFormValue("refresh_ttl"), 30*24*3600),
-		IDTTL:          parseTTL(r.PostFormValue("id_ttl"), 3600),
+		AccessTTL:      ttlField(r.PostFormValue("access_ttl"), 300),
+		RefreshTTL:     ttlField(r.PostFormValue("refresh_ttl"), 30*24*3600),
+		IDTTL:          ttlField(r.PostFormValue("id_ttl"), 3600),
+		Preset:         r.PostFormValue("preset"),
 	}
 	if f.Kind != "proxy" {
 		f.Kind = "oidc"
@@ -121,13 +194,13 @@ func parseAppForm(r *http.Request) appForm {
 	return f
 }
 
-// parseTTL reads a positive seconds value, falling back to def.
-func parseTTL(raw string, def int64) int64 {
-	n, err := strconv.ParseInt(strings.TrimSpace(raw), 10, 64)
-	if err != nil || n <= 0 {
-		return def
+// ttlField returns the submitted lifetime, or def when the field was not
+// part of the form (creation uses the defaults).
+func ttlField(raw string, def int64) string {
+	if strings.TrimSpace(raw) == "" {
+		return formatDurationSeconds(def)
 	}
-	return n
+	return raw
 }
 
 // parseHostList reads one host[:port] per line.
@@ -232,7 +305,7 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		s.render(w, r, "admin_app_new.html", pageData{
 			Title: "New application", Active: "apps", CSRF: s.csrfToken(r.Context()),
-			User: currentUser(r), Data: adminAppFormData{Form: form, Error: msg},
+			User: currentUser(r), Data: adminAppFormData{Form: form, Error: msg, Presets: integrationPresets},
 		})
 	}
 
@@ -315,7 +388,13 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 	s.render(w, r, "admin_app_secret.html", pageData{
 		Title: "Application created", Active: "apps", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
-		Data: adminAppSecretData{App: app, ClientID: clientID, ClientSecret: secret, Issuer: s.issuer()},
+		Data: adminAppSecretData{
+			App: app, ClientID: clientID, ClientSecret: secret, Issuer: s.issuer(),
+			Snippets: renderSetupSnippets(setupValues{
+				Issuer: s.issuer(), ClientID: clientID, ClientSecret: secret, Public: form.Public,
+			}),
+			Preset: findPreset(form.Preset).ID,
+		},
 	})
 }
 
@@ -356,9 +435,9 @@ func (s *Server) renderAppDetail(w http.ResponseWriter, r *http.Request, app sql
 		RedirectURIs:   strings.Join(decodeList(provider.RedirectUris), "\n"),
 		PostLogoutURIs: strings.Join(decodeList(provider.PostLogoutRedirectUris), "\n"),
 		Public:         provider.Public,
-		AccessTTL:      provider.AccessTokenTtlSeconds,
-		RefreshTTL:     provider.RefreshTokenTtlSeconds,
-		IDTTL:          provider.IDTokenTtlSeconds,
+		AccessTTL:      formatDurationSeconds(provider.AccessTokenTtlSeconds),
+		RefreshTTL:     formatDurationSeconds(provider.RefreshTokenTtlSeconds),
+		IDTTL:          formatDurationSeconds(provider.IDTokenTtlSeconds),
 	}
 	groups, err := s.store.ListGroups(r.Context())
 	if err != nil {
@@ -374,13 +453,18 @@ func (s *Server) renderAppDetail(w http.ResponseWriter, r *http.Request, app sql
 	for _, id := range boundIDs {
 		bound[id] = true
 	}
+	secret := s.oidcStore.OpenClientSecret(provider.ClientSecretEnc)
 	s.render(w, r, "admin_app_detail.html", pageData{
 		Title: app.Name, Active: "apps", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
 		Data: adminAppDetailData{
 			App: app, Provider: provider, Form: form, Issuer: s.issuer(),
 			Error: errMsg, Saved: saved, Groups: groups, Bound: bound,
-			ClientSecret: s.oidcStore.OpenClientSecret(provider.ClientSecretEnc),
+			ClientSecret: secret,
+			Snippets: renderSetupSnippets(setupValues{
+				Issuer: s.issuer(), ClientID: provider.ClientID, ClientSecret: secret, Public: provider.Public,
+			}),
+			Preset: "generic",
 		},
 	})
 }
@@ -420,6 +504,10 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 	form.Kind = "oidc"
 
 	redirects, postLogout, err := form.validate()
+	var accessTTL, refreshTTL, idTTL int64
+	if err == nil {
+		accessTTL, refreshTTL, idTTL, err = form.lifetimes()
+	}
 	if err != nil {
 		app.Name, app.Slug, app.LaunchUrl = form.Name, form.Slug, form.LaunchURL
 		w.WriteHeader(http.StatusUnprocessableEntity)
@@ -441,8 +529,8 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := s.store.UpdateProviderRedirects(r.Context(), sqlcgen.UpdateProviderRedirectsParams{
 		RedirectUris: jsonList(redirects), PostLogoutRedirectUris: jsonList(postLogout),
-		AccessTokenTtlSeconds: form.AccessTTL, RefreshTokenTtlSeconds: form.RefreshTTL,
-		IDTokenTtlSeconds: form.IDTTL, UpdatedAt: now, ID: provider.ID,
+		AccessTokenTtlSeconds: accessTTL, RefreshTokenTtlSeconds: refreshTTL,
+		IDTokenTtlSeconds: idTTL, UpdatedAt: now, ID: provider.ID,
 	}); err != nil {
 		s.serverError(w, r, err)
 		return
@@ -509,7 +597,11 @@ func (s *Server) handleAdminAppRotateSecret(w http.ResponseWriter, r *http.Reque
 	s.render(w, r, "admin_app_secret.html", pageData{
 		Title: "Secret rotated", Active: "apps", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
-		Data: adminAppSecretData{App: app, ClientID: provider.ClientID, ClientSecret: secret, Issuer: s.issuer(), Rotated: true},
+		Data: adminAppSecretData{
+			App: app, ClientID: provider.ClientID, ClientSecret: secret, Issuer: s.issuer(), Rotated: true,
+			Snippets: renderSetupSnippets(setupValues{Issuer: s.issuer(), ClientID: provider.ClientID, ClientSecret: secret}),
+			Preset:   "generic",
+		},
 	})
 }
 

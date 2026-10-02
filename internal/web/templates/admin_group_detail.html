@@ -5,7 +5,7 @@
   <div class="min-w-0">
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Group.Name}}</h1>
-      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else}}<span class="badge">Local</span>{{end}}
+      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else if .Data.Editable}}<span class="badge">Local</span>{{else}}<span class="badge">Federated</span>{{end}}
     </div>
     <p class="mt-0.5 text-xs text-faint">{{len .Data.Members}} member{{if ne (len .Data.Members) 1}}s{{end}}</p>
   </div>
@@ -14,44 +14,44 @@
 <div class="space-y-4">
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
-  <form method="post" action="/admin/groups/{{.Data.Group.ID}}/role" class="card p-4">
+  {{if .Data.Saved}}<div data-flash="Group saved." data-variant="success" hidden></div>{{end}}
+  {{if not .Data.Editable}}
+  <div class="alert-success" role="note">This group is mirrored from {{if .Data.IsLDAP}}the directory{{else}}an upstream identity provider{{end}}: its name and members are refreshed each time one of its users signs in, and cannot be edited here.</div>
+  {{end}}
+
+  <form method="post" action="/admin/groups/{{.Data.Group.ID}}" class="card space-y-4 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="flex items-center justify-between gap-4">
+    <h2 class="text-sm font-semibold">Settings</h2>
+    {{if .Data.Editable}}
+    <div>
+      <label class="label" for="name">Name</label>
+      <input class="input" id="name" name="name" value="{{.Data.Group.Name}}" required>
+    </div>
+    {{end}}
+    <div>
       <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
         <input type="checkbox" name="grants_admin" class="accent-accent" {{if .Data.Group.GrantsAdmin}}checked{{end}}>
         Members are administrators
       </label>
-      <button type="submit" class="btn-secondary shrink-0">Save</button>
+      <p class="mt-1.5 text-xs text-muted">Grants the Kivraid administrator role to every member{{if .Data.IsLDAP}} — since membership is synced from the directory, this lets you manage administrators from there{{end}}. Users keep their personal flag independently.</p>
     </div>
-    <p class="mt-2 text-xs text-muted">Grants the Kivraid administrator role to every member{{if .Data.IsLDAP}} — since membership is synced from the directory, this lets you manage administrators from there{{end}}. Users keep their personal flag independently.</p>
-  </form>
-
-  {{if .Data.IsLDAP}}
-  <div class="alert-success" role="note">This group is mirrored from the directory: its name and members are refreshed each time one of its users signs in, and cannot be edited here.</div>
-  {{else}}
-  <form method="post" action="/admin/groups/{{.Data.Group.ID}}" class="card flex items-end gap-3 p-4">
-    <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <div class="flex-1">
-      <label class="label" for="name">Name</label>
-      <input class="input" id="name" name="name" value="{{.Data.Group.Name}}" required>
+    <div class="flex justify-end border-t border-line pt-4">
+      <button type="submit" class="btn-primary">Save changes</button>
     </div>
-    <button type="submit" class="btn-secondary shrink-0">Rename</button>
   </form>
-  {{end}}
 
   <div class="card">
     <div class="flex items-center justify-between gap-4 border-b border-line p-4">
       <h2 class="text-sm font-semibold">Members</h2>
-      {{if and (not .Data.IsLDAP) .Data.NonMembers}}
+      {{if and .Data.Editable .Data.NonMembers}}
       <form method="post" action="/admin/groups/{{.Data.Group.ID}}/members" class="flex items-center gap-2">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <select name="user_id" class="select w-48" required>
-          <option value="" disabled selected>Add a member…</option>
-          {{range .Data.NonMembers}}
-          <option value="{{.ID}}">{{.Name}} ({{.Username}})</option>
-          {{end}}
-        </select>
-        <button type="submit" class="btn-ghost shrink-0">Add</button>
+        <input class="input w-48" name="username" list="group-members-dl" placeholder="Add a member…"
+               autocomplete="off" autocapitalize="none" spellcheck="false" required aria-label="Username to add">
+        <datalist id="group-members-dl">
+          {{range .Data.NonMembers}}<option value="{{.Username}}">{{.Name}}</option>{{end}}
+        </datalist>
+        <button type="submit" class="btn-secondary shrink-0">Add</button>
       </form>
       {{end}}
     </div>
@@ -68,7 +68,7 @@
           <a href="/admin/users/{{.ID}}" class="truncate text-sm font-medium hover:underline">{{.Name}}</a>
           <div class="mt-0.5 truncate text-xs text-faint">{{.Username}} · {{.Email}}</div>
         </div>
-        {{if not $.Data.IsLDAP}}
+        {{if $.Data.Editable}}
         <form method="post" action="/admin/groups/{{$.Data.Group.ID}}/members/remove" class="shrink-0"
               data-confirm="Remove {{.Name}} from this group? They may lose access to applications restricted to it."
               data-confirm-title="Remove member" data-confirm-variant="danger" data-confirm-label="Remove">

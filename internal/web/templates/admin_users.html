@@ -6,13 +6,37 @@
     <p class="mt-1 text-sm text-muted">Local accounts are fully managed here; directory users mirror their LDAP source.</p>
   </div>
   <div class="page-actions">
-    <form method="get" action="/admin/users" class="min-w-0 flex-1 sm:flex-none">
+    <form method="get" action="/admin/users" class="min-w-0 flex-1 sm:flex-none" id="users-search">
       <input class="input w-full sm:w-56" type="search" name="q" value="{{.Data.Query}}"
              placeholder="Search users…" aria-label="Search users">
+      {{if .Data.Source}}<input type="hidden" name="source" value="{{.Data.Source}}">{{end}}
+      {{if .Data.Status}}<input type="hidden" name="status" value="{{.Data.Status}}">{{end}}
+      {{if .Data.AdminsOnly}}<input type="hidden" name="role" value="admin">{{end}}
     </form>
     <a href="/admin/users/new" class="btn-primary shrink-0">New user</a>
   </div>
 </div>
+
+<form method="get" action="/admin/users" class="mb-4 flex flex-wrap items-center gap-2" data-autosubmit>
+  {{if .Data.Query}}<input type="hidden" name="q" value="{{.Data.Query}}">{{end}}
+  <select name="source" class="select w-auto" aria-label="Source">
+    <option value="" {{if eq .Data.Source ""}}selected{{end}}>All sources</option>
+    <option value="local" {{if eq .Data.Source "local"}}selected{{end}}>Local</option>
+    <option value="ldap" {{if eq .Data.Source "ldap"}}selected{{end}}>Directory (LDAP)</option>
+    <option value="upstream" {{if eq .Data.Source "upstream"}}selected{{end}}>Federated</option>
+  </select>
+  <select name="status" class="select w-auto" aria-label="Status">
+    <option value="" {{if eq .Data.Status ""}}selected{{end}}>Any status</option>
+    <option value="active" {{if eq .Data.Status "active"}}selected{{end}}>Active</option>
+    <option value="inactive" {{if eq .Data.Status "inactive"}}selected{{end}}>Deactivated</option>
+  </select>
+  <select name="role" class="select w-auto" aria-label="Role">
+    <option value="" {{if not .Data.AdminsOnly}}selected{{end}}>Any role</option>
+    <option value="admin" {{if .Data.AdminsOnly}}selected{{end}}>Administrators</option>
+  </select>
+  <noscript><button type="submit" class="btn-secondary">Apply</button></noscript>
+  {{if .Data.Filtered}}<a href="/admin/users{{if .Data.Query}}?q={{.Data.Query}}{{end}}" class="btn-ghost">Clear filters</a>{{end}}
+</form>
 
 {{if .Data.Users}}
 <div class="card divide-y divide-line">
@@ -31,8 +55,14 @@
       </div>
       <div class="mt-0.5 truncate text-xs text-faint">{{.Username}} · {{.Email}}</div>
     </div>
+    <div class="hidden shrink-0 text-right text-xs text-faint sm:block">
+      <div>{{if .LastLoginAt.Valid}}Signed in {{since .LastLoginAt.Time}}{{else}}Never signed in{{end}}</div>
+      {{if .TotpEnabled}}<div class="mt-0.5 text-accent">2FA on</div>{{end}}
+    </div>
     {{if eq .Source "ldap"}}
     <span class="badge shrink-0">{{with index $.Data.SourceNames (deref .LdapSourceID)}}{{.}}{{else}}LDAP{{end}}</span>
+    {{else if eq .Source "upstream"}}
+    <span class="badge shrink-0">{{with index $.Data.UpstreamNames (deref .UpstreamSourceID)}}{{.}}{{else}}Federated{{end}}</span>
     {{else}}
     <span class="badge shrink-0">Local</span>
     {{end}}
@@ -45,9 +75,9 @@
   <span class="tabular">Showing {{.Data.RangeStart}}–{{.Data.RangeEnd}} of {{.Data.Total}}</span>
   {{if gt .Data.Pages 1}}
   <div class="flex items-center gap-2">
-    {{if .Data.PrevPage}}<a href="?q={{.Data.Query}}&page={{.Data.PrevPage}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
+    {{if .Data.PrevPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.PrevPage}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
     <span class="tabular px-1">Page {{.Data.Page}} / {{.Data.Pages}}</span>
-    {{if .Data.NextPage}}<a href="?q={{.Data.Query}}&page={{.Data.NextPage}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+    {{if .Data.NextPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.NextPage}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
   </div>
   {{end}}
 </div>

@@ -17,6 +17,8 @@ const (
 
 	resetTokenTTL  = time.Hour
 	verifyTokenTTL = 24 * time.Hour
+	// inviteTokenTTL leaves a new user a few days to accept an invitation.
+	inviteTokenTTL = 72 * time.Hour
 )
 
 // refreshSMTPCache updates the cached "is email configured" flag that
@@ -81,6 +83,26 @@ func (s *Server) sendPasswordResetEmail(ctx context.Context, user sqlcgen.User, 
 	return s.mailer.Send(ctx, mailer.Message{
 		To: user.Email, Subject: subject, Text: text,
 		HTML: emailHTML(brand, "Reset your password", user.Name, intro, "Choose a new password", link),
+	})
+}
+
+// sendInvitationEmail mails a new user a link to choose their password. The
+// link is a password-reset token with a longer lifetime; following it also
+// verifies the address.
+func (s *Server) sendInvitationEmail(ctx context.Context, user sqlcgen.User) error {
+	raw, err := s.issueEmailToken(ctx, purposePasswordReset, user.ID, user.Email, inviteTokenTTL)
+	if err != nil {
+		return err
+	}
+	brand := s.brandDisplayName()
+	link := s.issuer() + "/reset?token=" + raw
+	subject := "You're invited to " + brand
+	intro := fmt.Sprintf("An account was created for you on %s (username: %s). "+
+		"Choose a password to start using it. This link is valid for 3 days.", brand, user.Username)
+	text := fmt.Sprintf("Hi %s,\n\n%s\n\n%s\n", user.Name, intro, link)
+	return s.mailer.Send(ctx, mailer.Message{
+		To: user.Email, Subject: subject, Text: text,
+		HTML: emailHTML(brand, "Welcome to "+brand, user.Name, intro, "Choose my password", link),
 	})
 }
 

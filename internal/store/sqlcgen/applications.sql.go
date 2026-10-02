@@ -218,16 +218,17 @@ func (q *Queries) GetProviderByClientID(ctx context.Context, clientID string) (P
 }
 
 const listApplicationsAdmin = `-- name: ListApplicationsAdmin :many
-SELECT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted, p.client_id, p.public
+SELECT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted, p.client_id, p.public, p.redirect_uris
 FROM applications a
 LEFT JOIN providers p ON p.application_id = a.id
 ORDER BY a.name
 `
 
 type ListApplicationsAdminRow struct {
-	Application Application
-	ClientID    *string
-	Public      sql.NullBool
+	Application  Application
+	ClientID     *string
+	Public       sql.NullBool
+	RedirectUris *string
 }
 
 func (q *Queries) ListApplicationsAdmin(ctx context.Context) ([]ListApplicationsAdminRow, error) {
@@ -254,6 +255,7 @@ func (q *Queries) ListApplicationsAdmin(ctx context.Context) ([]ListApplications
 			&i.Application.Restricted,
 			&i.ClientID,
 			&i.Public,
+			&i.RedirectUris,
 		); err != nil {
 			return nil, err
 		}

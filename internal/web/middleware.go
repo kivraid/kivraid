@@ -42,6 +42,10 @@ func (s *Server) secureHeaders(next http.Handler) http.Handler {
 	})
 }
 
+// passwordChangePath is where a user with an administrator-chosen password
+// picks their own.
+const passwordChangePath = "/password/change"
+
 // requireAuth redirects anonymous requests to the login page and loads
 // the current user into the request context.
 func (s *Server) requireAuth(next http.Handler) http.Handler {
@@ -71,6 +75,13 @@ func (s *Server) requireAuth(next http.Handler) http.Handler {
 				return
 			}
 			user.IsAdmin = n > 0
+		}
+		// An administrator-chosen password must be replaced before anything
+		// else (not while an admin is merely viewing as the user).
+		if user.MustChangePassword && r.URL.Path != passwordChangePath &&
+			s.sessions.GetString(r.Context(), session.KeyImpersonatorName) == "" {
+			http.Redirect(w, r, passwordChangePath+"?next="+url.QueryEscape(r.URL.RequestURI()), http.StatusSeeOther)
+			return
 		}
 		ctx := context.WithValue(r.Context(), ctxKeyUser, user)
 		// Surface an active impersonation so every rendered page can show

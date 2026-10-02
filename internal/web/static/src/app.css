@@ -370,6 +370,11 @@
     @apply rounded-lg border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-sm text-warn;
   }
 
+  /* New user: the password fields only matter when setting one now. */
+  [data-pwmode]:has(input[name="password_mode"][value="invite"]:checked) .pw-set {
+    display: none;
+  }
+
   /* Application access: the group picker only matters when restricted. */
   [data-access]:has(input[name="access"][value="everyone"]:checked) .access-groups {
     display: none;
@@ -377,6 +382,11 @@
 
   .code-box {
     @apply block truncate rounded-lg border border-line bg-raised px-3 py-2 font-mono text-[13px];
+  }
+  /* Multi-line configuration snippet, scrollable sideways, with room for
+   * a copy button in the top-right corner. */
+  .code-block {
+    @apply overflow-x-auto rounded-lg border border-line bg-raised p-3 pr-20 font-mono text-[13px] leading-relaxed whitespace-pre;
   }
   /* Inline code value that wraps instead of overflowing (long paths, URLs). */
   .code-inline {

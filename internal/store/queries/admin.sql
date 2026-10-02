@@ -4,16 +4,30 @@ SELECT * FROM users ORDER BY username;
 -- name: CountUsersSearch :one
 -- The pattern is lowercased and wildcard-escaped by the caller ('%' for
 -- no filter). lower() keeps the match case-insensitive on both engines.
+-- An empty source / status means "any"; admins_only also counts members of
+-- an administrator-granting group.
 SELECT COUNT(*) FROM users
-WHERE lower(username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
-   OR lower(email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
-   OR lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\';
+WHERE (lower(username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+    OR lower(email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+    OR lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\')
+  AND (CAST(sqlc.arg(source) AS TEXT) = '' OR source = CAST(sqlc.arg(source) AS TEXT))
+  AND (CAST(sqlc.arg(status) AS TEXT) = ''
+    OR (CAST(sqlc.arg(status) AS TEXT) = 'active' AND active)
+    OR (CAST(sqlc.arg(status) AS TEXT) = 'inactive' AND NOT active))
+  AND (NOT CAST(sqlc.arg(admins_only) AS BOOLEAN) OR is_admin
+    OR id IN (SELECT ug.user_id FROM user_groups ug JOIN groups g ON g.id = ug.group_id WHERE g.grants_admin));
 
 -- name: ListUsersPage :many
 SELECT * FROM users
-WHERE lower(username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
-   OR lower(email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
-   OR lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+WHERE (lower(username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+    OR lower(email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+    OR lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\')
+  AND (CAST(sqlc.arg(source) AS TEXT) = '' OR source = CAST(sqlc.arg(source) AS TEXT))
+  AND (CAST(sqlc.arg(status) AS TEXT) = ''
+    OR (CAST(sqlc.arg(status) AS TEXT) = 'active' AND active)
+    OR (CAST(sqlc.arg(status) AS TEXT) = 'inactive' AND NOT active))
+  AND (NOT CAST(sqlc.arg(admins_only) AS BOOLEAN) OR is_admin
+    OR id IN (SELECT ug.user_id FROM user_groups ug JOIN groups g ON g.id = ug.group_id WHERE g.grants_admin))
 ORDER BY username
 LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 

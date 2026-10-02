@@ -37,3 +37,9 @@ WHERE a.launch_url != ''
   AND (NOT a.restricted
        OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = $1))
 ORDER BY a.name;
+
+-- name: ListAppPolicyGroupNames :many
+SELECT p.application_id, g.name
+FROM app_policies p
+JOIN groups g ON g.id = p.group_id
+ORDER BY g.name;

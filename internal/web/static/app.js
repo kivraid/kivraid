@@ -79,6 +79,13 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Filter bars: apply a select as soon as it changes.
+  for (const form of document.querySelectorAll("[data-autosubmit]")) {
+    for (const field of form.querySelectorAll("select")) {
+      field.addEventListener("change", () => form.requestSubmit());
+    }
+  }
+
   // Click-to-insert example values (chips next to filter fields).
   for (const btn of document.querySelectorAll("[data-fill]")) {
     btn.addEventListener("click", () => {
@@ -159,6 +166,47 @@ document.addEventListener("DOMContentLoaded", () => {
       radio.addEventListener("change", sync);
     }
     sync();
+
+    // Integration template: suggest the redirect and post-logout URIs from
+    // the launch URL, without overwriting what the admin typed.
+    const preset = appForm.querySelector("[data-preset]");
+    const launch = appForm.querySelector("#launch_url");
+    const redirect = appForm.querySelector("#redirect_uris");
+    const postLogout = appForm.querySelector("#post_logout_uris");
+    if (preset && launch && redirect && postLogout) {
+      const suggested = new WeakMap();
+      const fill = (field, value) => {
+        if (field.value.trim() === "" || field.value === suggested.get(field)) {
+          field.value = value;
+          suggested.set(field, value);
+        }
+      };
+      const suggest = () => {
+        let origin = "";
+        try {
+          origin = new URL(launch.value.trim()).origin;
+        } catch {
+          return;
+        }
+        const path = preset.selectedOptions[0]?.dataset.redirectPath || "";
+        if (path) fill(redirect, origin + path);
+        fill(postLogout, origin);
+      };
+      preset.addEventListener("change", suggest);
+      launch.addEventListener("input", suggest);
+    }
+  }
+
+  // Integration snippets: show the one matching the selected template.
+  for (const box of document.querySelectorAll("[data-snippets]")) {
+    const select = box.querySelector("[data-snippet-select]");
+    const show = () => {
+      for (const pane of box.querySelectorAll("[data-snippet]")) {
+        pane.hidden = pane.dataset.snippet !== select.value;
+      }
+    };
+    select.addEventListener("change", show);
+    show();
   }
 
   // Reveal/hide toggle for masked secrets (eye ↔ eye-off).
@@ -191,6 +239,31 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "Use an authenticator code instead"
         : "Lost your device? Use a recovery code";
       input.focus();
+    });
+  }
+
+  // Generate a strong random password into a field and reveal it.
+  for (const btn of document.querySelectorAll("[data-generate-password]")) {
+    btn.addEventListener("click", () => {
+      const field = document.getElementById(btn.dataset.generatePassword);
+      const alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+      const bytes = crypto.getRandomValues(new Uint32Array(16));
+      field.value = Array.from(bytes, (b) => alphabet[b % alphabet.length]).join("");
+      if (field.type === "password") {
+        field.parentElement.querySelector("[data-secret-toggle]")?.click();
+      }
+    });
+  }
+
+  // Copy the current value of a form field.
+  for (const btn of document.querySelectorAll("[data-copy-field]")) {
+    btn.addEventListener("click", async () => {
+      const field = document.getElementById(btn.dataset.copyField);
+      if (!field.value) return;
+      await navigator.clipboard.writeText(field.value);
+      const original = btn.textContent;
+      btn.textContent = "Copied";
+      setTimeout(() => (btn.textContent = original), 1500);
     });
   }
 

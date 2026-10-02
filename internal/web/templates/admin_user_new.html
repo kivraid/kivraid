@@ -25,18 +25,74 @@
       <label class="label" for="email">Email</label>
       <input class="input" id="email" name="email" type="email" value="{{.Data.Form.Email}}" required>
     </div>
-    <div>
-      <label class="label" for="password">Initial password</label>
-      <div class="relative">
-        <input class="input pr-11" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required data-secret>
-        <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
-          <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
-        </button>
+  </div>
+
+  <div class="border-t border-line pt-5" role="group" aria-labelledby="pw-label" data-pwmode>
+    <span class="label" id="pw-label">Password</span>
+    <div class="grid gap-2 sm:grid-cols-2">
+      <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+        <input type="radio" name="password_mode" value="set" class="mt-0.5 accent-accent" {{if not .Data.Form.Invite}}checked{{end}}>
+        <span>
+          <span class="block text-sm font-medium">Set a password now</span>
+          <span class="block text-xs text-muted">You share it with the user yourself.</span>
+        </span>
+      </label>
+      <label class="flex items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40 {{if .Data.CanInvite}}cursor-pointer{{else}}opacity-60{{end}}">
+        <input type="radio" name="password_mode" value="invite" class="mt-0.5 accent-accent" {{if .Data.Form.Invite}}checked{{end}} {{if not .Data.CanInvite}}disabled{{end}}>
+        <span>
+          <span class="block text-sm font-medium">Email an invitation</span>
+          <span class="block text-xs text-muted">{{if .Data.CanInvite}}The user receives a link to choose their own password (valid 3 days).{{else}}Configure email under Settings → Email to invite users.{{end}}</span>
+        </span>
+      </label>
+    </div>
+    <div class="pw-set mt-4 space-y-3">
+      <div>
+        <label class="label" for="password">Initial password</label>
+        <div class="flex items-center gap-2">
+          <div class="relative min-w-0 flex-1">
+            <input class="input pr-11 font-mono" id="password" name="password" type="password" autocomplete="new-password" minlength="8" data-secret>
+            <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+              <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+              <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+            </button>
+          </div>
+          <button type="button" class="btn-secondary shrink-0" data-generate-password="password">Generate</button>
+          <button type="button" class="btn-ghost shrink-0" data-copy-field="password">Copy</button>
+        </div>
+        <p class="mt-1.5 text-xs text-muted">At least 8 characters.</p>
       </div>
+      <label class="flex cursor-pointer items-center gap-2 text-sm">
+        <input type="checkbox" name="must_change" class="accent-accent" {{if .Data.Form.MustChange}}checked{{end}}>
+        Require a new password at first sign-in
+      </label>
     </div>
   </div>
-  <label class="flex cursor-pointer items-center gap-2 text-sm">
+
+  <div class="border-t border-line pt-5">
+    <span class="label">Groups <span class="font-normal text-faint">(optional)</span></span>
+    {{if .Data.LocalGroups}}
+    <div data-tagselect>
+      <div class="flex flex-wrap gap-1.5 empty:hidden" data-tags>
+        {{range .Data.LocalGroups}}{{if index $.Data.Form.Groups .ID}}
+        <span class="chip flex items-center gap-1.5" data-tag data-name="{{.Name}}">
+          {{.Name}}
+          <input type="hidden" name="groups" value="{{.ID}}">
+          <button type="button" data-tag-remove class="cursor-pointer text-faint hover:text-fg" aria-label="Remove {{.Name}}">&times;</button>
+        </span>
+        {{end}}{{end}}
+      </div>
+      <input class="input mt-2 sm:w-1/2" list="user-groups-dl" placeholder="Type to add a group…"
+             autocomplete="off" data-tag-input data-tag-name="groups">
+      <datalist id="user-groups-dl">
+        {{range .Data.LocalGroups}}{{if not (index $.Data.Form.Groups .ID)}}<option value="{{.Name}}" data-id="{{.ID}}"></option>{{end}}{{end}}
+      </datalist>
+    </div>
+    {{else}}
+    <p class="mt-1 text-xs text-muted">No local groups yet. Create them under Admin → Groups.</p>
+    {{end}}
+  </div>
+
+  <label class="flex cursor-pointer items-center gap-2 border-t border-line pt-5 text-sm">
     <input type="checkbox" name="is_admin" class="accent-accent" {{if .Data.Form.IsAdmin}}checked{{end}}> Administrator
   </label>
   <div class="flex items-center justify-end gap-3 border-t border-line pt-5">

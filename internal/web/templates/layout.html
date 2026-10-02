@@ -189,6 +189,29 @@
 </div>
 {{end}}
 
+{{define "setupsnippets"}}
+<div class="card p-6" data-snippets>
+  <div class="flex flex-wrap items-center justify-between gap-3">
+    <div class="min-w-0">
+      <h2 class="text-sm font-semibold">Set up the application</h2>
+      <p class="mt-0.5 text-xs text-muted">Configuration to paste into the application, with this client's credentials filled in.</p>
+    </div>
+    <select class="select w-auto" data-snippet-select aria-label="Application type">
+      {{range .Data.Snippets}}<option value="{{.ID}}" {{if eq .ID $.Data.Preset}}selected{{end}}>{{.Name}}</option>{{end}}
+    </select>
+  </div>
+  {{range .Data.Snippets}}
+  <div class="mt-4" data-snippet="{{.ID}}" {{if ne .ID $.Data.Preset}}hidden{{end}}>
+    <div class="relative">
+      <pre class="code-block">{{.Text}}</pre>
+      <button type="button" class="btn-ghost absolute right-1.5 top-1.5" data-copy="{{.Text}}">Copy</button>
+    </div>
+    {{if .Doc}}<p class="mt-2 text-xs text-muted">Step-by-step guide: <code class="code-inline">docs/integrations/{{.Doc}}</code></p>{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
 {{define "federationtabs"}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Federation</h1>

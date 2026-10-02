@@ -144,6 +144,7 @@ func NewServer(d Deps) (*Server, error) {
 	assetV := assetVersion()
 	funcs := template.FuncMap{
 		"initials": initials,
+		"since":    since,
 		"deref":    deref,
 		"asset": func(name string) string {
 			return "/static/" + name + "?v=" + assetV
@@ -208,6 +209,8 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("GET /reset", s.handleResetPage)
 	web.HandleFunc("POST /reset", s.handleResetSubmit)
 	web.HandleFunc("GET /verify-email", s.handleVerifyEmail)
+	web.Handle("GET "+passwordChangePath, s.requireAuth(http.HandlerFunc(s.handlePasswordChangeRequired)))
+	web.Handle("POST "+passwordChangePath, s.requireAuth(http.HandlerFunc(s.handlePasswordChangeRequired)))
 	web.HandleFunc("GET /login/upstream/{id}/start", s.handleUpstreamLoginStart)
 	web.HandleFunc("GET /login/upstream/{id}/callback", s.handleUpstreamLoginCallback)
 	// Public custom logo and background (the login page, served before
@@ -278,6 +281,10 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/users/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminUserDetail)))
 	web.Handle("POST /admin/users/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminUserUpdate)))
 	web.Handle("POST /admin/users/{id}/password", s.requireAdmin(http.HandlerFunc(s.handleAdminUserPassword)))
+	web.Handle("POST /admin/users/{id}/password/send-reset", s.requireAdmin(http.HandlerFunc(s.handleAdminUserSendReset)))
+	web.Handle("POST /admin/users/{id}/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminUserGroupAdd)))
+	web.Handle("POST /admin/users/{id}/groups/remove", s.requireAdmin(http.HandlerFunc(s.handleAdminUserGroupRemove)))
+	web.Handle("POST /admin/users/{id}/passkeys/{pk}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminUserPasskeyDelete)))
 	web.Handle("POST /admin/users/{id}/mfa/reset", s.requireAdmin(http.HandlerFunc(s.handleAdminUserMFAReset)))
 	web.Handle("POST /admin/users/{id}/sessions/revoke", s.requireAdmin(http.HandlerFunc(s.handleAdminUserSessionsRevoke)))
 	web.Handle("POST /admin/users/{id}/impersonate", s.requireAdmin(http.HandlerFunc(s.handleAdminUserImpersonate)))
@@ -287,8 +294,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroups)))
 	web.Handle("POST /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupCreate)))
 	web.Handle("GET /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDetail)))
-	web.Handle("POST /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupRename)))
-	web.Handle("POST /admin/groups/{id}/role", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupRole)))
+	web.Handle("POST /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupUpdate)))
 	web.Handle("POST /admin/groups/{id}/members", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupAddMember)))
 	web.Handle("POST /admin/groups/{id}/members/remove", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupRemoveMember)))
 	web.Handle("POST /admin/groups/{id}/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDelete)))
@@ -345,6 +351,29 @@ func (s *Server) Handler() http.Handler {
 	}
 	root.Handle("/", webChain)
 	return root
+}
+
+// since renders how long ago t was, coarsely: "just now", "5 minutes ago",
+// "3 days ago", then a date for anything older than a month.
+func since(t time.Time) string {
+	d := time.Since(t)
+	plural := func(n int, unit string) string {
+		if n == 1 {
+			return "1 " + unit + " ago"
+		}
+		return fmt.Sprintf("%d %ss ago", n, unit)
+	}
+	switch {
+	case d < time.Minute:
+		return "just now"
+	case d < time.Hour:
+		return plural(int(d/time.Minute), "minute")
+	case d < 24*time.Hour:
+		return plural(int(d/time.Hour), "hour")
+	case d < 30*24*time.Hour:
+		return plural(int(d/(24*time.Hour)), "day")
+	}
+	return "on " + t.Format("Jan 2, 2006")
 }
 
 // initials derives up-to-two uppercase initials for the avatar chip.

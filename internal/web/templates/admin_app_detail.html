@@ -19,6 +19,52 @@
   {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
+  <div class="card space-y-5 p-6">
+    <h2 class="text-sm font-semibold">Credentials</h2>
+    <div>
+      <div class="dt">Client ID</div>
+      <div class="flex items-center gap-2">
+        <code class="code-box flex-1">{{.Data.Provider.ClientID}}</code>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Provider.ClientID}}">Copy</button>
+      </div>
+    </div>
+    {{if not .Data.Provider.Public}}
+    <div>
+      <div class="dt">Client secret</div>
+      <div class="flex items-center gap-2">
+        {{if .Data.ClientSecret}}
+        <input class="code-box flex-1" type="password" readonly value="{{.Data.ClientSecret}}" data-secret>
+        <button type="button" class="btn-icon shrink-0" data-secret-toggle aria-label="Show secret">
+          <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+          <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
+        </button>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.ClientSecret}}">Copy</button>
+        {{else}}
+        <code class="code-box flex-1 select-none text-faint">••••••••••••••••••••••••</code>
+        {{end}}
+        <form method="post" action="/admin/applications/{{.Data.App.ID}}/rotate-secret" class="shrink-0"
+              data-confirm="The application will stop authenticating until it is reconfigured with the new secret."
+              data-confirm-title="Rotate client secret" data-confirm-label="Rotate secret">
+          <input type="hidden" name="_csrf" value="{{.CSRF}}">
+          <button type="submit" class="btn-ghost">Rotate</button>
+        </form>
+      </div>
+      {{if not .Data.ClientSecret}}
+      <p class="mt-1.5 text-xs text-muted">This secret predates encrypted storage and cannot be displayed — rotate it to get a visible one.</p>
+      {{end}}
+    </div>
+    {{end}}
+    <div>
+      <div class="dt">Discovery URL</div>
+      <div class="flex items-center gap-2">
+        <code class="code-box flex-1">{{.Data.Issuer}}/.well-known/openid-configuration</code>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Issuer}}/.well-known/openid-configuration">Copy</button>
+      </div>
+    </div>
+  </div>
+
+  {{template "setupsnippets" .}}
+
   <form method="post" action="/admin/applications/{{.Data.App.ID}}" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <h2 class="text-sm font-semibold">Settings</h2>
@@ -74,19 +120,22 @@
 
     <div class="border-t border-line pt-5">
       <h2 class="text-sm font-semibold">Token lifetimes</h2>
-      <p class="mb-3 mt-1 text-xs text-muted">In seconds. Defaults: access 300 (5 min), refresh 2592000 (30 days), ID token 3600 (1 hour).</p>
-      <div class="grid grid-cols-1 gap-5 sm:grid-cols-3">
+      <p class="mt-1 text-xs text-muted">Durations such as <code class="code-inline">5m</code>, <code class="code-inline">1h</code> or <code class="code-inline">30d</code>. Defaults: access 5m, refresh 30d, ID token 1h. Access and ID tokens are capped at 1 day, refresh tokens at 365 days.</p>
+      <div class="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div>
           <label class="label" for="access_ttl">Access token</label>
-          <input class="input" id="access_ttl" name="access_ttl" type="number" min="1" max="86400" value="{{.Data.Form.AccessTTL}}">
+          <input class="input font-mono" id="access_ttl" name="access_ttl" value="{{.Data.Form.AccessTTL}}" required
+                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="A number followed by s, m, h or d">
         </div>
         <div>
           <label class="label" for="refresh_ttl">Refresh token</label>
-          <input class="input" id="refresh_ttl" name="refresh_ttl" type="number" min="1" max="31536000" value="{{.Data.Form.RefreshTTL}}">
+          <input class="input font-mono" id="refresh_ttl" name="refresh_ttl" value="{{.Data.Form.RefreshTTL}}" required
+                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="A number followed by s, m, h or d">
         </div>
         <div>
           <label class="label" for="id_ttl">ID token</label>
-          <input class="input" id="id_ttl" name="id_ttl" type="number" min="1" max="86400" value="{{.Data.Form.IDTTL}}">
+          <input class="input font-mono" id="id_ttl" name="id_ttl" value="{{.Data.Form.IDTTL}}" required
+                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="A number followed by s, m, h or d">
         </div>
       </div>
     </div>
@@ -97,50 +146,6 @@
   </form>
 
   {{template "iconcard" .}}
-
-  <div class="card space-y-5 p-6">
-    <h2 class="text-sm font-semibold">Credentials</h2>
-    <div>
-      <div class="dt">Client ID</div>
-      <div class="flex items-center gap-2">
-        <code class="code-box flex-1">{{.Data.Provider.ClientID}}</code>
-        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Provider.ClientID}}">Copy</button>
-      </div>
-    </div>
-    {{if not .Data.Provider.Public}}
-    <div>
-      <div class="dt">Client secret</div>
-      <div class="flex items-center gap-2">
-        {{if .Data.ClientSecret}}
-        <input class="code-box flex-1" type="password" readonly value="{{.Data.ClientSecret}}" data-secret>
-        <button type="button" class="btn-icon shrink-0" data-secret-toggle aria-label="Show secret">
-          <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
-          <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
-        </button>
-        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.ClientSecret}}">Copy</button>
-        {{else}}
-        <code class="code-box flex-1 select-none text-faint">••••••••••••••••••••••••</code>
-        {{end}}
-        <form method="post" action="/admin/applications/{{.Data.App.ID}}/rotate-secret" class="shrink-0"
-              data-confirm="The application will stop authenticating until it is reconfigured with the new secret."
-              data-confirm-title="Rotate client secret" data-confirm-label="Rotate secret">
-          <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" class="btn-ghost">Rotate</button>
-        </form>
-      </div>
-      {{if not .Data.ClientSecret}}
-      <p class="mt-1.5 text-xs text-muted">This secret predates encrypted storage and cannot be displayed — rotate it to get a visible one.</p>
-      {{end}}
-    </div>
-    {{end}}
-    <div>
-      <div class="dt">Discovery URL</div>
-      <div class="flex items-center gap-2">
-        <code class="code-box flex-1">{{.Data.Issuer}}/.well-known/openid-configuration</code>
-        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Issuer}}/.well-known/openid-configuration">Copy</button>
-      </div>
-    </div>
-  </div>
 
   <div class="card border-danger/25 p-6">
     <h2 class="text-sm font-semibold text-danger">Danger zone</h2>

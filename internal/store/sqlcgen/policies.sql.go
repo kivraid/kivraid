@@ -78,6 +78,41 @@ func (q *Queries) ListAppPolicyGroupIDs(ctx context.Context, applicationID strin
 	return items, nil
 }
 
+const listAppPolicyGroupNames = `-- name: ListAppPolicyGroupNames :many
+SELECT p.application_id, g.name
+FROM app_policies p
+JOIN groups g ON g.id = p.group_id
+ORDER BY g.name
+`
+
+type ListAppPolicyGroupNamesRow struct {
+	ApplicationID string
+	Name          string
+}
+
+func (q *Queries) ListAppPolicyGroupNames(ctx context.Context) ([]ListAppPolicyGroupNamesRow, error) {
+	rows, err := q.db.QueryContext(ctx, listAppPolicyGroupNames)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAppPolicyGroupNamesRow
+	for rows.Next() {
+		var i ListAppPolicyGroupNamesRow
+		if err := rows.Scan(&i.ApplicationID, &i.Name); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApplicationsByPolicyGroup = `-- name: ListApplicationsByPolicyGroup :many
 SELECT a.id, a.name, a.slug,
        (SELECT COUNT(*) FROM app_policies p2 WHERE p2.application_id = a.id) AS group_count

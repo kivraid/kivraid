@@ -70,15 +70,35 @@ func (q *Queries) CountGroups(ctx context.Context) (int64, error) {
 
 const countUsersSearch = `-- name: CountUsersSearch :one
 SELECT COUNT(*) FROM users
-WHERE lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
-   OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
-   OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+WHERE (lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
+    OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
+    OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\')
+  AND (CAST($2 AS TEXT) = '' OR source = CAST($2 AS TEXT))
+  AND (CAST($3 AS TEXT) = ''
+    OR (CAST($3 AS TEXT) = 'active' AND active)
+    OR (CAST($3 AS TEXT) = 'inactive' AND NOT active))
+  AND (NOT CAST($4 AS BOOLEAN) OR is_admin
+    OR id IN (SELECT ug.user_id FROM user_groups ug JOIN groups g ON g.id = ug.group_id WHERE g.grants_admin))
 `
+
+type CountUsersSearchParams struct {
+	Pattern    string
+	Source     string
+	Status     string
+	AdminsOnly bool
+}
 
 // The pattern is lowercased and wildcard-escaped by the caller ('%' for
 // no filter). lower() keeps the match case-insensitive on both engines.
-func (q *Queries) CountUsersSearch(ctx context.Context, pattern string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countUsersSearch, pattern)
+// An empty source / status means "any"; admins_only also counts members of
+// an administrator-granting group.
+func (q *Queries) CountUsersSearch(ctx context.Context, arg CountUsersSearchParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countUsersSearch,
+		arg.Pattern,
+		arg.Source,
+		arg.Status,
+		arg.AdminsOnly,
+	)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -186,7 +206,7 @@ func (q *Queries) ListAdminGroupMemberIDs(ctx context.Context) ([]string, error)
 }
 
 const listGroupMembers = `-- name: ListGroupMembers :many
-SELECT u.id, u.username, u.email, u.name, u.password_hash, u.source, u.is_admin, u.active, u.created_at, u.updated_at, u.ldap_source_id, u.ldap_dn, u.photo, u.photo_mime, u.totp_secret_enc, u.totp_enabled, u.totp_last_counter, u.last_login_at, u.email_verified, u.upstream_source_id, u.external_id
+SELECT u.id, u.username, u.email, u.name, u.password_hash, u.source, u.is_admin, u.active, u.created_at, u.updated_at, u.ldap_source_id, u.ldap_dn, u.photo, u.photo_mime, u.totp_secret_enc, u.totp_enabled, u.totp_last_counter, u.last_login_at, u.email_verified, u.upstream_source_id, u.external_id, u.must_change_password
 FROM users u
 JOIN user_groups ug ON ug.user_id = u.id
 WHERE ug.group_id = $1
@@ -224,6 +244,7 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID string) ([]User,
 			&i.EmailVerified,
 			&i.UpstreamSourceID,
 			&i.ExternalID,
+			&i.MustChangePassword,
 		); err != nil {
 			return nil, err
 		}
@@ -329,7 +350,7 @@ func (q *Queries) ListUserAdminGroups(ctx context.Context, userID string) ([]Gro
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id FROM users ORDER BY username
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id, must_change_password FROM users ORDER BY username
 `
 
 func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
@@ -363,6 +384,7 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 			&i.EmailVerified,
 			&i.UpstreamSourceID,
 			&i.ExternalID,
+			&i.MustChangePassword,
 		); err != nil {
 			return nil, err
 		}
@@ -378,22 +400,38 @@ func (q *Queries) ListUsers(ctx context.Context) ([]User, error) {
 }
 
 const listUsersPage = `-- name: ListUsersPage :many
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id FROM users
-WHERE lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
-   OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
-   OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id, must_change_password FROM users
+WHERE (lower(username) LIKE CAST($1 AS TEXT) ESCAPE '\'
+    OR lower(email) LIKE CAST($1 AS TEXT) ESCAPE '\'
+    OR lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\')
+  AND (CAST($2 AS TEXT) = '' OR source = CAST($2 AS TEXT))
+  AND (CAST($3 AS TEXT) = ''
+    OR (CAST($3 AS TEXT) = 'active' AND active)
+    OR (CAST($3 AS TEXT) = 'inactive' AND NOT active))
+  AND (NOT CAST($4 AS BOOLEAN) OR is_admin
+    OR id IN (SELECT ug.user_id FROM user_groups ug JOIN groups g ON g.id = ug.group_id WHERE g.grants_admin))
 ORDER BY username
-LIMIT $3 OFFSET $2
+LIMIT $6 OFFSET $5
 `
 
 type ListUsersPageParams struct {
 	Pattern    string
+	Source     string
+	Status     string
+	AdminsOnly bool
 	PageOffset int32
 	PageLimit  int32
 }
 
 func (q *Queries) ListUsersPage(ctx context.Context, arg ListUsersPageParams) ([]User, error) {
-	rows, err := q.db.QueryContext(ctx, listUsersPage, arg.Pattern, arg.PageOffset, arg.PageLimit)
+	rows, err := q.db.QueryContext(ctx, listUsersPage,
+		arg.Pattern,
+		arg.Source,
+		arg.Status,
+		arg.AdminsOnly,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -423,6 +461,7 @@ func (q *Queries) ListUsersPage(ctx context.Context, arg ListUsersPageParams) ([
 			&i.EmailVerified,
 			&i.UpstreamSourceID,
 			&i.ExternalID,
+			&i.MustChangePassword,
 		); err != nil {
 			return nil, err
 		}

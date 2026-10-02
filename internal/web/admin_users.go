@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"net/http"
+	"net/url"
 	"strconv"
 	"strings"
 	"time"
@@ -17,18 +18,25 @@ import (
 const usersPageSize = 50
 
 type adminUsersData struct {
-	Users       []sqlcgen.User
-	SourceNames map[string]string // ldap_source_id → source name
-	AdminVia    map[string]bool   // user IDs that are admins via a granting group
-	Deleted     bool
-	Query       string
-	Page        int
-	Pages       int
-	Total       int64
-	RangeStart  int64
-	RangeEnd    int64
-	PrevPage    int
-	NextPage    int
+	Users         []sqlcgen.User
+	SourceNames   map[string]string // ldap_source_id → source name
+	UpstreamNames map[string]string // upstream_source_id → provider name
+	// Filters, echoed back into the form and the pagination links.
+	Source     string
+	Status     string
+	AdminsOnly bool
+	Filtered   bool
+	FilterQS   string          // encoded filters for pagination links
+	AdminVia   map[string]bool // user IDs that are admins via a granting group
+	Deleted    bool
+	Query      string
+	Page       int
+	Pages      int
+	Total      int64
+	RangeStart int64
+	RangeEnd   int64
+	PrevPage   int
+	NextPage   int
 }
 
 type adminUserDetailData struct {
@@ -49,11 +57,52 @@ type adminUserDetailData struct {
 	VerifySent     bool
 	// CanResetPassword: local, or a directory that allows service-account reset.
 	CanResetPassword bool
+	// CanSendReset: a reset link can be emailed (SMTP on, address known).
+	CanSendReset bool
+	// Groups the user can still be added to (local groups only).
+	AddableGroups []sqlcgen.Group
+	Passkeys      []sqlcgen.WebauthnCredential
+	Flash         string
+	FlashError    string
 }
 
 type adminUserNewData struct {
-	Form  userForm
-	Error string
+	Form        userForm
+	Error       string
+	LocalGroups []sqlcgen.Group
+	CanInvite   bool
+}
+
+// localGroups lists the groups an administrator can add members to.
+func (s *Server) localGroups(ctx context.Context) ([]sqlcgen.Group, error) {
+	all, err := s.store.ListGroups(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []sqlcgen.Group
+	for _, g := range all {
+		if g.Source == "local" {
+			out = append(out, g)
+		}
+	}
+	return out, nil
+}
+
+func (s *Server) renderUserNew(w http.ResponseWriter, r *http.Request, form userForm, errMsg string) {
+	groups, err := s.localGroups(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	if errMsg != "" {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+	}
+	s.render(w, r, "admin_user_new.html", pageData{
+		Title: "New user", Active: "users", CSRF: s.csrfToken(r.Context()),
+		User: currentUser(r), Data: adminUserNewData{
+			Form: form, Error: errMsg, LocalGroups: groups, CanInvite: s.smtpEnabled.Load(),
+		},
+	})
 }
 
 type userForm struct {
@@ -61,6 +110,11 @@ type userForm struct {
 	Email    string
 	Name     string
 	IsAdmin  bool
+	// Invite emails a set-your-password link instead of taking a password.
+	Invite bool
+	// MustChange makes the user replace the given password at first sign-in.
+	MustChange bool
+	Groups     map[string]bool
 }
 
 // ldapSourceNames maps source IDs to display names for the users list.
@@ -88,10 +142,22 @@ func likePattern(q string) string {
 }
 
 func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
-	query := strings.TrimSpace(r.URL.Query().Get("q"))
+	qv := r.URL.Query()
+	query := strings.TrimSpace(qv.Get("q"))
 	pattern := likePattern(query)
+	source := qv.Get("source")
+	if source != "local" && source != "ldap" && source != "upstream" {
+		source = ""
+	}
+	status := qv.Get("status")
+	if status != "active" && status != "inactive" {
+		status = ""
+	}
+	adminsOnly := qv.Get("role") == "admin"
 
-	total, err := s.store.CountUsersSearch(r.Context(), pattern)
+	total, err := s.store.CountUsersSearch(r.Context(), sqlcgen.CountUsersSearchParams{
+		Pattern: pattern, Source: source, Status: status, AdminsOnly: adminsOnly,
+	})
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -109,7 +175,8 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 	}
 
 	users, err := s.store.ListUsersPage(r.Context(), sqlcgen.ListUsersPageParams{
-		Pattern: pattern, PageLimit: usersPageSize, PageOffset: int32(page-1) * usersPageSize,
+		Pattern: pattern, Source: source, Status: status, AdminsOnly: adminsOnly,
+		PageLimit: usersPageSize, PageOffset: int32(page-1) * usersPageSize,
 	})
 	if err != nil {
 		s.serverError(w, r, err)
@@ -130,8 +197,26 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 		adminVia[id] = true
 	}
 
+	upstreamNames := map[string]string{}
+	if ups, err := s.store.ListUpstreamProviders(r.Context()); err == nil {
+		for _, p := range ups {
+			upstreamNames[p.ID] = p.Name
+		}
+	}
+	filters := url.Values{}
+	for k, v := range map[string]string{"q": query, "source": source, "status": status} {
+		if v != "" {
+			filters.Set(k, v)
+		}
+	}
+	if adminsOnly {
+		filters.Set("role", "admin")
+	}
+
 	data := adminUsersData{
-		Users: users, SourceNames: names, AdminVia: adminVia,
+		Users: users, SourceNames: names, UpstreamNames: upstreamNames, AdminVia: adminVia,
+		Source: source, Status: status, AdminsOnly: adminsOnly,
+		Filtered: source != "" || status != "" || adminsOnly, FilterQS: filters.Encode(),
 		Deleted: r.URL.Query().Get("deleted") == "1",
 		Query:   query, Page: page, Pages: pages, Total: total,
 		RangeStart: int64(page-1)*usersPageSize + 1,
@@ -154,28 +239,25 @@ func (s *Server) handleAdminUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) handleAdminUserNew(w http.ResponseWriter, r *http.Request) {
-	s.render(w, r, "admin_user_new.html", pageData{
-		Title: "New user", Active: "users", CSRF: s.csrfToken(r.Context()),
-		User: currentUser(r), Data: adminUserNewData{},
-	})
+	s.renderUserNew(w, r, userForm{MustChange: true}, "")
 }
 
 func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 	form := userForm{
-		Username: strings.ToLower(strings.TrimSpace(r.PostFormValue("username"))),
-		Email:    strings.ToLower(strings.TrimSpace(r.PostFormValue("email"))),
-		Name:     strings.TrimSpace(r.PostFormValue("name")),
-		IsAdmin:  r.PostFormValue("is_admin") == "on",
+		Username:   strings.ToLower(strings.TrimSpace(r.PostFormValue("username"))),
+		Email:      strings.ToLower(strings.TrimSpace(r.PostFormValue("email"))),
+		Name:       strings.TrimSpace(r.PostFormValue("name")),
+		IsAdmin:    r.PostFormValue("is_admin") == "on",
+		Invite:     r.PostFormValue("password_mode") == "invite" && s.smtpEnabled.Load(),
+		MustChange: r.PostFormValue("must_change") == "on",
+		Groups:     map[string]bool{},
+	}
+	for _, id := range r.PostForm["groups"] {
+		form.Groups[id] = true
 	}
 	password := r.PostFormValue("password")
 
-	fail := func(msg string) {
-		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.render(w, r, "admin_user_new.html", pageData{
-			Title: "New user", Active: "users", CSRF: s.csrfToken(r.Context()),
-			User: currentUser(r), Data: adminUserNewData{Form: form, Error: msg},
-		})
-	}
+	fail := func(msg string) { s.renderUserNew(w, r, form, msg) }
 	if form.Username == "" || form.Email == "" {
 		fail("Username and email are required.")
 		return
@@ -183,8 +265,17 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 	if form.Name == "" {
 		form.Name = form.Username
 	}
-	if len(password) < 8 {
+	if form.Invite {
+		// The user chooses their password from the invitation; until then
+		// the account holds a random one nobody knows.
+		password, form.MustChange = randomHex(32), false
+	} else if len(password) < 8 {
 		fail("The password must be at least 8 characters.")
+		return
+	}
+	groups, err := s.localGroups(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
 		return
 	}
 
@@ -197,8 +288,36 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionUserCreate, user.Username, "", s.clientIP(r))
-	http.Redirect(w, r, "/admin/users/"+user.ID, http.StatusSeeOther)
+	actor := currentUser(r).Username
+	s.audit.Record(r.Context(), actor, audit.ActionUserCreate, user.Username, "", s.clientIP(r))
+	for _, g := range groups {
+		if !form.Groups[g.ID] {
+			continue
+		}
+		if err := s.store.AddUserGroup(r.Context(), sqlcgen.AddUserGroupParams{UserID: user.ID, GroupID: g.ID}); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		s.audit.Record(r.Context(), actor, audit.ActionGroupUpdate, g.Name, "member added: "+user.Username, s.clientIP(r))
+	}
+	if form.MustChange {
+		if err := s.store.SetUserMustChangePassword(r.Context(), sqlcgen.SetUserMustChangePasswordParams{
+			MustChangePassword: true, ID: user.ID,
+		}); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
+	dest := "/admin/users/" + user.ID
+	if form.Invite {
+		if err := s.sendInvitationEmail(r.Context(), user); err != nil {
+			s.log.Warn("send invitation", "user", user.Username, "err", err)
+			dest += "?notice=invite-failed"
+		} else {
+			dest += "?notice=invite-sent"
+		}
+	}
+	http.Redirect(w, r, dest, http.StatusSeeOther)
 }
 
 func (s *Server) loadTargetUser(w http.ResponseWriter, r *http.Request) (sqlcgen.User, bool) {
@@ -239,6 +358,46 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 			sourceName = names[*target.LdapSourceID]
 		}
 	}
+	local, err := s.localGroups(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	member := make(map[string]bool, len(groups))
+	for _, g := range groups {
+		member[g.ID] = true
+	}
+	var addable []sqlcgen.Group
+	for _, g := range local {
+		if !member[g.ID] {
+			addable = append(addable, g)
+		}
+	}
+	var passkeys []sqlcgen.WebauthnCredential
+	if s.webauthn != nil {
+		if passkeys, err = s.webauthn.List(r.Context(), target.ID); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
+	flash, flashErr := "", ""
+	switch r.URL.Query().Get("notice") {
+	case "invite-sent":
+		flash = "Invitation sent to " + target.Email + "."
+	case "invite-failed":
+		flashErr = "The account was created, but the invitation email could not be sent. Check Settings → Email, then send a reset link below."
+	case "reset-sent":
+		flash = "Password reset link sent to " + target.Email + "."
+	case "reset-failed":
+		flashErr = "The reset link could not be sent. Check Settings → Email."
+	case "group-added":
+		flash = "Added to the group."
+	case "group-removed":
+		flash = "Removed from the group."
+	case "passkey-removed":
+		flash = "Passkey removed."
+	}
+	canReset := s.canResetPassword(r.Context(), target)
 	s.render(w, r, "admin_user_detail.html", pageData{
 		Title: target.Name, Active: "users", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
@@ -250,7 +409,10 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 			EmailVerified:    target.EmailVerified,
 			CanVerifyEmail:   target.Source == "local" && !target.EmailVerified && s.smtpEnabled.Load(),
 			VerifySent:       r.URL.Query().Get("vsent") == "1",
-			CanResetPassword: s.canResetPassword(r.Context(), target),
+			CanResetPassword: canReset,
+			CanSendReset:     canReset && target.Email != "" && s.smtpEnabled.Load(),
+			AddableGroups:    addable, Passkeys: passkeys,
+			Flash: flash, FlashError: flashErr,
 		},
 	})
 }
@@ -359,6 +521,14 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 		s.serverError(w, r, err)
 		return
 	}
+	if target.Source == "local" && r.PostFormValue("must_change") == "on" {
+		if err := s.store.SetUserMustChangePassword(r.Context(), sqlcgen.SetUserMustChangePasswordParams{
+			MustChangePassword: true, ID: target.ID,
+		}); err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionUserPWReset, target.Username, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/users/"+target.ID+"?pw=1", http.StatusSeeOther)
 }
@@ -412,4 +582,91 @@ func (s *Server) revokeUserAccess(ctx context.Context, userID string) {
 	if err := s.store.DeleteRefreshTokensByUser(ctx, userID); err != nil {
 		s.log.Warn("revoke refresh tokens", "user", userID, "err", err)
 	}
+}
+
+// handleAdminUserSendReset emails the user a password reset link, so the
+// administrator never has to know or transmit the new password.
+func (s *Server) handleAdminUserSendReset(w http.ResponseWriter, r *http.Request) {
+	target, ok := s.loadTargetUser(w, r)
+	if !ok {
+		return
+	}
+	if !s.canResetPassword(r.Context(), target) || target.Email == "" || !s.smtpEnabled.Load() {
+		s.renderError(w, r, http.StatusBadRequest, "Cannot send a reset link",
+			"A reset link needs email delivery (Settings → Email), an address on the account, and a source that lets Kivraid set passwords.")
+		return
+	}
+	notice := "reset-sent"
+	raw, err := s.issueEmailToken(r.Context(), purposePasswordReset, target.ID, target.Email, resetTokenTTL)
+	if err == nil {
+		err = s.sendPasswordResetEmail(r.Context(), target, raw)
+	}
+	if err != nil {
+		s.log.Warn("send reset link", "user", target.Username, "err", err)
+		notice = "reset-failed"
+	} else {
+		s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionPasswordReset, target.Username, "link sent by admin", s.clientIP(r))
+	}
+	http.Redirect(w, r, "/admin/users/"+target.ID+"?notice="+notice, http.StatusSeeOther)
+}
+
+// handleAdminUserGroupAdd and handleAdminUserGroupRemove manage a user's
+// local group memberships from their page (directory and federated groups
+// are mirrored, not edited).
+func (s *Server) handleAdminUserGroupAdd(w http.ResponseWriter, r *http.Request) {
+	s.changeUserGroup(w, r, true)
+}
+
+func (s *Server) handleAdminUserGroupRemove(w http.ResponseWriter, r *http.Request) {
+	s.changeUserGroup(w, r, false)
+}
+
+func (s *Server) changeUserGroup(w http.ResponseWriter, r *http.Request, add bool) {
+	target, ok := s.loadTargetUser(w, r)
+	if !ok {
+		return
+	}
+	group, err := s.store.GetGroup(r.Context(), r.PostFormValue("group_id"))
+	if errors.Is(err, sql.ErrNoRows) || (err == nil && group.Source != "local") {
+		s.renderError(w, r, http.StatusBadRequest, "Group not editable",
+			"Only local groups can be edited here; directory and federated groups mirror their source.")
+		return
+	}
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	params := sqlcgen.AddUserGroupParams{UserID: target.ID, GroupID: group.ID}
+	notice, detail := "group-added", "member added: "
+	if add {
+		err = s.store.AddUserGroup(r.Context(), params)
+	} else {
+		err = s.store.RemoveUserGroup(r.Context(), sqlcgen.RemoveUserGroupParams(params))
+		notice, detail = "group-removed", "member removed: "
+	}
+	if err != nil && !isUniqueViolation(err) {
+		s.serverError(w, r, err)
+		return
+	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupUpdate, group.Name, detail+target.Username, s.clientIP(r))
+	http.Redirect(w, r, "/admin/users/"+target.ID+"?notice="+notice, http.StatusSeeOther)
+}
+
+// handleAdminUserPasskeyDelete removes one of the user's passkeys, e.g. for
+// a lost device.
+func (s *Server) handleAdminUserPasskeyDelete(w http.ResponseWriter, r *http.Request) {
+	target, ok := s.loadTargetUser(w, r)
+	if !ok {
+		return
+	}
+	if s.webauthn == nil {
+		http.NotFound(w, r)
+		return
+	}
+	if err := s.webauthn.Delete(r.Context(), target.ID, r.PathValue("pk")); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionPasskeyRemove, target.Username, "by admin", s.clientIP(r))
+	http.Redirect(w, r, "/admin/users/"+target.ID+"?notice=passkey-removed", http.StatusSeeOther)
 }

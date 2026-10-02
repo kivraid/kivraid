@@ -55,10 +55,25 @@
 
   <div data-kind-oidc class="space-y-5">
     <div>
+      <label class="label" for="preset">Application type</label>
+      <select class="select" id="preset" name="preset" data-preset>
+        {{range .Data.Presets}}
+        <option value="{{.ID}}" data-redirect-path="{{.RedirectPath}}" {{if eq .ID $.Data.Form.Preset}}selected{{end}}>{{.Name}}</option>
+        {{end}}
+      </select>
+      <p class="mt-1.5 text-xs text-muted">Suggests the redirect URIs from the launch URL, and the configuration to paste once the application is created.</p>
+    </div>
+    <div>
       <label class="label" for="redirect_uris">Redirect URIs</label>
       <textarea class="textarea font-mono" id="redirect_uris" name="redirect_uris" rows="3"
                 placeholder="https://grafana.example.com/login/generic_oauth">{{.Data.Form.RedirectURIs}}</textarea>
       <p class="mt-1.5 text-xs text-muted">One per line, exact match.</p>
+    </div>
+    <div>
+      <label class="label" for="post_logout_uris">Post-logout redirect URIs <span class="font-normal text-faint">(optional)</span></label>
+      <textarea class="textarea font-mono" id="post_logout_uris" name="post_logout_uris" rows="2"
+                placeholder="https://grafana.example.com">{{.Data.Form.PostLogoutURIs}}</textarea>
+      <p class="mt-1.5 text-xs text-muted">Where the application may send users after signing out of Kivraid. One per line, exact match; leave empty if it does not use single sign-out.</p>
     </div>
     <fieldset>
       <legend class="label">Client type</legend>

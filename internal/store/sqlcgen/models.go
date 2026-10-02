@@ -201,27 +201,28 @@ type UpstreamProvider struct {
 }
 
 type User struct {
-	ID               string
-	Username         string
-	Email            string
-	Name             string
-	PasswordHash     *string
-	Source           string
-	IsAdmin          bool
-	Active           bool
-	CreatedAt        time.Time
-	UpdatedAt        time.Time
-	LdapSourceID     *string
-	LdapDn           *string
-	Photo            []byte
-	PhotoMime        *string
-	TotpSecretEnc    []byte
-	TotpEnabled      bool
-	TotpLastCounter  int64
-	LastLoginAt      sql.NullTime
-	EmailVerified    bool
-	UpstreamSourceID *string
-	ExternalID       *string
+	ID                 string
+	Username           string
+	Email              string
+	Name               string
+	PasswordHash       *string
+	Source             string
+	IsAdmin            bool
+	Active             bool
+	CreatedAt          time.Time
+	UpdatedAt          time.Time
+	LdapSourceID       *string
+	LdapDn             *string
+	Photo              []byte
+	PhotoMime          *string
+	TotpSecretEnc      []byte
+	TotpEnabled        bool
+	TotpLastCounter    int64
+	LastLoginAt        sql.NullTime
+	EmailVerified      bool
+	UpstreamSourceID   *string
+	ExternalID         *string
+	MustChangePassword bool
 }
 
 type UserGroup struct {

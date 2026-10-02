@@ -121,8 +121,11 @@ dark on the right.</sub>
   verification, two-factor and passkey enrollment, session list with
   revocation.
 - **Admin** — an overview dashboard; an application wizard (OIDC or
-  forward-auth) with the client secret displayed and rotatable, editable
-  token lifetimes and uploadable icons; group-based access policies;
+  forward-auth) with the client secret displayed and rotatable,
+  ready-to-paste setup snippets (Grafana, Gitea, Nextcloud, generic),
+  editable token lifetimes and uploadable icons; group-based access policies;
+  user invitations by email, generated passwords and a forced password
+  change at first sign-in;
   directory management with a connection test; user impersonation for
   support; an append-only audit trail you can filter and export to CSV; and
   a grouped Settings area — branding (name, logo, sign-in background),
