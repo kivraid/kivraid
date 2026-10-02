@@ -131,6 +131,10 @@ dark on the right.</sub>
   a grouped Settings area — branding (name, logo, sign-in background),
   email/SMTP, security (two-factor policy, sign-in alerts, automatic
   signing-key rotation) and read-only system diagnostics.
+- **English and French** — the interface follows the browser's language
+  and can be switched from the account menu or the sign-in page; a
+  signed-in user's choice is saved on their account, so emails reach them
+  in that language too.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP, login
   rate limiting, all secrets hashed or encrypted at rest.
 - **SQLite or PostgreSQL** — SQLite by default (zero external services);

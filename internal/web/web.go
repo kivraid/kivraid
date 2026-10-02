@@ -9,6 +9,7 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"github.com/kivraid/kivraid/internal/i18n"
 	"hash/fnv"
 	"html/template"
 	"io/fs"
@@ -78,8 +79,9 @@ type Server struct {
 	// trustedProxies gates X-Forwarded-For handling in clientIP.
 	trustedProxies []netip.Prefix
 
-	// pages maps a page name to its parsed template set (layout + page).
-	pages map[string]*template.Template
+	// pages maps a language, then a page name, to its parsed template set
+	// (layout + page); each language binds its own translation functions.
+	pages map[string]map[string]*template.Template
 
 	// Branding is admin-editable and cached in memory; brandMu guards it and
 	// brandVer is a content token for cache-busting the logo URL.
@@ -139,7 +141,7 @@ func NewServer(d Deps) (*Server, error) {
 		// 10 attempts/minute per IP, 5 failures/minute per username.
 		ipLimiter:   ratelimit.New(rate.Every(6*time.Second), 10),
 		userLimiter: ratelimit.New(rate.Every(12*time.Second), 5),
-		pages:       map[string]*template.Template{},
+		pages:       map[string]map[string]*template.Template{},
 	}
 
 	// Load the admin-editable branding before first render; defaults are
@@ -151,12 +153,32 @@ func NewServer(d Deps) (*Server, error) {
 	// Asset URLs carry a content hash so browsers can cache aggressively
 	// yet pick up new CSS/JS immediately after an upgrade.
 	assetV := assetVersion()
+	for _, l := range i18n.Languages {
+		if err := s.parsePages(l.Code, assetV); err != nil {
+			return nil, err
+		}
+	}
+	return s, nil
+}
+
+// parsePages parses every page template for one language, binding its
+// translation functions.
+func (s *Server) parsePages(lang, assetV string) error {
 	funcs := template.FuncMap{
-		"initials":    initials,
-		"tileClass":   tileClass,
-		"list":        func(v ...string) []string { return v },
-		"since":       since,
-		"actionLabel": audit.Label,
+		"initials":  initials,
+		"tileClass": tileClass,
+		"list":      func(v ...string) []string { return v },
+		// Translation: t formats like fmt.Sprintf, tn picks singular/plural.
+		"t": func(msg string, args ...any) string { return i18n.T(lang, msg, args...) },
+		"tn": func(n any, one, other string) string {
+			return i18n.N(lang, toInt64(n), one, other)
+		},
+		"lang":        func() string { return lang },
+		"languages":   func() []i18n.Language { return i18n.Languages },
+		"jsI18n":      func() string { return jsI18n(lang) },
+		"since":       func(t time.Time) string { return sinceIn(lang, t) },
+		"date":        func(t time.Time) string { return formatDate(lang, t) },
+		"actionLabel": func(action string) string { return i18n.T(lang, audit.Label(action)) },
 		"actionTone":  audit.Tone,
 		"localTime":   localTime,
 		"deref":       deref,
@@ -172,14 +194,15 @@ func NewServer(d Deps) (*Server, error) {
 		"brandBackgroundURL": func() string { return "/brand/background?v=" + s.brandBackgroundVersion() },
 		"mailEnabled":        s.smtpEnabled.Load,
 	}
+	pages := map[string]*template.Template{}
 	standalone := []string{"login.html", "login_password.html", "login_mfa.html", "error.html", "setup.html",
 		"forgot.html", "reset.html"}
 	for _, page := range standalone {
-		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page)
+		t, err := template.New(page).Funcs(funcs).ParseFS(templatesFS, "templates/"+page, "templates/partials.html")
 		if err != nil {
-			return nil, fmt.Errorf("parse template %s: %w", page, err)
+			return fmt.Errorf("parse template %s: %w", page, err)
 		}
-		s.pages[page] = t
+		pages[page] = t
 	}
 	withLayout := []string{
 		"home.html", "profile.html", "sessions.html", "denied.html",
@@ -197,15 +220,30 @@ func NewServer(d Deps) (*Server, error) {
 		t, err := template.New("layout.html").Funcs(funcs).
 			ParseFS(templatesFS, "templates/layout.html", "templates/"+page)
 		if err != nil {
-			return nil, fmt.Errorf("parse template %s: %w", page, err)
+			return fmt.Errorf("parse template %s: %w", page, err)
 		}
-		s.pages[page] = t
+		pages[page] = t
 	}
-	return s, nil
+	s.pages[lang] = pages
+	return nil
+}
+
+// toInt64 accepts the integer types templates hand to tn.
+func toInt64(n any) int64 {
+	switch v := n.(type) {
+	case int:
+		return int64(v)
+	case int32:
+		return int64(v)
+	case int64:
+		return v
+	}
+	return 0
 }
 
 func (s *Server) Handler() http.Handler {
 	web := http.NewServeMux()
+	web.HandleFunc("GET /lang", s.handleSetLang)
 	web.HandleFunc("GET /login", s.handleLoginPage)
 	web.HandleFunc("POST /login", s.handleLoginIdentify)
 	web.HandleFunc("POST /login/account", s.handleLoginAccount)
@@ -339,7 +377,7 @@ func (s *Server) Handler() http.Handler {
 	// Anything else under the web surface gets the styled 404.
 	web.HandleFunc("/", s.handleNotFound)
 
-	webChain := s.secureHeaders(s.sessions.LoadAndSave(s.csrfProtect(web)))
+	webChain := s.secureHeaders(s.sessions.LoadAndSave(s.withLang(s.csrfProtect(web))))
 
 	root := http.NewServeMux()
 	static, _ := fs.Sub(staticFS, "static")
@@ -378,29 +416,6 @@ func localTime(t time.Time) template.HTML {
 	u := t.UTC()
 	return template.HTML(fmt.Sprintf(`<time datetime="%s" data-local>%s UTC</time>`,
 		u.Format(time.RFC3339), template.HTMLEscapeString(u.Format("Jan 2, 2006 15:04"))))
-}
-
-// since renders how long ago t was, coarsely: "just now", "5 minutes ago",
-// "3 days ago", then a date for anything older than a month.
-func since(t time.Time) string {
-	d := time.Since(t)
-	plural := func(n int, unit string) string {
-		if n == 1 {
-			return "1 " + unit + " ago"
-		}
-		return fmt.Sprintf("%d %ss ago", n, unit)
-	}
-	switch {
-	case d < time.Minute:
-		return "just now"
-	case d < time.Hour:
-		return plural(int(d/time.Minute), "minute")
-	case d < 24*time.Hour:
-		return plural(int(d/time.Hour), "hour")
-	case d < 30*24*time.Hour:
-		return plural(int(d/(24*time.Hour)), "day")
-	}
-	return "on " + t.Format("Jan 2, 2006")
 }
 
 // tileClass picks one of the app-tile gradients from a name, stably, so an

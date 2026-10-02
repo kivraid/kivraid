@@ -78,7 +78,7 @@ func (s *Server) handleForgotSubmit(w http.ResponseWriter, r *http.Request) {
 	identifier := strings.ToLower(strings.TrimSpace(r.PostFormValue("identifier")))
 	if identifier == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.render(w, r, "forgot.html", forgotData{CSRF: s.csrfToken(r.Context()), Error: "Enter your username or email."})
+		s.render(w, r, "forgot.html", forgotData{CSRF: s.csrfToken(r.Context()), Error: s.t(r, "Enter your username or email.")})
 		return
 	}
 	ip := s.clientIP(r)
@@ -98,7 +98,7 @@ func (s *Server) handleForgotSubmit(w http.ResponseWriter, r *http.Request) {
 			s.serverError(w, r, terr)
 			return
 		}
-		if serr := s.sendPasswordResetEmail(r.Context(), user, raw); serr != nil {
+		if serr := s.sendPasswordResetEmail(r.Context(), userLang(user, r), user, raw); serr != nil {
 			// Don't leak delivery failures to the caller, but do record them.
 			s.log.Warn("send password reset email", "user", user.Username, "err", serr)
 		} else {
@@ -130,11 +130,11 @@ func (s *Server) handleResetSubmit(w http.ResponseWriter, r *http.Request) {
 	}
 	password := r.PostFormValue("password")
 	if len(password) < 8 {
-		fail("The new password must be at least 8 characters.")
+		fail(s.t(r, "The new password must be at least 8 characters."))
 		return
 	}
 	if password != r.PostFormValue("confirm_password") {
-		fail("The passwords do not match.")
+		fail(s.t(r, "The passwords do not match."))
 		return
 	}
 
@@ -185,15 +185,15 @@ func (s *Server) handlePasswordChangeRequired(w http.ResponseWriter, r *http.Req
 	}
 	password := r.PostFormValue("password")
 	if len(password) < 8 {
-		render(http.StatusUnprocessableEntity, "The new password must be at least 8 characters.")
+		render(http.StatusUnprocessableEntity, s.t(r, "The new password must be at least 8 characters."))
 		return
 	}
 	if password != r.PostFormValue("confirm_password") {
-		render(http.StatusUnprocessableEntity, "The passwords do not match.")
+		render(http.StatusUnprocessableEntity, s.t(r, "The passwords do not match."))
 		return
 	}
 	if _, err := s.local.Authenticate(r.Context(), user.Username, password); err == nil {
-		render(http.StatusUnprocessableEntity, "Choose a password different from the one you were given.")
+		render(http.StatusUnprocessableEntity, s.t(r, "Choose a password different from the one you were given."))
 		return
 	}
 	if err := s.resetPassword(r.Context(), user, password); err != nil {

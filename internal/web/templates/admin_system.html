@@ -1,14 +1,14 @@
 {{define "content"}}
 {{template "settingstabs" .}}
-<p class="mb-6 text-sm text-muted">The effective configuration (read-only; secrets redacted) and live request diagnostics.</p>
+<p class="mb-6 text-sm text-muted">{{t "The effective configuration (read-only; secrets redacted) and live request diagnostics."}}</p>
 
 <div class="space-y-6">
   <div class="card p-6">
-    <h2 class="mb-4 text-sm font-semibold">Configuration</h2>
+    <h2 class="mb-4 text-sm font-semibold">{{t "Configuration"}}</h2>
     <dl class="divide-y divide-line">
       {{range .Data.Config}}
       <div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center">
-        <dt class="w-56 shrink-0 text-[13px] font-medium text-muted">{{.Label}}</dt>
+        <dt class="w-56 shrink-0 text-[13px] font-medium text-muted">{{t .Label}}</dt>
         <dd class="min-w-0 flex-1 text-sm">
           {{if .Mono}}<code class="code-inline">{{.Value}}</code>{{else}}{{.Value}}{{end}}
         </dd>
@@ -19,34 +19,34 @@
 
   {{if .Data.CanRotate}}
   <div class="card p-6">
-    {{if .Data.KeyRotated}}<div data-flash="Signing key rotated." data-variant="success" hidden></div>{{end}}
+    {{if .Data.KeyRotated}}<div data-flash="{{t "Signing key rotated."}}" data-variant="success" hidden></div>{{end}}
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold">Signing keys</h2>
+        <h2 class="text-sm font-semibold">{{t "Signing keys"}}</h2>
         <p class="mt-1 text-sm text-muted">
-          Active algorithm <code class="code-inline">{{.Data.SigningAlg}}</code> ·
-          {{.Data.PublishedKeys}} key{{if ne .Data.PublishedKeys 1}}s{{end}} published in the JWKS.
+          {{t "Active algorithm"}} <code class="code-inline">{{.Data.SigningAlg}}</code> ·
+          {{tn .Data.PublishedKeys "%d key published in the JWKS." "%d keys published in the JWKS."}}
         </p>
       </div>
       <form method="post" action="/admin/settings/system/rotate-key" class="shrink-0"
-            data-confirm="Generate a new signing key and sign new tokens with it? The current key stays published in the JWKS so tokens issued before now keep verifying until they expire."
-            data-confirm-title="Rotate signing key" data-confirm-label="Rotate key">
+            data-confirm="{{t "Generate a new signing key and sign new tokens with it? The current key stays published in the JWKS so tokens issued before now keep verifying until they expire."}}"
+            data-confirm-title="{{t "Rotate signing key"}}" data-confirm-label="{{t "Rotate key"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-secondary">Rotate key</button>
+        <button type="submit" class="btn-secondary">{{t "Rotate key"}}</button>
       </form>
     </div>
-    <p class="mt-3 text-sm text-muted">Current key created {{since .Data.KeyCreated}}. {{if .Data.RotationDays}}Rotated automatically every {{.Data.RotationDays}} days — next around {{localTime .Data.NextRotation}}.{{else}}Automatic rotation is off (Settings → Security).{{end}}</p>
-    <p class="mt-2 text-xs text-muted">Rotating replaces the key used to sign new tokens. Previous keys stay published for 7 days, so tokens they signed keep verifying, then are retired automatically. Sessions are unaffected.</p>
+    <p class="mt-3 text-sm text-muted">{{t "Current key created %s." (since .Data.KeyCreated)}} {{if .Data.RotationDays}}{{tn .Data.RotationDays "Rotated automatically every %d day — next around" "Rotated automatically every %d days — next around"}} {{localTime .Data.NextRotation}}.{{else}}{{t "Automatic rotation is off (Settings → Security)."}}{{end}}</p>
+    <p class="mt-2 text-xs text-muted">{{t "Rotating replaces the key used to sign new tokens. Previous keys stay published for 7 days, so tokens they signed keep verifying, then are retired automatically. Sessions are unaffected."}}</p>
   </div>
   {{end}}
 
   <div class="card p-6">
-    <h2 class="text-sm font-semibold">Request diagnostics</h2>
-    <p class="mb-4 mt-1 text-sm text-muted">How Kivraid sees the request that loaded this page — use it to check client-IP resolution behind a reverse proxy.</p>
+    <h2 class="text-sm font-semibold">{{t "Request diagnostics"}}</h2>
+    <p class="mb-4 mt-1 text-sm text-muted">{{t "How Kivraid sees the request that loaded this page — use it to check client-IP resolution behind a reverse proxy."}}</p>
     <dl class="divide-y divide-line">
       {{range .Data.Request}}
       <div class="flex flex-col gap-1 py-2.5 sm:flex-row sm:items-center">
-        <dt class="w-56 shrink-0 text-[13px] font-medium text-muted">{{.Label}}</dt>
+        <dt class="w-56 shrink-0 text-[13px] font-medium text-muted">{{t .Label}}</dt>
         <dd class="min-w-0 flex-1 text-sm">
           {{if .Mono}}<code class="code-inline">{{.Value}}</code>{{else}}{{.Value}}{{end}}
         </dd>

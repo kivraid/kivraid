@@ -1,12 +1,10 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"net/url"
 	"slices"
@@ -22,7 +20,7 @@ func (s *Server) guardAuthorize(next http.Handler) http.Handler {
 		q := r.URL.Query()
 		clientID, redirectURI := q.Get("client_id"), q.Get("redirect_uri")
 		if clientID != "" && redirectURI != "" {
-			if title, msg, bad := s.authorizeConfigError(r.Context(), clientID, redirectURI); bad {
+			if title, msg, bad := s.authorizeConfigError(r, clientID, redirectURI); bad {
 				s.renderError(w, r, http.StatusBadRequest, title, msg)
 				return
 			}
@@ -33,13 +31,14 @@ func (s *Server) guardAuthorize(next http.Handler) http.Handler {
 
 // authorizeConfigError reports a client/redirect-URI misconfiguration that op
 // would reject without being able to redirect. bad is false when the request
-// looks fine (delegate to op) or on a transient error (let op decide).
-func (s *Server) authorizeConfigError(ctx context.Context, clientID, redirectURI string) (title, message string, bad bool) {
+// looks fine (delegate to op) or on a transient error (let op decide). The
+// title and message are in the request's language.
+func (s *Server) authorizeConfigError(r *http.Request, clientID, redirectURI string) (title, message string, bad bool) {
+	ctx := r.Context()
 	provider, err := s.store.GetProviderByClientID(ctx, clientID)
 	if errors.Is(err, sql.ErrNoRows) {
-		return "Unknown application",
-			fmt.Sprintf("No application on this server is registered with the client ID %q. "+
-				"Check the client ID in the application's OpenID Connect configuration.", clientID), true
+		return s.t(r, "Unknown application"),
+			s.t(r, "No application on this server is registered with the client ID %q. Check the client ID in the application's OpenID Connect configuration.", clientID), true
 	}
 	if err != nil {
 		return "", "", false // transient: let op handle it
@@ -56,9 +55,8 @@ func (s *Server) authorizeConfigError(ctx context.Context, clientID, redirectURI
 	if app, err := s.store.GetApplication(ctx, provider.ApplicationID); err == nil && app.Name != "" {
 		name = app.Name
 	}
-	return "Redirect URI not allowed",
-		fmt.Sprintf("The redirect URI %q is not registered for %q. An administrator can allow it "+
-			"under Admin → Applications → %s → Redirect URIs.", redirectURI, name, name), true
+	return s.t(r, "Redirect URI not allowed"),
+		s.t(r, "The redirect URI %q is not registered for %q. An administrator can allow it under Admin → Applications → %s → Redirect URIs.", redirectURI, name, name), true
 }
 
 // endSessionClientID resolves the client an end_session request targets, the
@@ -89,8 +87,10 @@ func endSessionClientID(r *http.Request) string {
 // postLogoutConfigError reports a post_logout_redirect_uri that op would
 // reject for this client with a raw JSON error. It mirrors op's per-client
 // check; bad is false when op would accept it, when op ignores the URI (no
-// client resolved), or on a lookup error (let op decide).
-func (s *Server) postLogoutConfigError(ctx context.Context, clientID, uri string) (message string, bad bool) {
+// client resolved), or on a lookup error (let op decide). The message is in
+// the request's language.
+func (s *Server) postLogoutConfigError(r *http.Request, clientID, uri string) (message string, bad bool) {
+	ctx := r.Context()
 	if clientID == "" {
 		return "", false // op ignores post_logout_redirect_uri without a client
 	}
@@ -109,9 +109,7 @@ func (s *Server) postLogoutConfigError(ctx context.Context, clientID, uri string
 	if app, err := s.store.GetApplication(ctx, provider.ApplicationID); err == nil && app.Name != "" {
 		name = app.Name
 	}
-	return fmt.Sprintf("You are signed out. %q asked to return you to %q, which is not a registered "+
-		"post-logout redirect URI for it. An administrator can add it under "+
-		"Admin → Applications → %s → Post-logout redirect URIs.", name, uri, name), true
+	return s.t(r, "You are signed out. %q asked to return you to %q, which is not a registered post-logout redirect URI for it. An administrator can add it under Admin → Applications → %s → Post-logout redirect URIs.", name, uri, name), true
 }
 
 // isLoopbackRedirect reports whether the redirect URI targets the local

@@ -1,17 +1,17 @@
 {{define "content"}}
-{{if eq .Data.Revoked "1"}}<div data-flash="Session revoked." data-variant="success" hidden></div>{{end}}
-{{if eq .Data.Revoked "others"}}<div data-flash="All other sessions signed out." data-variant="success" hidden></div>{{end}}
+{{if eq .Data.Revoked "1"}}<div data-flash="{{t "Session revoked."}}" data-variant="success" hidden></div>{{end}}
+{{if eq .Data.Revoked "others"}}<div data-flash="{{t "All other sessions signed out."}}" data-variant="success" hidden></div>{{end}}
 <div class="page-head mb-8">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Sessions</h1>
-    <p class="mt-1 text-sm text-muted">Devices currently signed in to your account.</p>
+    <h1 class="text-2xl font-semibold tracking-tight">{{t "Sessions"}}</h1>
+    <p class="mt-1 text-sm text-muted">{{t "Devices currently signed in to your account."}}</p>
   </div>
   {{if .Data.Others}}
   <form method="post" action="/sessions/revoke-others" class="shrink-0"
-        data-confirm="This signs out {{.Data.Others}} other session(s). They will need to sign in again."
-        data-confirm-title="Sign out other sessions" data-confirm-variant="danger" data-confirm-label="Sign out others">
+        data-confirm="{{tn .Data.Others "This signs out %d other session. It will need to sign in again." "This signs out %d other sessions. They will need to sign in again."}}"
+        data-confirm-title="{{t "Sign out other sessions"}}" data-confirm-variant="danger" data-confirm-label="{{t "Sign out others"}}">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button type="submit" class="btn-danger-soft">Sign out other sessions</button>
+    <button type="submit" class="btn-danger-soft">{{t "Sign out other sessions"}}</button>
   </form>
   {{end}}
 </div>
@@ -25,19 +25,19 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
         <span class="text-sm font-medium">{{.Device}}</span>
-        {{if .Current}}<span class="badge-accent">This device</span>{{end}}
+        {{if .Current}}<span class="badge-accent">{{t "This device"}}</span>{{end}}
       </div>
       <div class="mt-0.5 text-xs text-muted">
-        {{if .IP}}{{.IP}} · {{end}}signed in {{.LoginAt.Format "Jan 2, 2006 15:04"}} · expires {{.Expiry.Format "Jan 2, 2006"}}
+        {{if .IP}}{{.IP}} · {{end}}{{t "signed in"}} {{localTime .LoginAt}} · {{t "expires %s" (date .Expiry)}}
       </div>
     </div>
     {{if not .Current}}
     <form method="post" action="/sessions/revoke" class="shrink-0"
-          data-confirm="Sign out this session? The device will need to sign in again."
-          data-confirm-title="Revoke session" data-confirm-variant="danger" data-confirm-label="Revoke">
+          data-confirm="{{t "Sign out this session? The device will need to sign in again."}}"
+          data-confirm-title="{{t "Revoke session"}}" data-confirm-variant="danger" data-confirm-label="{{t "Revoke"}}">
       <input type="hidden" name="_csrf" value="{{$.CSRF}}">
       <input type="hidden" name="token_hash" value="{{.TokenHash}}">
-      <button type="submit" class="btn-ghost">Revoke</button>
+      <button type="submit" class="btn-ghost">{{t "Revoke"}}</button>
     </form>
     {{end}}
   </div>

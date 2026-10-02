@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -8,8 +8,9 @@
   <link rel="stylesheet" href="{{asset "app.css"}}">
   <script src="{{asset "app.js"}}"></script>
 </head>
-<body class="min-h-dvh">
+<body class="min-h-dvh" data-i18n="{{jsI18n}}">
   <div class="aurora{{if brandHasBackground}} aurora-custom{{end}}">{{if brandHasBackground}}<img src="{{brandBackgroundURL}}" alt="">{{end}}</div>
+  {{template "authlang" .}}
   <main class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
     <div class="flex w-full max-w-md flex-col items-center gap-4 text-center">
       <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true">
@@ -25,7 +26,7 @@
       {{if .Action}}
       <a href="{{.ActionHref}}" class="btn-secondary mt-2">{{.Action}}</a>
       {{else}}
-      <a href="/" class="btn-secondary mt-2">Back to home</a>
+      <a href="/" class="btn-secondary mt-2">{{t "Back to home"}}</a>
       {{end}}
     </div>
   </main>

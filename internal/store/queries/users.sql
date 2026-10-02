@@ -33,3 +33,6 @@ FROM groups g
 JOIN user_groups ug ON ug.group_id = g.id
 WHERE ug.user_id = $1
 ORDER BY g.name;
+
+-- name: SetUserLocale :exec
+UPDATE users SET locale = $1 WHERE id = $2;

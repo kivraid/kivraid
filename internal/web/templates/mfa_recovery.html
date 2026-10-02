@@ -1,14 +1,14 @@
 {{define "content"}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">
-    {{if .Data.New}}New recovery codes{{else}}Two-factor is on{{end}}
+    {{if .Data.New}}{{t "New recovery codes"}}{{else}}{{t "Two-factor is on"}}{{end}}
   </h1>
-  <p class="mt-1 text-sm text-muted">Store these recovery codes somewhere safe. Each one works once if you lose access to your authenticator.</p>
+  <p class="mt-1 text-sm text-muted">{{t "Store these recovery codes somewhere safe. Each one works once if you lose access to your authenticator."}}</p>
 </div>
 
 <div class="space-y-4">
   <div class="alert-danger" role="alert">
-    These codes are shown <strong>only once</strong>. Copy or print them now — you won't see them again.
+    {{t "These codes are shown"}} <strong>{{t "only once"}}</strong>{{t ". Copy or print them now — you won't see them again."}}
   </div>
 
   <div class="card p-6">
@@ -18,11 +18,11 @@
       {{end}}
     </div>
     <button type="button" class="btn-secondary mt-4" data-copy="{{range $i, $c := .Data.Codes}}{{if $i}}
-{{end}}{{$c}}{{end}}">Copy all</button>
+{{end}}{{$c}}{{end}}">{{t "Copy all"}}</button>
   </div>
 
   <div class="flex justify-end">
-    <a href="{{with .Data.Next}}{{.}}{{else}}/profile{{end}}" class="btn-primary">Done</a>
+    <a href="{{with .Data.Next}}{{.}}{{else}}/profile{{end}}" class="btn-primary">{{t "Done"}}</a>
   </div>
 </div>
 {{end}}

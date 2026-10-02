@@ -149,13 +149,13 @@ func (s *Server) csrfProtect(next http.Handler) http.Handler {
 				// No token in the session: it expired (or was revoked)
 				// while a form sat open in a tab — by far the most common
 				// way to land here, and not the user's fault.
-				s.renderErrorAction(w, r, http.StatusForbidden, "Session expired",
-					"Your session ended while this page was open, so the form could not be submitted. Sign in again to continue.",
-					"Sign in again", "/login")
+				s.renderErrorAction(w, r, http.StatusForbidden, s.t(r, "Session expired"),
+					s.t(r, "Your session ended while this page was open, so the form could not be submitted. Sign in again to continue."),
+					s.t(r, "Sign in again"), "/login")
 				return
 			}
-			s.renderErrorAction(w, r, http.StatusForbidden, "Form expired",
-				"This form is no longer valid. Go back, reload the page, and try again.",
+			s.renderErrorAction(w, r, http.StatusForbidden, s.t(r, "Form expired"),
+				s.t(r, "This form is no longer valid. Go back, reload the page, and try again."),
 				"", "")
 			return
 		}

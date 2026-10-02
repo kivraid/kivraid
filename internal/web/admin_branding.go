@@ -157,8 +157,8 @@ func (s *Server) handleAdminBranding(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminBrandingSave(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
-		s.renderError(w, r, http.StatusRequestEntityTooLarge, "Upload too large",
-			"The logo must be smaller than 1 MB and the background smaller than 4 MB.")
+		s.renderError(w, r, http.StatusRequestEntityTooLarge, s.t(r, "Upload too large"),
+			s.t(r, "The logo must be smaller than 1 MB and the background smaller than 4 MB."))
 		return
 	}
 	name := strings.TrimSpace(r.PostFormValue("brand_name"))
@@ -183,7 +183,7 @@ func (s *Server) handleAdminBrandingSave(w http.ResponseWriter, r *http.Request)
 			mime := http.DetectContentType(logo)
 			if len(logo) > maxUploadPhotoSize || !slices.Contains(allowedPhotoTypes, mime) {
 				w.WriteHeader(http.StatusUnprocessableEntity)
-				s.renderBranding(w, r, "Use a JPEG, PNG, WebP or GIF up to 1 MB.", false)
+				s.renderBranding(w, r, s.t(r, "Use a JPEG, PNG, WebP or GIF up to 1 MB."), false)
 				return
 			}
 			if err := s.store.SetBrandLogo(r.Context(), sqlcgen.SetBrandLogoParams{
@@ -207,7 +207,7 @@ func (s *Server) handleAdminBrandingSave(w http.ResponseWriter, r *http.Request)
 			mime := http.DetectContentType(img)
 			if len(img) > maxUploadBackgroundSize || !slices.Contains(allowedBackgroundTypes, mime) {
 				w.WriteHeader(http.StatusUnprocessableEntity)
-				s.renderBranding(w, r, "Use a JPEG, PNG or WebP background up to 4 MB.", false)
+				s.renderBranding(w, r, s.t(r, "Use a JPEG, PNG or WebP background up to 4 MB."), false)
 				return
 			}
 			if err := s.store.SetLoginBackground(r.Context(), sqlcgen.SetLoginBackgroundParams{

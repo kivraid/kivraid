@@ -1,39 +1,39 @@
 {{define "content"}}
 <div class="mx-auto max-w-lg">
   <div class="mb-6">
-    <h1 class="text-2xl font-semibold tracking-tight">Two-factor authentication required</h1>
+    <h1 class="text-2xl font-semibold tracking-tight">{{t "Two-factor authentication required"}}</h1>
     <p class="mt-1 text-sm text-muted">
-      {{if .Data.ForApp}}The application you are opening requires a second factor.{{else}}Your administrator requires a second factor for your account.{{end}}
-      Your password alone is not enough to continue.
+      {{if .Data.ForApp}}{{t "The application you are opening requires a second factor."}}{{else}}{{t "Your administrator requires a second factor for your account."}}{{end}}
+      {{t "Your password alone is not enough to continue."}}
     </p>
   </div>
 
   {{if .Data.HasTOTP}}
   <div class="card space-y-4 p-6">
-    <p class="text-sm">You already use an authenticator app, but this session was opened before it was asked for. Sign in again and enter your code when prompted.</p>
+    <p class="text-sm">{{t "You already use an authenticator app, but this session was opened before it was asked for. Sign in again and enter your code when prompted."}}</p>
     <form method="post" action="/logout">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="btn-primary">Sign out and sign in again</button>
+      <button type="submit" class="btn-primary">{{t "Sign out and sign in again"}}</button>
     </form>
   </div>
   {{else}}
   <div class="card space-y-4 p-6">
     <div>
-      <h2 class="text-sm font-semibold">Set up an authenticator app</h2>
-      <p class="mt-1 text-sm text-muted">Scan a QR code with an app such as 1Password, Bitwarden, Google Authenticator or Aegis, then enter the code it shows. You will continue right after.</p>
+      <h2 class="text-sm font-semibold">{{t "Set up an authenticator app"}}</h2>
+      <p class="mt-1 text-sm text-muted">{{t "Scan a QR code with an app such as 1Password, Bitwarden, Google Authenticator or Aegis, then enter the code it shows. You will continue right after."}}</p>
     </div>
     <form method="post" action="/profile/mfa/begin">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="btn-primary">Set up two-factor</button>
+      <button type="submit" class="btn-primary">{{t "Set up two-factor"}}</button>
     </form>
   </div>
   {{if .Data.HasPasskeys}}
   <div class="card mt-4 space-y-3 p-6">
-    <h2 class="text-sm font-semibold">Or use your passkey</h2>
-    <p class="text-sm text-muted">You have a passkey: signing in with it counts as two-factor.</p>
+    <h2 class="text-sm font-semibold">{{t "Or use your passkey"}}</h2>
+    <p class="text-sm text-muted">{{t "You have a passkey: signing in with it counts as two-factor."}}</p>
     <form method="post" action="/logout">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="btn-secondary">Sign out to use my passkey</button>
+      <button type="submit" class="btn-secondary">{{t "Sign out to use my passkey"}}</button>
     </form>
   </div>
   {{end}}

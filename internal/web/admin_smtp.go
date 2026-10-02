@@ -2,7 +2,6 @@ package web
 
 import (
 	"errors"
-	"fmt"
 	"net/http"
 	"slices"
 	"strconv"
@@ -111,11 +110,11 @@ func (s *Server) handleAdminSMTPSave(w http.ResponseWriter, r *http.Request) {
 	// Only demand a complete configuration when turning delivery on.
 	if enabled {
 		if host == "" {
-			fail("A host is required to enable email.")
+			fail(s.t(r, "A host is required to enable email."))
 			return
 		}
 		if fromAddr == "" {
-			fail("A sender address is required to enable email.")
+			fail(s.t(r, "A sender address is required to enable email."))
 			return
 		}
 	}
@@ -161,27 +160,27 @@ func (s *Server) handleAdminSMTPTest(w http.ResponseWriter, r *http.Request) {
 		s.renderSMTPForm(w, r, cfg, to, msg, "")
 	}
 	if to == "" {
-		fail("Enter a recipient address for the test.")
+		fail(s.t(r, "Enter a recipient address for the test."))
 		return
 	}
 	brand := s.brandDisplayName()
 	err = s.mailer.SendWith(r.Context(), cfg, mailer.Message{
 		To:      to,
-		Subject: brand + " — SMTP test",
-		Text:    fmt.Sprintf("This is a test email from %s. If you received it, SMTP is working.", brand),
-		HTML:    emailHTML(brand, "SMTP test", to, fmt.Sprintf("This is a test email from %s. If you can read this, delivery is working.", brand), "Open "+brand, s.issuer()),
+		Subject: s.t(r, "%s — SMTP test", brand),
+		Text:    s.t(r, "This is a test email from %s. If you received it, SMTP is working.", brand),
+		HTML:    emailHTML(langOf(r), brand, s.t(r, "SMTP test"), to, s.t(r, "This is a test email from %s. If you can read this, delivery is working.", brand), s.t(r, "Open %s", brand), s.issuer()),
 	})
 	if errors.Is(err, mailer.ErrNotConfigured) {
-		fail("Set a host and sender address first, then send a test.")
+		fail(s.t(r, "Set a host and sender address first, then send a test."))
 		return
 	}
 	if err != nil {
-		fail("Test failed: " + err.Error())
+		fail(s.t(r, "Test failed: %s", err.Error()))
 		return
 	}
-	notice := "Test email sent to " + to + ". These settings are not saved yet — click Save changes to keep them."
+	notice := s.t(r, "Test email sent to %s. These settings are not saved yet — click Save changes to keep them.", to)
 	if r.PostFormValue("password") != "" {
-		notice += " Re-enter the password before saving: it is never sent back to the browser."
+		notice += " " + s.t(r, "Re-enter the password before saving: it is never sent back to the browser.")
 	}
 	s.renderSMTPForm(w, r, cfg, to, "", notice)
 }

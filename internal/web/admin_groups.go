@@ -102,7 +102,7 @@ func (s *Server) handleAdminGroupCreate(w http.ResponseWriter, r *http.Request) 
 	name := strings.TrimSpace(r.PostFormValue("name"))
 	if name == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderGroups(w, r, "Group name is required.")
+		s.renderGroups(w, r, s.t(r, "Group name is required."))
 		return
 	}
 	group, err := s.store.CreateGroup(r.Context(), sqlcgen.CreateGroupParams{
@@ -112,7 +112,7 @@ func (s *Server) handleAdminGroupCreate(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if isUniqueViolation(err) {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			s.renderGroups(w, r, "A group with this name already exists.")
+			s.renderGroups(w, r, s.t(r, "A group with this name already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -200,14 +200,14 @@ func (s *Server) handleAdminGroupUpdate(w http.ResponseWriter, r *http.Request) 
 		name := strings.TrimSpace(r.PostFormValue("name"))
 		if name == "" {
 			w.WriteHeader(http.StatusUnprocessableEntity)
-			s.renderGroupDetail(w, r, group, "Group name is required.")
+			s.renderGroupDetail(w, r, group, s.t(r, "Group name is required."))
 			return
 		}
 		if name != group.Name {
 			if err := s.store.RenameGroup(r.Context(), sqlcgen.RenameGroupParams{Name: name, ID: group.ID}); err != nil {
 				if isUniqueViolation(err) {
 					w.WriteHeader(http.StatusUnprocessableEntity)
-					s.renderGroupDetail(w, r, group, "A group with this name already exists.")
+					s.renderGroupDetail(w, r, group, s.t(r, "A group with this name already exists."))
 					return
 				}
 				s.serverError(w, r, err)
@@ -239,8 +239,8 @@ func (s *Server) handleAdminGroupAddMember(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	if group.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed group",
-			"Members of a directory group are managed in the directory.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed group"),
+			s.t(r, "Members of a directory group are managed in the directory."))
 		return
 	}
 	// The member field is a type-ahead on usernames; user_id is accepted too.
@@ -250,7 +250,7 @@ func (s *Server) handleAdminGroupAddMember(w http.ResponseWriter, r *http.Reques
 	}
 	if err != nil {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderGroupDetail(w, r, group, "No user with that username. Pick one from the suggestions.")
+		s.renderGroupDetail(w, r, group, s.t(r, "No user with that username. Pick one from the suggestions."))
 		return
 	}
 	userID := user.ID
@@ -268,8 +268,8 @@ func (s *Server) handleAdminGroupRemoveMember(w http.ResponseWriter, r *http.Req
 		return
 	}
 	if group.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed group",
-			"Members of a directory group are managed in the directory.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed group"),
+			s.t(r, "Members of a directory group are managed in the directory."))
 		return
 	}
 	if err := s.store.RemoveUserGroup(r.Context(), sqlcgen.RemoveUserGroupParams{

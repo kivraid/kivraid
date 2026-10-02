@@ -6,7 +6,6 @@ import (
 	"encoding/hex"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -25,8 +24,8 @@ import (
 func (s *Server) requireAdmin(next http.Handler) http.Handler {
 	return s.requireAuth(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if !currentUser(r).IsAdmin {
-			s.renderError(w, r, http.StatusForbidden, "Administrator access required",
-				"This page is reserved for administrators of this Kivraid instance.")
+			s.renderError(w, r, http.StatusForbidden, s.t(r, "Administrator access required"),
+				s.t(r, "This page is reserved for administrators of this Kivraid instance."))
 			return
 		}
 		next.ServeHTTP(w, r)
@@ -54,18 +53,58 @@ type appForm struct {
 	Preset string
 }
 
-// lifetimes parses and bounds the three token lifetimes, in seconds.
+// lifetimeField is one token lifetime with its user-facing errors, each a
+// complete sentence so translations need not assemble fragments.
+type lifetimeField struct {
+	label, raw        string
+	required, invalid string
+	// maxOne and maxOther say the limit in days, singular and plural.
+	maxOne, maxOther string
+}
+
+// lifetimes parses and bounds the three token lifetimes, in seconds. Errors
+// are translatable (see tErr).
 func (f *appForm) lifetimes() (access, refresh, id int64, err error) {
 	vals := []*int64{&access, &refresh, &id}
-	for i, field := range []struct{ label, raw string }{
-		{"Access token", f.AccessTTL}, {"Refresh token", f.RefreshTTL}, {"ID token", f.IDTTL},
+	for i, field := range []lifetimeField{
+		{
+			"Access token", f.AccessTTL,
+			msgid("Access token lifetime is required."),
+			msgid("Access token lifetime must be a positive duration such as 5m, 1h or 30d."),
+			msgid("Access token lifetime can be at most %d day."),
+			msgid("Access token lifetime can be at most %d days."),
+		},
+		{
+			"Refresh token", f.RefreshTTL,
+			msgid("Refresh token lifetime is required."),
+			msgid("Refresh token lifetime must be a positive duration such as 5m, 1h or 30d."),
+			msgid("Refresh token lifetime can be at most %d day."),
+			msgid("Refresh token lifetime can be at most %d days."),
+		},
+		{
+			"ID token", f.IDTTL,
+			msgid("ID token lifetime is required."),
+			msgid("ID token lifetime must be a positive duration such as 5m, 1h or 30d."),
+			msgid("ID token lifetime can be at most %d day."),
+			msgid("ID token lifetime can be at most %d days."),
+		},
 	} {
 		n, perr := parseDurationSeconds(field.raw)
-		if perr != nil {
-			return 0, 0, 0, fmt.Errorf("%s lifetime %s.", field.label, perr)
+		switch {
+		case errors.Is(perr, errDurationRequired):
+			return 0, 0, 0, uiError{msg: field.required}
+		case perr != nil:
+			return 0, 0, 0, uiError{msg: field.invalid}
 		}
 		if max := tokenLifetimeLimits[field.label]; n > max {
-			return 0, 0, 0, fmt.Errorf("%s lifetime can be at most %s.", field.label, humanDuration(max))
+			// The limits are whole days, at least one: singular for exactly
+			// one day in English and French alike.
+			days := max / 86400
+			msg := field.maxOther
+			if days == 1 {
+				msg = field.maxOne
+			}
+			return 0, 0, 0, uiError{msg: msg, args: []any{days}}
 		}
 		*vals[i] = n
 	}
@@ -218,7 +257,7 @@ func parseHostList(raw string) []string {
 // Proxy apps validate their hosts via validateProxy.
 func (f *appForm) validate() (redirects, postLogout []string, err error) {
 	if f.Name == "" {
-		return nil, nil, errors.New("Name is required.")
+		return nil, nil, errorf("Name is required.")
 	}
 	if f.Slug == "" {
 		f.Slug = slugify(f.Name)
@@ -226,34 +265,36 @@ func (f *appForm) validate() (redirects, postLogout []string, err error) {
 		f.Slug = slugify(f.Slug)
 	}
 	if f.Slug == "" {
-		return nil, nil, errors.New("Slug must contain at least one letter or digit.")
+		return nil, nil, errorf("Slug must contain at least one letter or digit.")
 	}
 	if f.LaunchURL != "" {
 		if _, perr := url.ParseRequestURI(f.LaunchURL); perr != nil {
-			return nil, nil, errors.New("Launch URL must be a valid absolute URL.")
+			return nil, nil, errorf("Launch URL must be a valid absolute URL.")
 		}
 	}
 	if f.Kind == "proxy" {
 		if len(parseHostList(f.ProxyHosts)) == 0 {
-			return nil, nil, errors.New("At least one protected host is required.")
+			return nil, nil, errorf("At least one protected host is required.")
 		}
 		return nil, nil, nil
 	}
-	redirects, err = parseURIList(f.RedirectURIs)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Redirect URIs: %s", err)
+	redirects, bad := parseURIList(f.RedirectURIs)
+	if bad != "" {
+		return nil, nil, errorf("Redirect URIs: %q is not an absolute URI", bad)
 	}
 	if len(redirects) == 0 {
-		return nil, nil, errors.New("At least one redirect URI is required.")
+		return nil, nil, errorf("At least one redirect URI is required.")
 	}
-	postLogout, err = parseURIList(f.PostLogoutURIs)
-	if err != nil {
-		return nil, nil, fmt.Errorf("Post-logout redirect URIs: %s", err)
+	postLogout, bad = parseURIList(f.PostLogoutURIs)
+	if bad != "" {
+		return nil, nil, errorf("Post-logout redirect URIs: %q is not an absolute URI", bad)
 	}
 	return redirects, postLogout, nil
 }
 
-func parseURIList(raw string) ([]string, error) {
+// parseURIList reads one absolute URI per line; invalid is the first line
+// that is not one.
+func parseURIList(raw string) (uris []string, invalid string) {
 	var out []string
 	for _, line := range strings.Split(raw, "\n") {
 		line = strings.TrimSpace(line)
@@ -262,11 +303,11 @@ func parseURIList(raw string) ([]string, error) {
 		}
 		u, err := url.Parse(line)
 		if err != nil || u.Scheme == "" {
-			return nil, fmt.Errorf("%q is not an absolute URI", line)
+			return nil, line
 		}
 		out = append(out, line)
 	}
-	return out, nil
+	return out, ""
 }
 
 func slugify(s string) string {
@@ -311,7 +352,7 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 
 	redirects, postLogout, err := form.validate()
 	if err != nil {
-		renderErr(err.Error())
+		renderErr(s.tErr(r, err))
 		return
 	}
 
@@ -335,7 +376,7 @@ func (s *Server) handleAdminAppCreate(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
-			renderErr("An application with this slug already exists.")
+			renderErr(s.t(r, "An application with this slug already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -511,7 +552,7 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		app.Name, app.Slug, app.LaunchUrl = form.Name, form.Slug, form.LaunchURL
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderAppDetail(w, r, app, provider, err.Error(), false)
+		s.renderAppDetail(w, r, app, provider, s.tErr(r, err), false)
 		return
 	}
 
@@ -521,7 +562,7 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 		ProxyHosts: app.ProxyHosts, UpdatedAt: now, ID: app.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
-			s.renderAppDetail(w, r, app, provider, "An application with this slug already exists.", false)
+			s.renderAppDetail(w, r, app, provider, s.t(r, "An application with this slug already exists."), false)
 			return
 		}
 		s.serverError(w, r, err)
@@ -575,8 +616,8 @@ func (s *Server) handleAdminAppRotateSecret(w http.ResponseWriter, r *http.Reque
 		return
 	}
 	if provider.Public {
-		s.renderError(w, r, http.StatusBadRequest, "No secret to rotate",
-			"This is a public client: it authenticates with PKCE and has no client secret.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "No secret to rotate"),
+			s.t(r, "This is a public client: it authenticates with PKCE and has no client secret."))
 		return
 	}
 	secret := randomHex(32)
@@ -667,7 +708,7 @@ func (s *Server) handleAdminProxyUpdate(w http.ResponseWriter, r *http.Request, 
 		app.Name, app.Slug, app.Description = form.Name, form.Slug, form.Description
 		app.LaunchUrl, app.ProxyHosts = form.LaunchURL, jsonList(parseHostList(form.ProxyHosts))
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderProxyDetail(w, r, app, err.Error(), false)
+		s.renderProxyDetail(w, r, app, s.tErr(r, err), false)
 		return
 	}
 
@@ -677,7 +718,7 @@ func (s *Server) handleAdminProxyUpdate(w http.ResponseWriter, r *http.Request, 
 		ProxyHosts: jsonList(parseHostList(form.ProxyHosts)), UpdatedAt: now, ID: app.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
-			s.renderProxyDetail(w, r, app, "An application with this slug already exists.", false)
+			s.renderProxyDetail(w, r, app, s.t(r, "An application with this slug already exists."), false)
 			return
 		}
 		s.serverError(w, r, err)
@@ -753,8 +794,8 @@ func (s *Server) handleAppIconUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	back := "/admin/applications/" + app.ID
 	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
-		s.renderError(w, r, http.StatusRequestEntityTooLarge, "Icon too large",
-			"The icon must be smaller than 1 MB.")
+		s.renderError(w, r, http.StatusRequestEntityTooLarge, s.t(r, "Icon too large"),
+			s.t(r, "The icon must be smaller than 1 MB."))
 		return
 	}
 	file, _, err := r.FormFile("icon")
@@ -770,8 +811,8 @@ func (s *Server) handleAppIconUpload(w http.ResponseWriter, r *http.Request) {
 	}
 	mime := http.DetectContentType(icon)
 	if len(icon) > maxUploadPhotoSize || !slices.Contains(allowedPhotoTypes, mime) {
-		s.renderError(w, r, http.StatusBadRequest, "Unsupported image",
-			"Use a JPEG, PNG, WebP or GIF up to 1 MB.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Unsupported image"),
+			s.t(r, "Use a JPEG, PNG, WebP or GIF up to 1 MB."))
 		return
 	}
 	if err := s.store.UpdateApplicationIcon(r.Context(), sqlcgen.UpdateApplicationIconParams{

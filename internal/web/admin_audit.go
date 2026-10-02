@@ -40,9 +40,9 @@ type auditRange struct {
 }
 
 var auditRanges = []auditRange{
-	{"24h", "Last 24 hours", 24 * time.Hour},
-	{"7d", "Last 7 days", 7 * 24 * time.Hour},
-	{"30d", "Last 30 days", 30 * 24 * time.Hour},
+	{"24h", msgid("Last 24 hours"), 24 * time.Hour},
+	{"7d", msgid("Last 7 days"), 7 * 24 * time.Hour},
+	{"30d", msgid("Last 30 days"), 30 * 24 * time.Hour},
 }
 
 // auditFilterValues are the activity filters as read from the query string.

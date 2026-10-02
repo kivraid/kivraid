@@ -1,0 +1,6 @@
+{{/* Fragments shared by the standalone (sign-in) pages. */}}
+{{define "authlang"}}
+<nav class="aurora-lang" aria-label="{{t "Language"}}">
+  {{range languages}}<a href="/lang?set={{.Code}}" lang="{{.Code}}" title="{{.Name}}" class="{{if eq .Code lang}}is-current{{end}}" {{if eq .Code lang}}aria-current="true"{{end}}>{{.Code}}</a>{{end}}
+</nav>
+{{end}}

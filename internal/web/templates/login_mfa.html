@@ -1,16 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Two-factor · {{brandName}}</title>
+  <title>{{t "Two-factor"}} · {{brandName}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{asset "app.css"}}">
   <script src="{{asset "app.js"}}"></script>
 </head>
-<body class="min-h-dvh">
+<body class="min-h-dvh" data-i18n="{{jsI18n}}">
   <div class="aurora{{if brandHasBackground}} aurora-custom{{end}}">{{if brandHasBackground}}<img src="{{brandBackgroundURL}}" alt="">{{end}}</div>
+  {{template "authlang" .}}
   <main class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
     <div class="w-full max-w-sm">
       <div class="mb-8 flex flex-col items-center gap-4">
@@ -20,8 +21,8 @@
           <path d="M10 11.4 H14 L13 17.4 H11 Z" fill="var(--on-accent)"/>
         </svg>
         <div class="text-center">
-          <h1 class="aurora-title">Two-factor authentication</h1>
-          <p class="aurora-sub">Enter the 6-digit code from your authenticator app.</p>
+          <h1 class="aurora-title">{{t "Two-factor authentication"}}</h1>
+          <p class="aurora-sub">{{t "Enter the 6-digit code from your authenticator app."}}</p>
         </div>
       </div>
 
@@ -32,20 +33,20 @@
       <form method="post" action="/login/mfa" class="auth-card space-y-4 p-6">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <div>
-          <label class="label" for="code">Authentication code</label>
+          <label class="label" for="code">{{t "Authentication code"}}</label>
           <input class="input text-center font-mono text-lg tracking-[0.3em]" id="code" name="code"
                  inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required autofocus>
         </div>
-        <button type="submit" class="btn-primary w-full">Verify</button>
+        <button type="submit" class="btn-primary w-full">{{t "Verify"}}</button>
         <button type="button" data-mfa-recovery-toggle
                 class="w-full cursor-pointer text-center text-xs text-muted hover:text-fg">
-          Lost your device? Use a recovery code
+          {{t "Lost your device? Use a recovery code"}}
         </button>
       </form>
 
       <form method="post" action="/logout" class="mt-4 text-center">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="aurora-foot hover:text-white">Cancel and sign out</button>
+        <button type="submit" class="aurora-foot hover:text-white">{{t "Cancel and sign out"}}</button>
       </form>
     </div>
   </main>

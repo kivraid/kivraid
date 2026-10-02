@@ -2,7 +2,7 @@ package web
 
 import (
 	"bytes"
-	"fmt"
+	"errors"
 	"strconv"
 	"strings"
 	"text/template"
@@ -17,12 +17,19 @@ var durationUnits = []struct {
 	seconds int64
 }{{"d", 86400}, {"h", 3600}, {"m", 60}, {"s", 1}}
 
+// Lifetime parse failures; callers word the user-facing message per field
+// (see appForm.lifetimes).
+var (
+	errDurationRequired = errors.New("is required")
+	errDurationInvalid  = errors.New("must be a positive duration such as 5m, 1h or 30d")
+)
+
 // parseDurationSeconds reads a lifetime such as "5m", "30d", "1h" or a bare
 // number of seconds.
 func parseDurationSeconds(raw string) (int64, error) {
 	raw = strings.ToLower(strings.TrimSpace(raw))
 	if raw == "" {
-		return 0, fmt.Errorf("is required")
+		return 0, errDurationRequired
 	}
 	mult := int64(1)
 	for _, u := range durationUnits {
@@ -33,7 +40,7 @@ func parseDurationSeconds(raw string) (int64, error) {
 	}
 	n, err := strconv.ParseInt(raw, 10, 64)
 	if err != nil || n <= 0 {
-		return 0, fmt.Errorf("must be a positive duration such as 5m, 1h or 30d")
+		return 0, errDurationInvalid
 	}
 	return n * mult, nil
 }
@@ -49,24 +56,9 @@ func formatDurationSeconds(n int64) string {
 	return strconv.FormatInt(n, 10) + "s"
 }
 
-// humanDuration renders seconds for reading: "5 minutes", "30 days".
-func humanDuration(n int64) string {
-	names := map[string]string{"d": "day", "h": "hour", "m": "minute", "s": "second"}
-	for _, u := range durationUnits {
-		if n >= u.seconds && n%u.seconds == 0 {
-			v := n / u.seconds
-			unit := names[u.suffix]
-			if v != 1 {
-				unit += "s"
-			}
-			return strconv.FormatInt(v, 10) + " " + unit
-		}
-	}
-	return strconv.FormatInt(n, 10) + " seconds"
-}
-
 // tokenLifetimeLimits bound each lifetime: short-lived access and ID
-// tokens, long-lived refresh tokens.
+// tokens, long-lived refresh tokens. Limits are whole days, as the
+// "at most %d days" messages in appForm.lifetimes assume.
 var tokenLifetimeLimits = map[string]int64{
 	"Access token":  86400,
 	"Refresh token": 365 * 86400,

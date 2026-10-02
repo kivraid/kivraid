@@ -1,8 +1,8 @@
 {{define "content"}}
-{{if .Data.Deleted}}<div data-flash="Group deleted." data-variant="success" hidden></div>{{end}}
+{{if .Data.Deleted}}<div data-flash="{{t "Group deleted."}}" data-variant="success" hidden></div>{{end}}
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Groups</h1>
-  <p class="mt-1 text-sm text-muted">Local groups are managed here; directory and federated groups mirror their source and are read-only.</p>
+  <h1 class="text-2xl font-semibold tracking-tight">{{t "Groups"}}</h1>
+  <p class="mt-1 text-sm text-muted">{{t "Local groups are managed here; directory and federated groups mirror their source and are read-only."}}</p>
 </div>
 
 <div class="space-y-4">
@@ -11,22 +11,22 @@
   <form method="post" action="/admin/groups" class="card flex items-end gap-3 p-4">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div class="flex-1">
-      <label class="label" for="name">New local group</label>
-      <input class="input" id="name" name="name" placeholder="engineering" required>
+      <label class="label" for="name">{{t "New local group"}}</label>
+      <input class="input" id="name" name="name" placeholder="{{t "engineering"}}" required>
     </div>
-    <button type="submit" class="btn-primary shrink-0">Create</button>
+    <button type="submit" class="btn-primary shrink-0">{{t "Create"}}</button>
   </form>
 
   <form method="get" action="/admin/groups" class="flex flex-wrap items-center gap-2" data-autosubmit>
     <input class="input min-w-0 flex-1 sm:w-56 sm:flex-none" type="search" name="q" value="{{.Data.Query}}"
-           placeholder="Search groups…" aria-label="Search groups">
-    <select name="source" class="select w-auto" aria-label="Source">
-      <option value="" {{if eq .Data.Source ""}}selected{{end}}>All sources</option>
-      <option value="local" {{if eq .Data.Source "local"}}selected{{end}}>Local</option>
-      <option value="ldap" {{if eq .Data.Source "ldap"}}selected{{end}}>Directory (LDAP)</option>
-      <option value="upstream" {{if eq .Data.Source "upstream"}}selected{{end}}>Federated</option>
+           placeholder="{{t "Search groups…"}}" aria-label="{{t "Search groups"}}">
+    <select name="source" class="select w-auto" aria-label="{{t "Source"}}">
+      <option value="" {{if eq .Data.Source ""}}selected{{end}}>{{t "All sources"}}</option>
+      <option value="local" {{if eq .Data.Source "local"}}selected{{end}}>{{t "Local"}}</option>
+      <option value="ldap" {{if eq .Data.Source "ldap"}}selected{{end}}>{{t "Directory (LDAP)"}}</option>
+      <option value="upstream" {{if eq .Data.Source "upstream"}}selected{{end}}>{{t "Federated"}}</option>
     </select>
-    {{if .Data.Filtered}}<a href="/admin/groups" class="btn-ghost">Clear</a>{{end}}
+    {{if .Data.Filtered}}<a href="/admin/groups" class="btn-ghost">{{t "Clear"}}</a>{{end}}
   </form>
 
   {{if .Data.Groups}}
@@ -37,16 +37,16 @@
       <div class="min-w-0 flex-1">
         <div class="flex items-center gap-2">
           <span class="truncate text-sm font-medium">{{.Name}}</span>
-          {{if .GrantsAdmin}}<span class="badge-accent">Grants admin</span>{{end}}
+          {{if .GrantsAdmin}}<span class="badge-accent">{{t "Grants admin"}}</span>{{end}}
         </div>
-        <div class="mt-0.5 text-xs text-faint">{{.MemberCount}} member{{if ne .MemberCount 1}}s{{end}}</div>
+        <div class="mt-0.5 text-xs text-faint">{{tn .MemberCount "%d member" "%d members"}}</div>
       </div>
       {{if eq .Source "ldap"}}
       <span class="badge shrink-0">{{with index $.Data.SourceNames (deref .LdapSourceID)}}{{.}}{{else}}LDAP{{end}}</span>
       {{else if eq .Source "upstream"}}
-      <span class="badge shrink-0">Federated</span>
+      <span class="badge shrink-0">{{t "Federated"}}</span>
       {{else}}
-      <span class="badge shrink-0">Local</span>
+      <span class="badge shrink-0">{{t "Local"}}</span>
       {{end}}
       <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
     </a>
@@ -54,13 +54,13 @@
   </div>
   {{template "pager" .Data.Pager}}
   {{else if .Data.Filtered}}
-  <div class="card px-6 py-12 text-center text-sm text-muted">No groups match these filters.</div>
+  <div class="card px-6 py-12 text-center text-sm text-muted">{{t "No groups match these filters."}}</div>
   {{else}}
   <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
     <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>
     <div>
-      <h2 class="text-sm font-semibold">No groups yet</h2>
-      <p class="mt-1 text-sm text-muted">Create a local group above, or connect a directory — its groups sync on user sign-in.</p>
+      <h2 class="text-sm font-semibold">{{t "No groups yet"}}</h2>
+      <p class="mt-1 text-sm text-muted">{{t "Create a local group above, or connect a directory — its groups sync on user sign-in."}}</p>
     </div>
   </div>
   {{end}}

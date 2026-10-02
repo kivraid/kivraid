@@ -182,7 +182,7 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 	policy := r.PostFormValue("mfa_policy")
 	if !slices.Contains(mfaPolicies, policy) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderSecurity(w, r, "Choose who must use two-factor authentication.")
+		s.renderSecurity(w, r, s.t(r, "Choose who must use two-factor authentication."))
 		return
 	}
 	alerts := r.PostFormValue("new_device_alerts") == "on"
@@ -190,7 +190,7 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 	days := int32(days64)
 	if !slices.Contains(keyRotationChoices, days) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderSecurity(w, r, "Choose a key rotation period.")
+		s.renderSecurity(w, r, s.t(r, "Choose a key rotation period."))
 		return
 	}
 	retention64, rerr := strconv.ParseInt(r.PostFormValue("audit_retention_days"), 10, 32)
@@ -200,7 +200,7 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 	}
 	if !slices.Contains(auditRetentionChoices, retention) {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderSecurity(w, r, "Choose how long to keep the activity log.")
+		s.renderSecurity(w, r, s.t(r, "Choose how long to keep the activity log."))
 		return
 	}
 	now := time.Now().UTC()

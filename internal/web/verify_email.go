@@ -23,21 +23,21 @@ func (s *Server) markEmailVerified(ctx context.Context, userID string) error {
 func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 	row, ok := s.consumeEmailToken(r.Context(), purposeEmailVerify, r.URL.Query().Get("token"))
 	if !ok {
-		s.renderError(w, r, http.StatusBadRequest, "Link expired",
-			"This verification link is invalid or has expired. Request a new one from your profile.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Link expired"),
+			s.t(r, "This verification link is invalid or has expired. Request a new one from your profile."))
 		return
 	}
 	user, err := s.store.GetUserByID(r.Context(), row.UserID)
 	if err != nil {
-		s.renderError(w, r, http.StatusBadRequest, "Link expired",
-			"This verification link is no longer valid.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Link expired"),
+			s.t(r, "This verification link is no longer valid."))
 		return
 	}
 	// If the address changed after the link was sent, the token no longer
 	// attests the current email.
 	if row.Email != user.Email {
-		s.renderError(w, r, http.StatusBadRequest, "Address changed",
-			"This link was sent to a different email address than the one on the account now.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Address changed"),
+			s.t(r, "This link was sent to a different email address than the one on the account now."))
 		return
 	}
 	if err := s.markEmailVerified(r.Context(), user.ID); err != nil {
@@ -58,8 +58,8 @@ func (s *Server) handleVerifyEmail(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProfileSendVerification(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	if user.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed email",
-			"Your email comes from the directory and is trusted as-is.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed email"),
+			s.t(r, "Your email comes from the directory and is trusted as-is."))
 		return
 	}
 	if user.EmailVerified {
@@ -67,11 +67,11 @@ func (s *Server) handleProfileSendVerification(w http.ResponseWriter, r *http.Re
 		return
 	}
 	if !s.smtpEnabled.Load() {
-		s.renderError(w, r, http.StatusServiceUnavailable, "Email not configured",
-			"This instance cannot send email yet. Ask an administrator to set up SMTP.")
+		s.renderError(w, r, http.StatusServiceUnavailable, s.t(r, "Email not configured"),
+			s.t(r, "This instance cannot send email yet. Ask an administrator to set up SMTP."))
 		return
 	}
-	if err := s.sendVerificationEmail(r.Context(), user); err != nil {
+	if err := s.sendVerificationEmail(r.Context(), userLang(user, r), user); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -87,16 +87,16 @@ func (s *Server) handleAdminUserSendVerification(w http.ResponseWriter, r *http.
 		return
 	}
 	if target.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed email",
-			"Directory users get their email from the directory; it is trusted as-is.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed email"),
+			s.t(r, "Directory users get their email from the directory; it is trusted as-is."))
 		return
 	}
 	if !s.smtpEnabled.Load() {
-		s.renderError(w, r, http.StatusServiceUnavailable, "Email not configured",
-			"Configure SMTP under Admin → Settings → Email before sending verification links.")
+		s.renderError(w, r, http.StatusServiceUnavailable, s.t(r, "Email not configured"),
+			s.t(r, "Configure SMTP under Admin → Settings → Email before sending verification links."))
 		return
 	}
-	if err := s.sendVerificationEmail(r.Context(), target); err != nil {
+	if err := s.sendVerificationEmail(r.Context(), userLang(target, r), target); err != nil {
 		s.serverError(w, r, err)
 		return
 	}

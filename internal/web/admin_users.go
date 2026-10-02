@@ -260,7 +260,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 
 	fail := func(msg string) { s.renderUserNew(w, r, form, msg) }
 	if form.Username == "" || form.Email == "" {
-		fail("Username and email are required.")
+		fail(s.t(r, "Username and email are required."))
 		return
 	}
 	if form.Name == "" {
@@ -271,7 +271,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 		// the account holds a random one nobody knows.
 		password, form.MustChange = randomHex(32), false
 	} else if len(password) < 8 {
-		fail("The password must be at least 8 characters.")
+		fail(s.t(r, "The password must be at least 8 characters."))
 		return
 	}
 	groups, err := s.localGroups(r.Context())
@@ -283,7 +283,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 	user, err := s.local.CreateUser(r.Context(), form.Username, form.Email, form.Name, password, form.IsAdmin)
 	if err != nil {
 		if isUniqueViolation(err) {
-			fail("A user with this username or email already exists.")
+			fail(s.t(r, "A user with this username or email already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -311,7 +311,7 @@ func (s *Server) handleAdminUserCreate(w http.ResponseWriter, r *http.Request) {
 	}
 	dest := "/admin/users/" + user.ID
 	if form.Invite {
-		if err := s.sendInvitationEmail(r.Context(), user); err != nil {
+		if err := s.sendInvitationEmail(r.Context(), userLang(user, r), user); err != nil {
 			s.log.Warn("send invitation", "user", user.Username, "err", err)
 			dest += "?notice=invite-failed"
 		} else {
@@ -384,19 +384,19 @@ func (s *Server) renderUserDetail(w http.ResponseWriter, r *http.Request, target
 	flash, flashErr := "", ""
 	switch r.URL.Query().Get("notice") {
 	case "invite-sent":
-		flash = "Invitation sent to " + target.Email + "."
+		flash = s.t(r, "Invitation sent to %s.", target.Email)
 	case "invite-failed":
-		flashErr = "The account was created, but the invitation email could not be sent. Check Settings → Email, then send a reset link below."
+		flashErr = s.t(r, "The account was created, but the invitation email could not be sent. Check Settings → Email, then send a reset link below.")
 	case "reset-sent":
-		flash = "Password reset link sent to " + target.Email + "."
+		flash = s.t(r, "Password reset link sent to %s.", target.Email)
 	case "reset-failed":
-		flashErr = "The reset link could not be sent. Check Settings → Email."
+		flashErr = s.t(r, "The reset link could not be sent. Check Settings → Email.")
 	case "group-added":
-		flash = "Added to the group."
+		flash = s.t(r, "Added to the group.")
 	case "group-removed":
-		flash = "Removed from the group."
+		flash = s.t(r, "Removed from the group.")
 	case "passkey-removed":
-		flash = "Passkey removed."
+		flash = s.t(r, "Passkey removed.")
 	}
 	canReset := s.canResetPassword(r.Context(), target)
 	s.render(w, r, "admin_user_detail.html", pageData{
@@ -444,7 +444,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 	// Footgun guards: you cannot lock yourself out, and the instance
 	// always keeps one active administrator.
 	if target.ID == actor.ID && (!isAdmin || !active) {
-		fail("You cannot deactivate your own account or remove your own administrator role.")
+		fail(s.t(r, "You cannot deactivate your own account or remove your own administrator role."))
 		return
 	}
 	if target.IsAdmin && target.Active && (!isAdmin || !active) {
@@ -454,7 +454,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		if admins <= 1 {
-			fail("This is the last active administrator.")
+			fail(s.t(r, "This is the last active administrator."))
 			return
 		}
 	}
@@ -465,7 +465,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 		name := strings.TrimSpace(r.PostFormValue("name"))
 		email := strings.ToLower(strings.TrimSpace(r.PostFormValue("email")))
 		if name == "" || email == "" {
-			fail("Name and email are required.")
+			fail(s.t(r, "Name and email are required."))
 			return
 		}
 		emailChanged := email != target.Email
@@ -473,7 +473,7 @@ func (s *Server) handleAdminUserUpdate(w http.ResponseWriter, r *http.Request) {
 			Name: name, Email: email, UpdatedAt: now, ID: target.ID,
 		}); err != nil {
 			if isUniqueViolation(err) {
-				fail("Another user already has this email.")
+				fail(s.t(r, "Another user already has this email."))
 				return
 			}
 			s.serverError(w, r, err)
@@ -508,14 +508,14 @@ func (s *Server) handleAdminUserPassword(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	if !s.canResetPassword(r.Context(), target) {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed password",
-			"This directory does not allow Kivraid to reset passwords. Enable it on the directory (Admin → Directories), or reset the password in the directory itself.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed password"),
+			s.t(r, "This directory does not allow Kivraid to reset passwords. Enable it on the directory (Admin → Directories), or reset the password in the directory itself."))
 		return
 	}
 	password := r.PostFormValue("password")
 	if len(password) < 8 {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderUserDetail(w, r, target, "The new password must be at least 8 characters.", false, false, false)
+		s.renderUserDetail(w, r, target, s.t(r, "The new password must be at least 8 characters."), false, false, false)
 		return
 	}
 	if err := s.resetPassword(r.Context(), target, password); err != nil {
@@ -541,8 +541,8 @@ func (s *Server) handleAdminUserDelete(w http.ResponseWriter, r *http.Request) {
 	}
 	actor := currentUser(r)
 	if target.ID == actor.ID {
-		s.renderError(w, r, http.StatusBadRequest, "You cannot delete your own account",
-			"Sign in as another administrator to delete this account.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "You cannot delete your own account"),
+			s.t(r, "Sign in as another administrator to delete this account."))
 		return
 	}
 	s.revokeUserAccess(r.Context(), target.ID)
@@ -593,14 +593,14 @@ func (s *Server) handleAdminUserSendReset(w http.ResponseWriter, r *http.Request
 		return
 	}
 	if !s.canResetPassword(r.Context(), target) || target.Email == "" || !s.smtpEnabled.Load() {
-		s.renderError(w, r, http.StatusBadRequest, "Cannot send a reset link",
-			"A reset link needs email delivery (Settings → Email), an address on the account, and a source that lets Kivraid set passwords.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Cannot send a reset link"),
+			s.t(r, "A reset link needs email delivery (Settings → Email), an address on the account, and a source that lets Kivraid set passwords."))
 		return
 	}
 	notice := "reset-sent"
 	raw, err := s.issueEmailToken(r.Context(), purposePasswordReset, target.ID, target.Email, resetTokenTTL)
 	if err == nil {
-		err = s.sendPasswordResetEmail(r.Context(), target, raw)
+		err = s.sendPasswordResetEmail(r.Context(), userLang(target, r), target, raw)
 	}
 	if err != nil {
 		s.log.Warn("send reset link", "user", target.Username, "err", err)
@@ -629,8 +629,8 @@ func (s *Server) changeUserGroup(w http.ResponseWriter, r *http.Request, add boo
 	}
 	group, err := s.store.GetGroup(r.Context(), r.PostFormValue("group_id"))
 	if errors.Is(err, sql.ErrNoRows) || (err == nil && group.Source != "local") {
-		s.renderError(w, r, http.StatusBadRequest, "Group not editable",
-			"Only local groups can be edited here; directory and federated groups mirror their source.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Group not editable"),
+			s.t(r, "Only local groups can be edited here; directory and federated groups mirror their source."))
 		return
 	}
 	if err != nil {

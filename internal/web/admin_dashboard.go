@@ -3,16 +3,16 @@ package web
 import (
 	"encoding/json"
 	"net/http"
-	"strconv"
 	"time"
 
 	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/i18n"
 	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
 // dashStat is a single headline number on the admin overview.
 type dashStat struct {
-	Label string
+	Label string // English message, translated in the template
 	Value int64
 	Sub   string // optional secondary line
 	Href  string
@@ -117,13 +117,15 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 
 	deactivated := ""
 	if n := users - activeUsers; n > 0 {
-		deactivated = plural(n, "deactivated", "deactivated")
+		// English uses the same word for both forms; the explicit argument
+		// index only keeps the plural key distinct for other languages.
+		deactivated = i18n.N(langOf(r), n, "%d deactivated", "%[1]d deactivated")
 	}
 	stats := []dashStat{
-		{Label: "Users", Value: users, Sub: deactivated, Href: "/admin/users"},
-		{Label: "Applications", Value: apps, Href: "/admin/applications"},
-		{Label: "Groups", Value: groups, Href: "/admin/groups"},
-		{Label: "Directories", Value: int64(len(sources)), Href: "/admin/ldap"},
+		{Label: msgid("Users"), Value: users, Sub: deactivated, Href: "/admin/users"},
+		{Label: msgid("Applications"), Value: apps, Href: "/admin/applications"},
+		{Label: msgid("Groups"), Value: groups, Href: "/admin/groups"},
+		{Label: msgid("Directories"), Value: int64(len(sources)), Href: "/admin/ldap"},
 	}
 
 	s.render(w, r, "admin_dashboard.html", pageData{
@@ -134,12 +136,4 @@ func (s *Server) handleAdminDashboard(w http.ResponseWriter, r *http.Request) {
 			SignInJSON: string(seriesJSON),
 		},
 	})
-}
-
-// plural renders "N word" using the plural form when N != 1.
-func plural(n int64, one, many string) string {
-	if n == 1 {
-		return "1 " + one
-	}
-	return strconv.FormatInt(n, 10) + " " + many
 }

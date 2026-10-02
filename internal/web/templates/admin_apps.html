@@ -1,16 +1,16 @@
 {{define "content"}}
-{{if .Data.Deleted}}<div data-flash="Application deleted." data-variant="success" hidden></div>{{end}}
+{{if .Data.Deleted}}<div data-flash="{{t "Application deleted."}}" data-variant="success" hidden></div>{{end}}
 <div class="page-head mb-8">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Applications</h1>
-    <p class="mt-1 text-sm text-muted">Applications that sign in through Kivraid, with OpenID Connect or forward auth.</p>
+    <h1 class="text-2xl font-semibold tracking-tight">{{t "Applications"}}</h1>
+    <p class="mt-1 text-sm text-muted">{{t "Applications that sign in through Kivraid, with OpenID Connect or forward auth."}}</p>
   </div>
   <div class="page-actions">
     {{if .Data.Apps}}
-    <input class="input min-w-0 flex-1 sm:w-56 sm:flex-none" type="search" placeholder="Filter applications…"
-           data-list-filter="#apps-list" data-list-empty="#apps-empty" aria-label="Filter applications">
+    <input class="input min-w-0 flex-1 sm:w-56 sm:flex-none" type="search" placeholder="{{t "Filter applications…"}}"
+           data-list-filter="#apps-list" data-list-empty="#apps-empty" aria-label="{{t "Filter applications"}}">
     {{end}}
-    <a href="/admin/applications/new" class="btn-primary shrink-0">New application</a>
+    <a href="/admin/applications/new" class="btn-primary shrink-0">{{t "New application"}}</a>
   </div>
 </div>
 
@@ -26,8 +26,8 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
         <span class="truncate text-sm font-medium">{{.App.Name}}</span>
-        {{if eq .App.Kind "proxy"}}<span class="badge">Forward auth</span>{{else if .Public}}<span class="badge">Public · PKCE</span>{{end}}
-        {{if .App.RequireMfa}}<span class="badge">2FA required</span>{{end}}
+        {{if eq .App.Kind "proxy"}}<span class="badge">{{t "Forward auth"}}</span>{{else if .Public}}<span class="badge">{{t "Public · PKCE"}}</span>{{end}}
+        {{if .App.RequireMfa}}<span class="badge">{{t "2FA required"}}</span>{{end}}
       </div>
       <div class="mt-0.5 truncate text-xs text-faint">
         {{if .Host}}{{.Host}}{{else}}{{.App.Slug}}{{end}}{{with .App.Description}} · {{.}}{{end}}
@@ -35,24 +35,24 @@
     </div>
     <div class="hidden shrink-0 flex-wrap justify-end gap-1 sm:flex">
       {{if .Restricted}}
-        {{range .Groups}}<span class="chip">{{.}}</span>{{else}}<span class="badge border-warn/30 bg-warn-soft text-warn">Locked: no group</span>{{end}}
+        {{range .Groups}}<span class="chip">{{.}}</span>{{else}}<span class="badge border-warn/30 bg-warn-soft text-warn">{{t "Locked: no group"}}</span>{{end}}
       {{else}}
-        <span class="text-xs text-faint">Everyone</span>
+        <span class="text-xs text-faint">{{t "Everyone"}}</span>
       {{end}}
     </div>
     <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
   </a>
   {{end}}
 </div>
-<div id="apps-empty" class="mt-4 text-center text-sm text-faint" hidden>No applications match your filter.</div>
+<div id="apps-empty" class="mt-4 text-center text-sm text-faint" hidden>{{t "No applications match your filter."}}</div>
 {{else}}
 <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
   <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="7" x="3" y="3" rx="1"/><rect width="7" height="7" x="14" y="3" rx="1"/><rect width="7" height="7" x="14" y="14" rx="1"/><rect width="7" height="7" x="3" y="14" rx="1"/></svg>
   <div>
-    <h2 class="text-sm font-semibold">No applications yet</h2>
-    <p class="mt-1 text-sm text-muted">Register your first application to put it behind SSO.</p>
+    <h2 class="text-sm font-semibold">{{t "No applications yet"}}</h2>
+    <p class="mt-1 text-sm text-muted">{{t "Register your first application to put it behind SSO."}}</p>
   </div>
-  <a href="/admin/applications/new" class="btn-primary mt-2">New application</a>
+  <a href="/admin/applications/new" class="btn-primary mt-2">{{t "New application"}}</a>
 </div>
 {{end}}
 {{end}}

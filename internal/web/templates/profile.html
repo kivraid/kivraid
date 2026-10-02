@@ -1,10 +1,10 @@
 {{define "content"}}
-{{if .Data.MFAOff}}<div data-flash="Two-factor authentication disabled." data-variant="success" hidden></div>{{end}}
-{{if .Data.VerifySent}}<div data-flash="Verification email sent — check your inbox." data-variant="success" hidden></div>{{end}}
-{{if .Data.VerifiedFlash}}<div data-flash="Your email address is verified." data-variant="success" hidden></div>{{end}}
+{{if .Data.MFAOff}}<div data-flash="{{t "Two-factor authentication disabled."}}" data-variant="success" hidden></div>{{end}}
+{{if .Data.VerifySent}}<div data-flash="{{t "Verification email sent — check your inbox."}}" data-variant="success" hidden></div>{{end}}
+{{if .Data.VerifiedFlash}}<div data-flash="{{t "Your email address is verified."}}" data-variant="success" hidden></div>{{end}}
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Profile</h1>
-  <p class="mt-1 text-sm text-muted">Your identity, as applications will see it.</p>
+  <h1 class="text-2xl font-semibold tracking-tight">{{t "Profile"}}</h1>
+  <p class="mt-1 text-sm text-muted">{{t "Your identity, as applications will see it."}}</p>
 </div>
 
 <div class="card">
@@ -25,17 +25,17 @@
         {{if .Data.EmailVerified}}
         <span class="inline-flex items-center gap-1 text-xs font-medium text-accent">
           <svg class="size-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg>
-          Email verified
+          {{t "Email verified"}}
         </span>
         {{else}}
-        <span class="badge">Email not verified</span>
+        <span class="badge">{{t "Email not verified"}}</span>
         {{if .Data.CanVerifyEmail}}
         <form method="post" action="/profile/verify-email">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" class="text-xs font-medium text-accent underline underline-offset-2 hover:no-underline" data-no-spinner>Send verification link</button>
+          <button type="submit" class="text-xs font-medium text-accent underline underline-offset-2 hover:no-underline" data-no-spinner>{{t "Send verification link"}}</button>
         </form>
         {{else}}
-        <span class="text-xs text-faint">Email delivery isn't set up yet; an administrator can verify it for you.</span>
+        <span class="text-xs text-faint">{{t "Email delivery isn't set up yet; an administrator can verify it for you."}}</span>
         {{end}}
         {{end}}
       </div>
@@ -44,21 +44,21 @@
   </div>
   <dl class="grid grid-cols-1 gap-x-8 gap-y-6 p-6 text-sm sm:grid-cols-2">
     <div>
-      <dt class="dt">Username</dt>
+      <dt class="dt">{{t "Username"}}</dt>
       <dd class="font-mono text-[13px]">{{.User.Username}}</dd>
     </div>
     <div>
-      <dt class="dt">Source</dt>
-      <dd>{{if eq .User.Source "local"}}<span class="badge">Local account</span>{{else}}<span class="badge">{{.User.Source}}</span>{{end}}</dd>
+      <dt class="dt">{{t "Source"}}</dt>
+      <dd>{{if eq .User.Source "local"}}<span class="badge">{{t "Local account"}}</span>{{else}}<span class="badge">{{.User.Source}}</span>{{end}}</dd>
     </div>
     <div>
-      <dt class="dt">Member since</dt>
-      <dd>{{.User.CreatedAt.Format "January 2, 2006"}}</dd>
+      <dt class="dt">{{t "Member since"}}</dt>
+      <dd>{{date .User.CreatedAt}}</dd>
     </div>
     <div>
-      <dt class="dt">Groups</dt>
+      <dt class="dt">{{t "Groups"}}</dt>
       <dd class="flex flex-wrap gap-1.5">
-        {{range .Data.Groups}}<span class="badge">{{.Name}}</span>{{else}}<span class="text-faint">No groups yet</span>{{end}}
+        {{range .Data.Groups}}<span class="badge">{{.Name}}</span>{{else}}<span class="text-faint">{{t "No groups yet"}}</span>{{end}}
       </dd>
     </div>
   </dl>
@@ -66,7 +66,7 @@
 
 {{if eq .User.Source "local"}}
 <div class="card mt-4 space-y-4 p-6">
-  <h2 class="text-sm font-semibold">Photo</h2>
+  <h2 class="text-sm font-semibold">{{t "Photo"}}</h2>
   <div class="flex items-center gap-4" data-upload>
     <span data-preview data-preview-class="size-12 shrink-0 rounded-full object-cover">
       {{if .User.PhotoMime}}<img class="size-12 shrink-0 rounded-full object-cover" src="/avatar/{{.User.ID}}" alt="">{{else}}<span class="avatar size-12 text-base">{{initials .User.Name}}</span>{{end}}
@@ -75,49 +75,49 @@
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <input type="file" name="photo" accept="image/jpeg,image/png,image/webp,image/gif" required data-autoupload data-max-bytes="1048576"
              class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
-      <button type="submit" class="btn-secondary shrink-0" data-upload-button>Upload</button>
+      <button type="submit" class="btn-secondary shrink-0" data-upload-button>{{t "Upload"}}</button>
     </form>
     {{if .User.PhotoMime}}
     <form method="post" action="/profile/photo/delete" class="shrink-0"
-          data-confirm="Remove your profile photo?" data-confirm-title="Remove photo"
-          data-confirm-variant="danger" data-confirm-label="Remove">
+          data-confirm="{{t "Remove your profile photo?"}}" data-confirm-title="{{t "Remove photo"}}"
+          data-confirm-variant="danger" data-confirm-label="{{t "Remove"}}">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="btn-ghost">Remove</button>
+      <button type="submit" class="btn-ghost">{{t "Remove"}}</button>
     </form>
     {{end}}
   </div>
-  <p class="text-xs text-muted">Choose a picture to upload it. JPEG, PNG, WebP or GIF, up to 1 MB.</p>
+  <p class="text-xs text-muted">{{t "Choose a picture to upload it. JPEG, PNG, WebP or GIF, up to 1 MB."}}</p>
 </div>
 {{end}}
 
 <div class="card mt-4 space-y-4 p-6">
   <div>
-    <h2 class="text-sm font-semibold">Two-factor authentication</h2>
-    <p class="mt-1 text-xs text-muted">A time-based code from an authenticator app, required at each sign-in.</p>
+    <h2 class="text-sm font-semibold">{{t "Two-factor authentication"}}</h2>
+    <p class="mt-1 text-xs text-muted">{{t "A time-based code from an authenticator app, required at each sign-in."}}</p>
   </div>
   {{if .Data.MFAEnabled}}
   <div class="flex flex-wrap items-center gap-2 text-sm">
-    <span class="badge-accent">Enabled</span>
-    <span class="text-muted">{{.Data.RecoveryRemaining}} recovery code{{if ne .Data.RecoveryRemaining 1}}s{{end}} left</span>
+    <span class="badge-accent">{{t "Enabled"}}</span>
+    <span class="text-muted">{{tn .Data.RecoveryRemaining "%d recovery code left" "%d recovery codes left"}}</span>
   </div>
   <form method="post" action="/profile/mfa/recovery" class="space-y-3 border-t border-line pt-4">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div>
-      <label class="label" for="mfa_code">Current authenticator code</label>
+      <label class="label" for="mfa_code">{{t "Current authenticator code"}}</label>
       <input class="input font-mono sm:w-48" id="mfa_code" name="code"
              inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required>
-      <p class="mt-1.5 text-xs text-muted">Enter a current code to regenerate recovery codes{{if not .Data.MFARequired}} or turn two-factor off{{end}}.</p>
+      <p class="mt-1.5 text-xs text-muted">{{if .Data.MFARequired}}{{t "Enter a current code to regenerate recovery codes."}}{{else}}{{t "Enter a current code to regenerate recovery codes or turn two-factor off."}}{{end}}</p>
     </div>
     <div class="flex flex-wrap gap-3">
-      <button type="submit" class="btn-secondary">Regenerate recovery codes</button>
-      {{if not .Data.MFARequired}}<button type="submit" formaction="/profile/mfa/disable" class="btn-danger-soft">Disable two-factor</button>{{end}}
+      <button type="submit" class="btn-secondary">{{t "Regenerate recovery codes"}}</button>
+      {{if not .Data.MFARequired}}<button type="submit" formaction="/profile/mfa/disable" class="btn-danger-soft">{{t "Disable two-factor"}}</button>{{end}}
     </div>
-    {{if .Data.MFARequired}}<p class="text-xs text-muted">Your administrator requires two-factor authentication for your account.</p>{{end}}
+    {{if .Data.MFARequired}}<p class="text-xs text-muted">{{t "Your administrator requires two-factor authentication for your account."}}</p>{{end}}
   </form>
   {{else}}
   <form method="post" action="/profile/mfa/begin">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <button type="submit" class="btn-primary">Enable two-factor</button>
+    <button type="submit" class="btn-primary">{{t "Enable two-factor"}}</button>
   </form>
   {{end}}
 </div>
@@ -125,8 +125,8 @@
 {{if .Data.PasskeysEnabled}}
 <div class="card mt-4 space-y-4 p-6" data-passkeys>
   <div>
-    <h2 class="text-sm font-semibold">Passkeys</h2>
-    <p class="mt-1 text-xs text-muted">Sign in without a password using your device's biometrics or a security key. A passkey satisfies both password and two-factor.</p>
+    <h2 class="text-sm font-semibold">{{t "Passkeys"}}</h2>
+    <p class="mt-1 text-xs text-muted">{{t "Sign in without a password using your device's biometrics or a security key. A passkey satisfies both password and two-factor."}}</p>
   </div>
   {{if .Data.Passkeys}}
   <ul class="divide-y divide-line border-y border-line">
@@ -134,26 +134,26 @@
     <li class="flex items-center justify-between gap-3 py-3">
       <div class="min-w-0">
         <p class="truncate text-sm font-medium">{{.Name}}</p>
-        <p class="text-xs text-muted">Added {{.CreatedAt.Format "Jan 2, 2006"}}{{if .LastUsedAt.Valid}} · last used {{.LastUsedAt.Time.Format "Jan 2, 2006"}}{{end}}</p>
+        <p class="text-xs text-muted">{{t "Added %s" (date .CreatedAt)}}{{if .LastUsedAt.Valid}} · {{t "last used %s" (date .LastUsedAt.Time)}}{{end}}</p>
       </div>
       <form method="post" action="/profile/passkeys/{{.ID}}/delete"
-            data-confirm="Remove this passkey? You'll no longer be able to sign in with it."
-            data-confirm-title="Remove passkey" data-confirm-variant="danger" data-confirm-label="Remove">
+            data-confirm="{{t "Remove this passkey? You'll no longer be able to sign in with it."}}"
+            data-confirm-title="{{t "Remove passkey"}}" data-confirm-variant="danger" data-confirm-label="{{t "Remove"}}">
         <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-        <button type="submit" class="btn-ghost">Remove</button>
+        <button type="submit" class="btn-ghost">{{t "Remove"}}</button>
       </form>
     </li>
     {{end}}
   </ul>
   {{else}}
-  <p class="text-sm text-muted">No passkeys registered yet.</p>
+  <p class="text-sm text-muted">{{t "No passkeys registered yet."}}</p>
   {{end}}
   <div class="flex flex-wrap items-end gap-3 border-t border-line pt-4">
     <div class="min-w-48 flex-1">
-      <label class="label" for="passkey_name">Passkey name</label>
-      <input class="input" id="passkey_name" data-passkey-name placeholder="e.g. MacBook Touch ID" maxlength="60">
+      <label class="label" for="passkey_name">{{t "Passkey name"}}</label>
+      <input class="input" id="passkey_name" data-passkey-name placeholder="{{t "e.g. MacBook Touch ID"}}" maxlength="60">
     </div>
-    <button type="button" class="btn-secondary" data-passkey-add>Add passkey</button>
+    <button type="button" class="btn-secondary" data-passkey-add>{{t "Add passkey"}}</button>
   </div>
   <p data-passkey-error class="alert-danger" role="alert" hidden></p>
 </div>
@@ -161,22 +161,22 @@
 
 {{if .Data.CanChangePW}}
 <div class="mt-4 space-y-4">
-  {{if .Data.PWSuccess}}<div data-flash="Your password has been changed." data-variant="success" hidden></div>{{end}}
+  {{if .Data.PWSuccess}}<div data-flash="{{t "Your password has been changed."}}" data-variant="success" hidden></div>{{end}}
   {{if .Data.PWError}}<div class="alert-danger" role="alert">{{.Data.PWError}}</div>{{end}}
 
   <form method="post" action="/profile/password" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div>
-      <h2 class="text-sm font-semibold">Change password</h2>
+      <h2 class="text-sm font-semibold">{{t "Change password"}}</h2>
       {{if eq .User.Source "ldap"}}
-      <p class="mt-1 text-xs text-muted">Your password lives in the directory; the change is written back to it.</p>
+      <p class="mt-1 text-xs text-muted">{{t "Your password lives in the directory; the change is written back to it."}}</p>
       {{end}}
     </div>
     <div>
-      <label class="label" for="current_password">Current password</label>
+      <label class="label" for="current_password">{{t "Current password"}}</label>
       <div class="relative sm:w-2/3">
         <input class="input pr-11" id="current_password" name="current_password" type="password" autocomplete="current-password" required data-secret>
-        <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+        <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
           <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
         </button>
@@ -184,29 +184,29 @@
     </div>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
-        <label class="label" for="new_password">New password</label>
+        <label class="label" for="new_password">{{t "New password"}}</label>
         <div class="relative">
           <input class="input pr-11" id="new_password" name="new_password" type="password" autocomplete="new-password" minlength="8" required data-secret>
-          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
             <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
           </button>
         </div>
       </div>
       <div>
-        <label class="label" for="confirm_password">Confirm new password</label>
+        <label class="label" for="confirm_password">{{t "Confirm new password"}}</label>
         <div class="relative">
           <input class="input pr-11" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required data-secret>
-          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
             <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
           </button>
         </div>
       </div>
     </div>
-    <p class="text-xs text-muted">At least 8 characters. A long passphrase of a few unrelated words is both strong and easy to remember.</p>
+    <p class="text-xs text-muted">{{t "At least 8 characters. A long passphrase of a few unrelated words is both strong and easy to remember."}}</p>
     <div class="flex justify-end border-t border-line pt-5">
-      <button type="submit" class="btn-primary">Change password</button>
+      <button type="submit" class="btn-primary">{{t "Change password"}}</button>
     </div>
   </form>
 </div>

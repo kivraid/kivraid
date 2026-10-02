@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/i18n"
 	"github.com/kivraid/kivraid/internal/oidcserver"
 	"github.com/kivraid/kivraid/internal/session"
 	"github.com/kivraid/kivraid/internal/sources/ldap"
@@ -69,9 +70,9 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	notice := ""
 	switch {
 	case r.URL.Query().Get("reset") == "1":
-		notice = "Your password has been changed. Sign in with it."
+		notice = s.t(r, "Your password has been changed. Sign in with it.")
 	case r.URL.Query().Get("verified") == "1":
-		notice = "Your email address is now verified."
+		notice = s.t(r, "Your email address is now verified.")
 	}
 	var accounts []rememberedAccount
 	if r.URL.Query().Get("other") != "1" {
@@ -115,7 +116,7 @@ func (s *Server) handleLoginIdentify(w http.ResponseWriter, r *http.Request) {
 	if identifier == "" {
 		w.WriteHeader(http.StatusUnprocessableEntity)
 		s.render(w, r, "login.html", loginData{
-			CSRF: s.csrfToken(r.Context()), Error: "Enter your username or email.", Next: next,
+			CSRF: s.csrfToken(r.Context()), Error: s.t(r, "Enter your username or email."), Next: next,
 			Providers: s.enabledLoginProviders(r.Context()),
 		})
 		return
@@ -183,7 +184,7 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 
 	if !s.ipLimiter.Allow(ip) || s.userLimiter.Blocked(loginKey) {
 		s.audit.Record(r.Context(), loginKey, audit.ActionLoginThrottled, "", "", ip)
-		fail(http.StatusTooManyRequests, "Too many attempts. Please wait a minute and try again.")
+		fail(http.StatusTooManyRequests, s.t(r, "Too many attempts. Please wait a minute and try again."))
 		return
 	}
 
@@ -199,7 +200,7 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 	if errors.Is(err, local.ErrBadCredentials) {
 		s.userLimiter.Allow(loginKey) // consume a failure token
 		s.audit.Record(r.Context(), loginKey, audit.ActionLoginFailed, "", "", ip)
-		fail(http.StatusUnauthorized, "Invalid username or password.")
+		fail(http.StatusUnauthorized, s.t(r, "Invalid username or password."))
 		return
 	}
 	if err != nil {
@@ -246,9 +247,13 @@ func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user sqlc
 	// Alert the user about a browser that never signed in as them, unless
 	// this is the account's very first sign-in.
 	if s.newDeviceAlerts.Load() && user.LastLoginAt.Valid && user.Email != "" && !s.knownDevice(r, user.ID) {
-		s.sendNewDeviceAlert(user, r.UserAgent(), s.clientIP(r), method)
+		s.sendNewDeviceAlert(userLang(user, r), user, r.UserAgent(), s.clientIP(r), method)
 	}
 	s.rememberAccount(w, r, user.ID)
+	// A language chosen on another browser follows the account.
+	if i18n.Supported(user.Locale) {
+		s.setLangCookie(w, user.Locale)
+	}
 	// Record the last login for the admin view. Best-effort: a failure
 	// here must not block sign-in.
 	if err := s.store.SetUserLastLogin(r.Context(), sqlcgen.SetUserLastLoginParams{
@@ -288,7 +293,7 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 		s.audit.Record(r.Context(), user.Username, audit.ActionLoginThrottled, "", "mfa", ip)
 		w.WriteHeader(http.StatusTooManyRequests)
 		s.render(w, r, "login_mfa.html", loginData{
-			CSRF: s.csrfToken(r.Context()), Error: "Too many attempts. Please wait a minute and try again.",
+			CSRF: s.csrfToken(r.Context()), Error: s.t(r, "Too many attempts. Please wait a minute and try again."),
 		})
 		return
 	}
@@ -313,7 +318,7 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 		s.audit.Record(r.Context(), user.Username, audit.ActionLoginFailed, "", "mfa", ip)
 		w.WriteHeader(http.StatusUnauthorized)
 		s.render(w, r, "login_mfa.html", loginData{
-			CSRF: s.csrfToken(r.Context()), Error: "Invalid code. Try again or use a recovery code.",
+			CSRF: s.csrfToken(r.Context()), Error: s.t(r, "Invalid code. Try again or use a recovery code."),
 		})
 		return
 	}
@@ -389,8 +394,8 @@ func (s *Server) handleEndSession(w http.ResponseWriter, r *http.Request) {
 	// returned to a post_logout_redirect_uri not registered for it, op would
 	// answer with raw JSON — show a branded, actionable page instead.
 	if plru := r.FormValue("post_logout_redirect_uri"); plru != "" {
-		if msg, bad := s.postLogoutConfigError(r.Context(), endSessionClientID(r), plru); bad {
-			s.renderError(w, r, http.StatusBadRequest, "Sign-out redirect not allowed", msg)
+		if msg, bad := s.postLogoutConfigError(r, endSessionClientID(r), plru); bad {
+			s.renderError(w, r, http.StatusBadRequest, s.t(r, "Sign-out redirect not allowed"), msg)
 			return
 		}
 	}
@@ -532,7 +537,7 @@ func (s *Server) userCanAccessApp(ctx context.Context, app sqlcgen.Application, 
 }
 
 func (s *Server) render(w http.ResponseWriter, r *http.Request, page string, data any) {
-	t, ok := s.pages[page]
+	t, ok := s.pages[langOf(r)][page]
 	if !ok {
 		s.serverError(w, r, errors.New("unknown template "+page))
 		return
@@ -575,11 +580,11 @@ func (s *Server) renderErrorAction(w http.ResponseWriter, r *http.Request, code 
 
 func (s *Server) serverError(w http.ResponseWriter, r *http.Request, err error) {
 	s.log.Error("internal error", "method", r.Method, "path", r.URL.Path, "err", err)
-	s.renderError(w, r, http.StatusInternalServerError, "Something went wrong",
-		"An unexpected error occurred. It has been logged — please try again.")
+	s.renderError(w, r, http.StatusInternalServerError, s.t(r, "Something went wrong"),
+		s.t(r, "An unexpected error occurred. It has been logged — please try again."))
 }
 
 func (s *Server) handleNotFound(w http.ResponseWriter, r *http.Request) {
-	s.renderError(w, r, http.StatusNotFound, "Page not found",
-		"The page you are looking for does not exist or has moved.")
+	s.renderError(w, r, http.StatusNotFound, s.t(r, "Page not found"),
+		s.t(r, "The page you are looking for does not exist or has moved."))
 }

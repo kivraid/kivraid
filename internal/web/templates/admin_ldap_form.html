@@ -1,12 +1,12 @@
 {{define "content"}}
-<a href="/admin/ldap" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Directories</a>
+<a href="/admin/ldap" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>{{t "Directories"}}</a>
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">{{if .Data.IsNew}}New directory{{else}}{{.Data.Form.Name}}{{end}}</h1>
-  <p class="mt-1 text-sm text-muted">LDAP user source — tested with OpenLDAP and LLDAP; other LDAPv3 directories such as Active Directory work with matching filters.</p>
+  <h1 class="text-2xl font-semibold tracking-tight">{{if .Data.IsNew}}{{t "New directory"}}{{else}}{{.Data.Form.Name}}{{end}}</h1>
+  <p class="mt-1 text-sm text-muted">{{t "LDAP user source — tested with OpenLDAP and LLDAP; other LDAPv3 directories such as Active Directory work with matching filters."}}</p>
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div data-flash="Directory saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Saved}}<div data-flash="{{t "Directory saved."}}" data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   {{with .Data.SyncResult}}
@@ -18,9 +18,9 @@
     <p>{{.Message}}</p>
     {{if .DN}}
     <dl class="mt-2 space-y-1 font-mono text-xs">
-      <div><dt class="inline font-sans font-medium">DN:</dt> <dd class="inline">{{.DN}}</dd></div>
-      {{if .Email}}<div><dt class="inline font-sans font-medium">Email:</dt> <dd class="inline">{{.Email}}</dd></div>{{end}}
-      {{if .Groups}}<div><dt class="inline font-sans font-medium">Groups:</dt> <dd class="inline">{{range $i, $g := .Groups}}{{if $i}}, {{end}}{{$g}}{{end}}</dd></div>{{end}}
+      <div><dt class="inline font-sans font-medium">{{t "DN:"}}</dt> <dd class="inline">{{.DN}}</dd></div>
+      {{if .Email}}<div><dt class="inline font-sans font-medium">{{t "Email:"}}</dt> <dd class="inline">{{.Email}}</dd></div>{{end}}
+      {{if .Groups}}<div><dt class="inline font-sans font-medium">{{t "Groups:"}}</dt> <dd class="inline">{{range $i, $g := .Groups}}{{if $i}}, {{end}}{{$g}}{{end}}</dd></div>{{end}}
     </dl>
     {{end}}
   </div>
@@ -29,110 +29,110 @@
   <form method="post" action="{{if .Data.IsNew}}/admin/ldap{{else}}/admin/ldap/{{.Data.ID}}{{end}}" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
 
-    <h2 class="text-sm font-semibold">Connection</h2>
+    <h2 class="text-sm font-semibold">{{t "Connection"}}</h2>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
-        <label class="label" for="name">Name</label>
-        <input class="input" id="name" name="name" value="{{.Data.Form.Name}}" required placeholder="Company directory">
+        <label class="label" for="name">{{t "Name"}}</label>
+        <input class="input" id="name" name="name" value="{{.Data.Form.Name}}" required placeholder="{{t "Company directory"}}">
       </div>
       <div>
-        <label class="label" for="url">URL</label>
+        <label class="label" for="url">{{t "URL"}}</label>
         <input class="input font-mono" id="url" name="url" value="{{.Data.Form.URL}}" required placeholder="ldap://ldap.example.com:389">
       </div>
     </div>
     <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
-      <input type="checkbox" name="enabled" class="accent-accent" {{if .Data.Form.Enabled}}checked{{end}}> Enabled — users of this directory can sign in
+      <input type="checkbox" name="enabled" class="accent-accent" {{if .Data.Form.Enabled}}checked{{end}}> {{t "Enabled — users of this directory can sign in"}}
     </label>
     <div data-tls>
-      <span class="label">Transport security</span>
+      <span class="label">{{t "Transport security"}}</span>
       <div class="flex flex-wrap gap-6">
         <label class="flex cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" name="start_tls" class="accent-accent" {{if .Data.Form.StartTLS}}checked{{end}}> StartTLS <span class="text-faint">(for ldap:// URLs)</span>
+          <input type="checkbox" name="start_tls" class="accent-accent" {{if .Data.Form.StartTLS}}checked{{end}}> StartTLS <span class="text-faint">{{t "(for ldap:// URLs)"}}</span>
         </label>
         <label class="flex cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" name="skip_tls_verify" class="accent-accent" {{if .Data.Form.SkipTLSVerify}}checked{{end}}> Skip TLS certificate verification
+          <input type="checkbox" name="skip_tls_verify" class="accent-accent" {{if .Data.Form.SkipTLSVerify}}checked{{end}}> {{t "Skip TLS certificate verification"}}
         </label>
       </div>
-      <div class="tls-insecure alert-warning mt-3" role="alert">Certificate verification is off: anyone able to intercept the connection can impersonate the directory and capture bind and user passwords. Use it only for testing, or trust the directory's CA instead.</div>
+      <div class="tls-insecure alert-warning mt-3" role="alert">{{t "Certificate verification is off: anyone able to intercept the connection can impersonate the directory and capture bind and user passwords. Use it only for testing, or trust the directory's CA instead."}}</div>
     </div>
     <div>
-      <span class="label">Passwords</span>
+      <span class="label">{{t "Passwords"}}</span>
       <div class="flex flex-wrap gap-6">
-        <label class="flex cursor-pointer items-center gap-2 text-sm" title="Allow users to change their directory password from the portal (RFC 3062)">
-          <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> Password write-back
+        <label class="flex cursor-pointer items-center gap-2 text-sm" title="{{t "Allow users to change their directory password from the portal (RFC 3062)"}}">
+          <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> {{t "Password write-back"}}
         </label>
-        <label class="flex cursor-pointer items-center gap-2 text-sm" title="Let Kivraid reset a user's password with the service account (email-based and admin resets)">
-          <input type="checkbox" name="password_reset" class="accent-accent" {{if .Data.Form.Reset}}checked{{end}}> Password reset
+        <label class="flex cursor-pointer items-center gap-2 text-sm" title="{{t "Let Kivraid reset a user's password with the service account (email-based and admin resets)"}}">
+          <input type="checkbox" name="password_reset" class="accent-accent" {{if .Data.Form.Reset}}checked{{end}}> {{t "Password reset"}}
         </label>
       </div>
     </div>
     <div class="space-y-5">
       <div>
-        <label class="label" for="bind_dn">Bind DN <span class="font-normal text-faint">(empty for anonymous)</span></label>
+        <label class="label" for="bind_dn">{{t "Bind DN"}} <span class="font-normal text-faint">{{t "(empty for anonymous)"}}</span></label>
         <input class="input font-mono" id="bind_dn" name="bind_dn" value="{{.Data.Form.BindDN}}" placeholder="cn=kivraid,ou=services,dc=example,dc=com">
       </div>
       <div>
-        <label class="label" for="bind_password">Bind password{{if not .Data.IsNew}} <span class="font-normal text-faint">(leave empty to keep)</span>{{end}}</label>
+        <label class="label" for="bind_password">{{t "Bind password"}}{{if not .Data.IsNew}} <span class="font-normal text-faint">{{t "(leave empty to keep)"}}</span>{{end}}</label>
         <div class="relative">
           <input class="input pr-11 font-mono" id="bind_password" name="bind_password" type="password" autocomplete="new-password" value="{{.Data.Form.BindPassword}}" data-secret>
-          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
             <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
           </button>
         </div>
       </div>
     </div>
-    <p class="text-xs text-muted">With an anonymous bind the directory must allow unauthenticated searches. <strong class="font-medium text-fg">Password write-back</strong> lets users change their own password from the portal — it binds as the user with their current password, so it needs no special rights. <strong class="font-medium text-fg">Password reset</strong> is stronger: it lets Kivraid set a password <em>without</em> the current one (for the “forgot password” email and admin resets), so the service (bind) account must have permission to modify user passwords in the directory. Leave it off unless you've granted that.</p>
+    <p class="text-xs text-muted">{{t "With an anonymous bind the directory must allow unauthenticated searches."}} <strong class="font-medium text-fg">{{t "Password write-back"}}</strong> {{t "lets users change their own password from the portal — it binds as the user with their current password, so it needs no special rights."}} <strong class="font-medium text-fg">{{t "Password reset"}}</strong> {{t "is stronger: it lets Kivraid set a password"}} <em>{{t "without"}}</em> {{t "the current one (for the “forgot password” email and admin resets), so the service (bind) account must have permission to modify user passwords in the directory. Leave it off unless you've granted that."}}</p>
 
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
-      <h2 class="text-sm font-semibold">Users</h2>
+      <h2 class="text-sm font-semibold">{{t "Users"}}</h2>
       <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted">
-        Fill in for:
+        {{t "Fill in for:"}}
         <button type="button" class="chip" data-ldap-preset='{"user_filter":"(&(objectClass=inetOrgPerson)(|(uid={username})(mail={username})))","username_attr":"uid","email_attr":"mail","name_attr":"cn","photo_attr":"jpegPhoto","group_filter":"(&(objectClass=groupOfNames)(member={dn}))","group_name_attr":"cn"}'>OpenLDAP</button>
         <button type="button" class="chip" data-ldap-preset='{"user_filter":"(&(objectClass=person)(|(uid={username})(mail={username})))","username_attr":"uid","email_attr":"mail","name_attr":"cn","photo_attr":"jpegPhoto","group_filter":"(&(objectClass=groupOfUniqueNames)(uniqueMember={dn}))","group_name_attr":"cn"}'>LLDAP</button>
         <button type="button" class="chip" data-ldap-preset='{"user_filter":"(&(objectCategory=person)(objectClass=user)(|(sAMAccountName={username})(userPrincipalName={username})(mail={username})))","username_attr":"sAMAccountName","email_attr":"mail","name_attr":"displayName","photo_attr":"thumbnailPhoto","group_filter":"(&(objectClass=group)(member={dn}))","group_name_attr":"cn","password_writeback":false}'>Active Directory</button>
       </div>
     </div>
     <div>
-      <label class="label" for="base_dn">Base DN</label>
+      <label class="label" for="base_dn">{{t "Base DN"}}</label>
       <input class="input font-mono" id="base_dn" name="base_dn" value="{{.Data.Form.BaseDN}}" required placeholder="dc=example,dc=com">
     </div>
     <div>
-      <label class="label" for="user_filter">User filter</label>
+      <label class="label" for="user_filter">{{t "User filter"}}</label>
       <input class="input font-mono" id="user_filter" name="user_filter" value="{{.Data.Form.UserFilter}}" required>
-      <p class="mt-1.5 text-xs text-muted">{{"{username}"}} is replaced by the (escaped) login. The filter must match exactly one entry. Click an example to insert it:</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "%s is replaced by the (escaped) login. The filter must match exactly one entry. Click an example to insert it:" "{username}"}}</p>
       <div class="mt-1.5 flex flex-wrap gap-1.5">
         <button type="button" class="chip" data-fill="user_filter"
-                data-value="(&(objectClass=person)(|(uid={username})(mail={username})))">Username or email</button>
+                data-value="(&(objectClass=person)(|(uid={username})(mail={username})))">{{t "Username or email"}}</button>
         <button type="button" class="chip" data-fill="user_filter"
-                data-value="(&(objectClass=inetOrgPerson)(uid={username}))">inetOrgPerson by uid</button>
+                data-value="(&(objectClass=inetOrgPerson)(uid={username}))">{{t "inetOrgPerson by uid"}}</button>
       </div>
     </div>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
       <div>
-        <label class="label" for="username_attr">Username attribute</label>
+        <label class="label" for="username_attr">{{t "Username attribute"}}</label>
         <input class="input font-mono" id="username_attr" name="username_attr" value="{{.Data.Form.UsernameAttr}}" placeholder="uid">
       </div>
       <div>
-        <label class="label" for="email_attr">Email attribute</label>
+        <label class="label" for="email_attr">{{t "Email attribute"}}</label>
         <input class="input font-mono" id="email_attr" name="email_attr" value="{{.Data.Form.EmailAttr}}" placeholder="mail">
       </div>
       <div>
-        <label class="label" for="name_attr">Display name attribute</label>
+        <label class="label" for="name_attr">{{t "Display name attribute"}}</label>
         <input class="input font-mono" id="name_attr" name="name_attr" value="{{.Data.Form.NameAttr}}" placeholder="cn">
       </div>
       <div>
-        <label class="label" for="photo_attr">Photo attribute</label>
+        <label class="label" for="photo_attr">{{t "Photo attribute"}}</label>
         <input class="input font-mono" id="photo_attr" name="photo_attr" value="{{.Data.Form.PhotoAttr}}" placeholder="jpegPhoto">
       </div>
     </div>
-    <p class="text-xs text-muted">Leave the photo attribute empty to disable photo sync.</p>
+    <p class="text-xs text-muted">{{t "Leave the photo attribute empty to disable photo sync."}}</p>
 
-    <h2 class="border-t border-line pt-5 text-sm font-semibold">Groups</h2>
+    <h2 class="border-t border-line pt-5 text-sm font-semibold">{{t "Groups"}}</h2>
     <div>
-      <label class="label" for="group_filter">Group filter <span class="font-normal text-faint">(empty disables group sync)</span></label>
+      <label class="label" for="group_filter">{{t "Group filter"}} <span class="font-normal text-faint">{{t "(empty disables group sync)"}}</span></label>
       <input class="input font-mono" id="group_filter" name="group_filter" value="{{.Data.Form.GroupFilter}}">
-      <p class="mt-1.5 text-xs text-muted">{{"{dn}"}} is replaced by the user's DN (groupOfNames, groupOfUniqueNames) and {{"{username}"}} by their login (posixGroup's memberUid). Matching groups are mirrored into Kivraid on each login. Click an example to insert it:</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "%s is replaced by the user's DN (groupOfNames, groupOfUniqueNames) and %s by their login (posixGroup's memberUid). Matching groups are mirrored into Kivraid on each login. Click an example to insert it:" "{dn}" "{username}"}}</p>
       <div class="mt-1.5 flex flex-wrap gap-1.5">
         <button type="button" class="chip" data-fill="group_filter"
                 data-value="(&(objectClass=groupOfNames)(member={dn}))">groupOfNames</button>
@@ -141,55 +141,55 @@
         <button type="button" class="chip" data-fill="group_filter"
                 data-value="(&(objectClass=posixGroup)(memberUid={username}))">posixGroup</button>
         <button type="button" class="chip" data-fill="group_filter"
-                data-value="(|(&(objectClass=groupOfUniqueNames)(uniqueMember={dn}))(&(objectClass=posixGroup)(memberUid={username})))">Mixed (unique + posix)</button>
+                data-value="(|(&(objectClass=groupOfUniqueNames)(uniqueMember={dn}))(&(objectClass=posixGroup)(memberUid={username})))">{{t "Mixed (unique + posix)"}}</button>
       </div>
     </div>
     <div class="sm:w-1/3">
-      <label class="label" for="group_name_attr">Group name attribute</label>
+      <label class="label" for="group_name_attr">{{t "Group name attribute"}}</label>
       <input class="input font-mono" id="group_name_attr" name="group_name_attr" value="{{.Data.Form.GroupNameAttr}}" placeholder="cn">
     </div>
 
-    <h2 class="border-t border-line pt-5 text-sm font-semibold">Test</h2>
-    <p class="text-xs text-muted">Runs against the values above without saving anything. Provide a username to also exercise the user and group filters.</p>
+    <h2 class="border-t border-line pt-5 text-sm font-semibold">{{t "Test"}}</h2>
+    <p class="text-xs text-muted">{{t "Runs against the values above without saving anything. Provide a username to also exercise the user and group filters."}}</p>
     <div class="flex items-end gap-3">
       <div class="flex-1">
-        <label class="label" for="test_username">Username <span class="font-normal text-faint">(optional)</span></label>
+        <label class="label" for="test_username">{{t "Username"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
         <input class="input" id="test_username" name="test_username" placeholder="alice">
       </div>
       <button type="submit" class="btn-secondary shrink-0" formnovalidate
               formaction="{{if .Data.IsNew}}/admin/ldap/test{{else}}/admin/ldap/{{.Data.ID}}/test{{end}}">
-        Test connection
+        {{t "Test connection"}}
       </button>
     </div>
 
     <div class="flex items-center justify-end gap-3 border-t border-line pt-5">
-      <a href="/admin/ldap" class="btn-ghost">Cancel</a>
-      <button type="submit" name="sync" value="1" class="btn-secondary">{{if .Data.IsNew}}Create &amp; sync{{else}}Save &amp; sync{{end}}</button>
-      <button type="submit" class="btn-primary">{{if .Data.IsNew}}Create directory{{else}}Save changes{{end}}</button>
+      <a href="/admin/ldap" class="btn-ghost">{{t "Cancel"}}</a>
+      <button type="submit" name="sync" value="1" class="btn-secondary">{{if .Data.IsNew}}{{t "Create & sync"}}{{else}}{{t "Save & sync"}}{{end}}</button>
+      <button type="submit" class="btn-primary">{{if .Data.IsNew}}{{t "Create directory"}}{{else}}{{t "Save changes"}}{{end}}</button>
     </div>
   </form>
 
   {{if not .Data.IsNew}}
   <div class="card p-6">
-    <h2 class="text-sm font-semibold">Synchronization</h2>
+    <h2 class="text-sm font-semibold">{{t "Synchronization"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
-      <p class="text-sm text-muted">Users and groups sync automatically each time someone signs in. Run a full synchronization to import everyone now, or to refresh profiles, photos and groups in one go.</p>
+      <p class="text-sm text-muted">{{t "Users and groups sync automatically each time someone signs in. Run a full synchronization to import everyone now, or to refresh profiles, photos and groups in one go."}}</p>
       <form method="post" action="/admin/ldap/{{.Data.ID}}/sync" class="shrink-0">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-secondary">Sync now</button>
+        <button type="submit" class="btn-secondary">{{t "Sync now"}}</button>
       </form>
     </div>
   </div>
 
   <div class="card border-danger/25 p-6">
-    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <h2 class="text-sm font-semibold text-danger">{{t "Danger zone"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
-      <p class="text-sm text-muted">Deleting the directory keeps its shadow users but they will no longer be able to sign in.</p>
+      <p class="text-sm text-muted">{{t "Deleting the directory keeps its shadow users but they will no longer be able to sign in."}}</p>
       <form method="post" action="/admin/ldap/{{.Data.ID}}/delete" class="shrink-0"
-            data-confirm="Its shadow users are kept but will no longer be able to sign in."
-            data-confirm-title="Delete directory" data-confirm-variant="danger" data-confirm-label="Delete directory">
+            data-confirm="{{t "Its shadow users are kept but will no longer be able to sign in."}}"
+            data-confirm-title="{{t "Delete directory"}}" data-confirm-variant="danger" data-confirm-label="{{t "Delete directory"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger">Delete</button>
+        <button type="submit" class="btn-danger">{{t "Delete"}}</button>
       </form>
     </div>
   </div>

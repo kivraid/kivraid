@@ -46,6 +46,24 @@ function syncThemeControls() {
   }
 }
 
+// UI strings arrive translated from the server (data-i18n on <body>,
+// read on first use since this script loads in <head>); tr falls back to
+// the English source text, and fills %s / %d in order.
+let i18nMessages;
+function tr(msg, ...args) {
+  if (!i18nMessages) {
+    try {
+      i18nMessages = JSON.parse(document.body?.dataset.i18n || "{}");
+    } catch {
+      i18nMessages = {};
+    }
+  }
+  let out = i18nMessages[msg] || msg;
+  for (const a of args) out = out.replace(/%[sd]/, String(a));
+  return out;
+}
+const uiLang = document.documentElement.lang || undefined;
+
 document.addEventListener("DOMContentLoaded", () => {
   // Segmented control: each button sets a specific preference.
   for (const btn of document.querySelectorAll("[data-theme-set]")) {
@@ -85,7 +103,7 @@ document.addEventListener("DOMContentLoaded", () => {
     const d = new Date(el.getAttribute("datetime"));
     if (isNaN(d)) continue;
     el.title = el.textContent;
-    el.textContent = d.toLocaleString(undefined, {
+    el.textContent = d.toLocaleString(uiLang, {
       year: d.getFullYear() === thisYear ? undefined : "numeric",
       month: "short", day: "numeric", hour: "2-digit", minute: "2-digit",
     });
@@ -124,10 +142,10 @@ document.addEventListener("DOMContentLoaded", () => {
       if (text !== undefined) e.textContent = text;
       return e;
     };
-    const fmtDay = (d, opts) => d.toLocaleDateString(undefined, opts);
+    const fmtDay = (d, opts) => d.toLocaleDateString(uiLang, opts);
 
     const legend = el("div", "chart-legend");
-    for (const [cls, label] of [["is-ok", "Sign-ins"], ["is-fail", "Failed"]]) {
+    for (const [cls, label] of [["is-ok", tr("Sign-ins")], ["is-fail", tr("Failed")]]) {
       const item = el("span");
       const sw = el("span", "chart-swatch " + cls);
       item.append(sw, label);
@@ -139,22 +157,22 @@ document.addEventListener("DOMContentLoaded", () => {
     plot.append(maxLine);
     const labels = el("div", "chart-days");
     const table = el("table", "sr-only");
-    table.append(el("caption", "", "Sign-ins per day, last 7 days"));
+    table.append(el("caption", "", tr("Sign-ins per day, last 7 days")));
     const head = el("tr");
-    head.append(el("th", "", "Day"), el("th", "", "Sign-ins"), el("th", "", "Failed"));
+    head.append(el("th", "", tr("Day")), el("th", "", tr("Sign-ins")), el("th", "", tr("Failed")));
     table.append(head);
 
     for (const d of days) {
       const name = fmtDay(d.date, { weekday: "short", month: "short", day: "numeric" });
       const col = el("div", "chart-col");
       col.tabIndex = 0;
-      col.setAttribute("aria-label", `${name}: ${d.ok} sign-ins, ${d.fail} failed`);
+      col.setAttribute("aria-label", tr("%s: %d sign-ins, %d failed", name, d.ok, d.fail));
       for (const [cls, v] of [["is-ok", d.ok], ["is-fail", d.fail]]) {
         const bar = el("div", "chart-bar " + cls);
         bar.style.height = v ? Math.max(4, (v / max) * 100) + "%" : "0";
         col.append(bar);
       }
-      col.append(el("div", "chart-tip", `${name} · ${d.ok} sign-ins · ${d.fail} failed`));
+      col.append(el("div", "chart-tip", tr("%s · %d sign-ins · %d failed", name, d.ok, d.fail)));
       plot.append(col);
       labels.append(el("span", "", fmtDay(d.date, { weekday: "narrow" })));
       const row = el("tr");
@@ -204,7 +222,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!file) return;
       const max = Number(input.dataset.maxBytes || 0);
       if (max && file.size > max) {
-        showToast(`That file is too large (max ${Math.round(max / 1048576)} MB).`, "danger");
+        showToast(tr("That file is too large (max %d MB).", Math.round(max / 1048576)), "danger");
         input.value = "";
         return;
       }
@@ -302,7 +320,7 @@ document.addEventListener("DOMContentLoaded", () => {
       remove.type = "button";
       remove.dataset.tagRemove = "";
       remove.className = "cursor-pointer text-faint hover:text-fg";
-      remove.setAttribute("aria-label", "Remove " + option.value);
+      remove.setAttribute("aria-label", tr("Remove %s", option.value));
       remove.append("×");
       chip.append(remove);
       tags.append(chip);
@@ -396,7 +414,7 @@ document.addEventListener("DOMContentLoaded", () => {
       field.type = shown ? "password" : "text";
       btn.querySelector("[data-eye]").classList.toggle("hidden", !shown);
       btn.querySelector("[data-eye-off]").classList.toggle("hidden", shown);
-      btn.setAttribute("aria-label", shown ? "Show secret" : "Hide secret");
+      btn.setAttribute("aria-label", shown ? tr("Show secret") : tr("Hide secret"));
     });
   }
 
@@ -413,10 +431,10 @@ document.addEventListener("DOMContentLoaded", () => {
       input.inputMode = recovery ? "text" : "numeric";
       input.placeholder = recovery ? "xxxx-xxxx" : "000000";
       input.autocomplete = recovery ? "off" : "one-time-code";
-      label.textContent = recovery ? "Recovery code" : "Authentication code";
+      label.textContent = recovery ? tr("Recovery code") : tr("Authentication code");
       mfaToggle.textContent = recovery
-        ? "Use an authenticator code instead"
-        : "Lost your device? Use a recovery code";
+        ? tr("Use an authenticator code instead")
+        : tr("Lost your device? Use a recovery code");
       input.focus();
     });
   }
@@ -441,7 +459,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (!field.value) return;
       await navigator.clipboard.writeText(field.value);
       const original = btn.textContent;
-      btn.textContent = "Copied";
+      btn.textContent = tr("Copied");
       setTimeout(() => (btn.textContent = original), 1500);
     });
   }
@@ -451,7 +469,7 @@ document.addEventListener("DOMContentLoaded", () => {
     btn.addEventListener("click", async () => {
       await navigator.clipboard.writeText(btn.dataset.copy);
       const original = btn.textContent;
-      btn.textContent = "Copied";
+      btn.textContent = tr("Copied");
       setTimeout(() => (btn.textContent = original), 1500);
     });
   }
@@ -506,7 +524,7 @@ function ensureConfirmDialog() {
     <h2 data-confirm-title class="text-base font-semibold tracking-tight"></h2>
     <p data-confirm-body class="mt-2 text-sm text-muted"></p>
     <div class="mt-6 flex justify-end gap-3">
-      <button type="button" data-confirm-cancel class="btn-secondary">Cancel</button>
+      <button type="button" data-confirm-cancel class="btn-secondary">${tr("Cancel")}</button>
       <button type="button" data-confirm-ok class="btn-primary"></button>
     </div>`;
   document.body.append(dlg);
@@ -541,7 +559,7 @@ document.addEventListener("submit", (e) => {
     form.dataset.confirmTitle || "Please confirm";
   dlg.querySelector("[data-confirm-body]").textContent = form.dataset.confirm;
   const ok = dlg.querySelector("[data-confirm-ok]");
-  ok.textContent = form.dataset.confirmLabel || "Confirm";
+  ok.textContent = form.dataset.confirmLabel || tr("Confirm");
   ok.className = danger ? "btn-danger" : "btn-primary";
   dlg.showModal();
   dlg.querySelector("[data-confirm-cancel]").focus();
@@ -695,7 +713,7 @@ document.addEventListener("DOMContentLoaded", () => {
         await loginWithPasskey(loginBtn.dataset.next);
       } catch (e) {
         if (!isCeremonyCancel(e) && err) {
-          err.textContent = e.message || "Passkey sign-in failed.";
+          err.textContent = e.message || tr("Passkey sign-in failed.");
           err.hidden = false;
         }
         loginBtn.disabled = false;
@@ -714,11 +732,11 @@ document.addEventListener("DOMContentLoaded", () => {
       addBtn.disabled = true;
       try {
         await registerPasskey(name);
-        showToast("Passkey added.");
+        showToast(tr("Passkey added."));
         setTimeout(() => window.location.reload(), 600);
       } catch (e) {
         if (!isCeremonyCancel(e) && err) {
-          err.textContent = e.message || "Could not add passkey.";
+          err.textContent = e.message || tr("Could not add passkey.");
           err.hidden = false;
         }
         addBtn.disabled = false;
@@ -726,6 +744,6 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   } else if (addBtn) {
     addBtn.disabled = true;
-    addBtn.title = "This browser does not support passkeys.";
+    addBtn.title = tr("This browser does not support passkeys.");
   }
 });

@@ -1,5 +1,5 @@
 {{define "content"}}
-<a href="/admin/applications" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Applications</a>
+<a href="/admin/applications" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>{{t "Applications"}}</a>
 <div class="mb-8 flex items-center gap-4">
   {{if .Data.App.IconMime}}
   <img class="size-14 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
@@ -9,62 +9,62 @@
   <div class="min-w-0">
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.App.Name}}</h1>
-      <span class="badge">Forward auth</span>
+      <span class="badge">{{t "Forward auth"}}</span>
     </div>
     <p class="mt-0.5 font-mono text-xs text-faint">{{.Data.App.Slug}}</p>
   </div>
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Saved}}<div data-flash="{{t "Changes saved."}}" data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <form method="post" action="/admin/applications/{{.Data.App.ID}}" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <input type="hidden" name="kind" value="proxy">
-    <h2 class="text-sm font-semibold">Settings</h2>
+    <h2 class="text-sm font-semibold">{{t "Settings"}}</h2>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
-        <label class="label" for="name">Name</label>
+        <label class="label" for="name">{{t "Name"}}</label>
         <input class="input" id="name" name="name" value="{{.Data.Form.Name}}" required>
       </div>
       <div>
-        <label class="label" for="slug">Slug</label>
+        <label class="label" for="slug">{{t "Slug"}}</label>
         <input class="input" id="slug" name="slug" value="{{.Data.Form.Slug}}" required>
       </div>
     </div>
     <div>
-      <label class="label" for="description">Description <span class="font-normal text-faint">(optional)</span></label>
-      <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="Shown in the launcher">
+      <label class="label" for="description">{{t "Description"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
+      <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="{{t "Shown in the launcher"}}">
     </div>
     <div>
-      <label class="label" for="launch_url">Launch URL <span class="font-normal text-faint">(optional)</span></label>
+      <label class="label" for="launch_url">{{t "Launch URL"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
       <input class="input" id="launch_url" name="launch_url" value="{{.Data.Form.LaunchURL}}">
     </div>
     <div>
-      <label class="label" for="proxy_hosts">Protected hosts</label>
+      <label class="label" for="proxy_hosts">{{t "Protected hosts"}}</label>
       <textarea class="textarea font-mono" id="proxy_hosts" name="proxy_hosts" rows="3" required>{{.Data.Form.ProxyHosts}}</textarea>
-      <p class="mt-1.5 text-xs text-muted">One host per line. Point your reverse proxy's auth request at <code class="code-inline">{{.Data.OutURL}}</code> — requests for these hosts are matched to this application to enforce the access policy below.</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "One host per line. Point your reverse proxy's auth request at"}} <code class="code-inline">{{.Data.OutURL}}</code> {{t "— requests for these hosts are matched to this application to enforce the access policy below."}}</p>
     </div>
 
     {{template "accesspolicy" .}}
 
     <div class="flex justify-end border-t border-line pt-5">
-      <button type="submit" class="btn-primary">Save changes</button>
+      <button type="submit" class="btn-primary">{{t "Save changes"}}</button>
     </div>
   </form>
 
   {{template "iconcard" .}}
 
   <div class="card border-danger/25 p-6">
-    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <h2 class="text-sm font-semibold text-danger">{{t "Danger zone"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
-      <p class="text-sm text-muted">Deleting removes the forward-auth rule; protected hosts stop being recognized.</p>
+      <p class="text-sm text-muted">{{t "Deleting removes the forward-auth rule; protected hosts stop being recognized."}}</p>
       <form method="post" action="/admin/applications/{{.Data.App.ID}}/delete" class="shrink-0"
-            data-confirm="Deleting {{.Data.App.Name}} removes the forward-auth rule; its protected hosts stop being recognized. This cannot be undone."
-            data-confirm-title="Delete application" data-confirm-variant="danger" data-confirm-label="Delete application">
+            data-confirm="{{t "Deleting %s removes the forward-auth rule; its protected hosts stop being recognized. This cannot be undone." .Data.App.Name}}"
+            data-confirm-title="{{t "Delete application"}}" data-confirm-variant="danger" data-confirm-label="{{t "Delete application"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger">Delete</button>
+        <button type="submit" class="btn-danger">{{t "Delete"}}</button>
       </form>
     </div>
   </div>

@@ -18,19 +18,19 @@ func (s *Server) handleAdminUserImpersonate(w http.ResponseWriter, r *http.Reque
 	}
 	actor := currentUser(r)
 	if target.ID == actor.ID {
-		s.renderError(w, r, http.StatusBadRequest, "Cannot impersonate yourself",
-			"You are already signed in as this account.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Cannot impersonate yourself"),
+			s.t(r, "You are already signed in as this account."))
 		return
 	}
 	if !target.Active {
-		s.renderError(w, r, http.StatusBadRequest, "Account deactivated",
-			"Reactivate the account before impersonating it.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Account deactivated"),
+			s.t(r, "Reactivate the account before impersonating it."))
 		return
 	}
 	// No nesting: an impersonation must be ended before starting another.
 	if s.sessions.GetString(r.Context(), session.KeyImpersonator) != "" {
-		s.renderError(w, r, http.StatusBadRequest, "Already impersonating",
-			"Return to your own account before impersonating another user.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Already impersonating"),
+			s.t(r, "Return to your own account before impersonating another user."))
 		return
 	}
 

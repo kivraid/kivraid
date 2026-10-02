@@ -228,6 +228,7 @@ type User struct {
 	UpstreamSourceID   *string
 	ExternalID         *string
 	MustChangePassword bool
+	Locale             string
 }
 
 type UserGroup struct {

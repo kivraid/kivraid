@@ -1,7 +1,7 @@
 {{define "content"}}
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">New application</h1>
-  <p class="mt-1 text-sm text-muted">Register an application to put it behind Kivraid.</p>
+  <h1 class="text-2xl font-semibold tracking-tight">{{t "New application"}}</h1>
+  <p class="mt-1 text-sm text-muted">{{t "Register an application to put it behind Kivraid."}}</p>
 </div>
 
 {{if .Data.Error}}
@@ -12,20 +12,20 @@
   <input type="hidden" name="_csrf" value="{{.CSRF}}">
 
   <fieldset>
-    <legend class="label">Integration</legend>
+    <legend class="label">{{t "Integration"}}</legend>
     <div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
       <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
         <input type="radio" name="kind" value="oidc" class="mt-0.5 accent-accent" data-kind checked>
         <span>
-          <span class="block text-sm font-medium">OpenID Connect</span>
-          <span class="block text-xs text-muted">Apps that speak OIDC natively (Grafana, Gitea, Nextcloud…).</span>
+          <span class="block text-sm font-medium">{{t "OpenID Connect"}}</span>
+          <span class="block text-xs text-muted">{{t "Apps that speak OIDC natively (Grafana, Gitea, Nextcloud…)."}}</span>
         </span>
       </label>
       <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
         <input type="radio" name="kind" value="proxy" class="mt-0.5 accent-accent" data-kind>
         <span>
-          <span class="block text-sm font-medium">Forward auth</span>
-          <span class="block text-xs text-muted">Apps with no SSO, protected through your reverse proxy.</span>
+          <span class="block text-sm font-medium">{{t "Forward auth"}}</span>
+          <span class="block text-xs text-muted">{{t "Apps with no SSO, protected through your reverse proxy."}}</span>
         </span>
       </label>
     </div>
@@ -33,63 +33,63 @@
 
   <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
     <div>
-      <label class="label" for="name">Name</label>
+      <label class="label" for="name">{{t "Name"}}</label>
       <input class="input" id="name" name="name" value="{{.Data.Form.Name}}" required autofocus placeholder="Grafana">
     </div>
     <div>
-      <label class="label" for="slug">Slug</label>
-      <input class="input" id="slug" name="slug" value="{{.Data.Form.Slug}}" placeholder="derived from name">
+      <label class="label" for="slug">{{t "Slug"}}</label>
+      <input class="input" id="slug" name="slug" value="{{.Data.Form.Slug}}" placeholder="{{t "derived from name"}}">
     </div>
   </div>
 
   <div>
-    <label class="label" for="description">Description <span class="font-normal text-faint">(optional)</span></label>
-    <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="Metrics dashboards">
+    <label class="label" for="description">{{t "Description"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
+    <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="{{t "Metrics dashboards"}}">
   </div>
 
   <div>
-    <label class="label" for="launch_url">Launch URL <span class="font-normal text-faint">(optional)</span></label>
+    <label class="label" for="launch_url">{{t "Launch URL"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
     <input class="input" id="launch_url" name="launch_url" value="{{.Data.Form.LaunchURL}}" placeholder="https://grafana.example.com">
-    <p class="mt-1.5 text-xs text-muted">Shown in the user portal's application launcher.</p>
+    <p class="mt-1.5 text-xs text-muted">{{t "Shown in the user portal's application launcher."}}</p>
   </div>
 
   <div data-kind-oidc class="space-y-5">
     <div>
-      <label class="label" for="preset">Application type</label>
+      <label class="label" for="preset">{{t "Application type"}}</label>
       <select class="select" id="preset" name="preset" data-preset>
         {{range .Data.Presets}}
-        <option value="{{.ID}}" data-redirect-path="{{.RedirectPath}}" {{if eq .ID $.Data.Form.Preset}}selected{{end}}>{{.Name}}</option>
+        <option value="{{.ID}}" data-redirect-path="{{.RedirectPath}}" {{if eq .ID $.Data.Form.Preset}}selected{{end}}>{{t .Name}}</option>
         {{end}}
       </select>
-      <p class="mt-1.5 text-xs text-muted">Suggests the redirect URIs from the launch URL, and the configuration to paste once the application is created.</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "Suggests the redirect URIs from the launch URL, and the configuration to paste once the application is created."}}</p>
     </div>
     <div>
-      <label class="label" for="redirect_uris">Redirect URIs</label>
+      <label class="label" for="redirect_uris">{{t "Redirect URIs"}}</label>
       <textarea class="textarea font-mono" id="redirect_uris" name="redirect_uris" rows="3"
                 placeholder="https://grafana.example.com/login/generic_oauth">{{.Data.Form.RedirectURIs}}</textarea>
-      <p class="mt-1.5 text-xs text-muted">One per line, exact match.</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "One per line, exact match."}}</p>
     </div>
     <div>
-      <label class="label" for="post_logout_uris">Post-logout redirect URIs <span class="font-normal text-faint">(optional)</span></label>
+      <label class="label" for="post_logout_uris">{{t "Post-logout redirect URIs"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
       <textarea class="textarea font-mono" id="post_logout_uris" name="post_logout_uris" rows="2"
                 placeholder="https://grafana.example.com">{{.Data.Form.PostLogoutURIs}}</textarea>
-      <p class="mt-1.5 text-xs text-muted">Where the application may send users after signing out of Kivraid. One per line, exact match; leave empty if it does not use single sign-out.</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "Where the application may send users after signing out of Kivraid. One per line, exact match; leave empty if it does not use single sign-out."}}</p>
     </div>
     <fieldset>
-      <legend class="label">Client type</legend>
+      <legend class="label">{{t "Client type"}}</legend>
       <div class="space-y-2">
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
           <input type="radio" name="client_type" value="confidential" class="mt-0.5 accent-accent" {{if not .Data.Form.Public}}checked{{end}}>
           <span>
-            <span class="block text-sm font-medium">Confidential</span>
-            <span class="block text-xs text-muted">Server-side application that can keep a client secret (most web apps).</span>
+            <span class="block text-sm font-medium">{{t "Confidential"}}</span>
+            <span class="block text-xs text-muted">{{t "Server-side application that can keep a client secret (most web apps)."}}</span>
           </span>
         </label>
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
           <input type="radio" name="client_type" value="public" class="mt-0.5 accent-accent" {{if .Data.Form.Public}}checked{{end}}>
           <span>
-            <span class="block text-sm font-medium">Public · PKCE</span>
-            <span class="block text-xs text-muted">SPA, mobile or CLI that cannot keep a secret; PKCE is enforced.</span>
+            <span class="block text-sm font-medium">{{t "Public · PKCE"}}</span>
+            <span class="block text-xs text-muted">{{t "SPA, mobile or CLI that cannot keep a secret; PKCE is enforced."}}</span>
           </span>
         </label>
       </div>
@@ -98,16 +98,16 @@
 
   <div data-kind-proxy class="hidden space-y-5">
     <div>
-      <label class="label" for="proxy_hosts">Protected hosts</label>
+      <label class="label" for="proxy_hosts">{{t "Protected hosts"}}</label>
       <textarea class="textarea font-mono" id="proxy_hosts" name="proxy_hosts" rows="3"
                 placeholder="jellyfin.home.example.com">{{.Data.Form.ProxyHosts}}</textarea>
-      <p class="mt-1.5 text-xs text-muted">One host per line. Your reverse proxy asks Kivraid at <code>/outpost/auth</code>; requests for these hosts are matched to this application to enforce its access policy. See <code>docs/forward-auth.md</code>.</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "One host per line. Your reverse proxy asks Kivraid at"}} <code>/outpost/auth</code>{{t "; requests for these hosts are matched to this application to enforce its access policy. See"}} <code>docs/forward-auth.md</code>.</p>
     </div>
   </div>
 
   <div class="flex items-center justify-end gap-3 border-t border-line pt-5">
-    <a href="/admin/applications" class="btn-ghost">Cancel</a>
-    <button type="submit" class="btn-primary">Create application</button>
+    <a href="/admin/applications" class="btn-ghost">{{t "Cancel"}}</a>
+    <button type="submit" class="btn-primary">{{t "Create application"}}</button>
   </div>
 </form>
 {{end}}

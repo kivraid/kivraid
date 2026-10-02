@@ -1,5 +1,5 @@
 {{define "content"}}
-<a href="/admin/users" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Users</a>
+<a href="/admin/users" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>{{t "Users"}}</a>
 <div class="mb-8 flex flex-wrap items-center gap-4">
   {{if .Data.Target.PhotoMime}}
   <img class="size-14 shrink-0 rounded-full object-cover" src="/avatar/{{.Data.Target.ID}}" alt="">
@@ -10,76 +10,76 @@
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Target.Name}}</h1>
       {{if or .Data.Target.IsAdmin .Data.AdminGroups}}<span class="badge-accent">Admin</span>{{end}}
-      {{if not .Data.Target.Active}}<span class="badge">Deactivated</span>{{end}}
-      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else if eq .Data.Target.Source "upstream"}}<span class="badge">Federated</span>{{else}}<span class="badge">Local</span>{{end}}
+      {{if not .Data.Target.Active}}<span class="badge">{{t "Deactivated"}}</span>{{end}}
+      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else if eq .Data.Target.Source "upstream"}}<span class="badge">{{t "Federated"}}</span>{{else}}<span class="badge">{{t "Local"}}</span>{{end}}
     </div>
     <p class="mt-0.5 font-mono text-xs text-faint">{{.Data.Target.Username}}</p>
   </div>
-  <a href="/admin/audit?q={{.Data.Target.Username}}" class="btn-secondary ml-auto shrink-0">View activity</a>
+  <a href="/admin/audit?q={{.Data.Target.Username}}" class="btn-secondary ml-auto shrink-0">{{t "View activity"}}</a>
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
-  {{if .Data.PWSaved}}<div data-flash="Password reset." data-variant="success" hidden></div>{{end}}
-  {{if .Data.Revoked}}<div data-flash="Signed the user out of all sessions." data-variant="success" hidden></div>{{end}}
-  {{if .Data.VerifySent}}<div data-flash="Verification email sent." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Saved}}<div data-flash="{{t "Changes saved."}}" data-variant="success" hidden></div>{{end}}
+  {{if .Data.PWSaved}}<div data-flash="{{t "Password reset."}}" data-variant="success" hidden></div>{{end}}
+  {{if .Data.Revoked}}<div data-flash="{{t "Signed the user out of all sessions."}}" data-variant="success" hidden></div>{{end}}
+  {{if .Data.VerifySent}}<div data-flash="{{t "Verification email sent."}}" data-variant="success" hidden></div>{{end}}
   {{with .Data.Flash}}<div data-flash="{{.}}" data-variant="success" hidden></div>{{end}}
   {{with .Data.FlashError}}<div class="alert-danger" role="alert">{{.}}</div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
-  {{if .Data.Target.MustChangePassword}}<div class="alert-warning" role="status">This user must choose a new password at their next sign-in.</div>{{end}}
+  {{if .Data.Target.MustChangePassword}}<div class="alert-warning" role="status">{{t "This user must choose a new password at their next sign-in."}}</div>{{end}}
 
   <form method="post" action="/admin/users/{{.Data.Target.ID}}" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <h2 class="text-sm font-semibold">Account</h2>
+    <h2 class="text-sm font-semibold">{{t "Account"}}</h2>
     {{if .Data.IsLDAP}}
-    <p class="text-xs text-muted">Identity (name, email, photo) is mirrored from the directory at each sign-in and cannot be edited here.</p>
+    <p class="text-xs text-muted">{{t "Identity (name, email, photo) is mirrored from the directory at each sign-in and cannot be edited here."}}</p>
     <dl class="grid grid-cols-1 gap-x-8 gap-y-4 text-sm sm:grid-cols-2">
-      <div><dt class="dt">Name</dt><dd>{{.Data.Target.Name}}</dd></div>
-      <div><dt class="dt">Email</dt><dd>{{.Data.Target.Email}}</dd></div>
-      <div class="sm:col-span-2"><dt class="dt">Directory DN</dt><dd class="font-mono text-xs">{{deref .Data.Target.LdapDn}}</dd></div>
+      <div><dt class="dt">{{t "Name"}}</dt><dd>{{.Data.Target.Name}}</dd></div>
+      <div><dt class="dt">{{t "Email"}}</dt><dd>{{.Data.Target.Email}}</dd></div>
+      <div class="sm:col-span-2"><dt class="dt">{{t "Directory DN"}}</dt><dd class="font-mono text-xs">{{deref .Data.Target.LdapDn}}</dd></div>
     </dl>
     {{else}}
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
-        <label class="label" for="name">Display name</label>
+        <label class="label" for="name">{{t "Display name"}}</label>
         <input class="input" id="name" name="name" value="{{.Data.Target.Name}}" required>
       </div>
       <div>
-        <label class="label" for="email">Email</label>
+        <label class="label" for="email">{{t "Email"}}</label>
         <input class="input" id="email" name="email" type="email" value="{{.Data.Target.Email}}" required>
       </div>
     </div>
     {{end}}
     <div class="flex flex-wrap gap-6 border-t border-line pt-5">
       <label class="flex cursor-pointer items-center gap-2 text-sm {{if .Data.Self}}opacity-60{{end}}">
-        <input type="checkbox" name="is_admin" class="accent-accent" {{if .Data.Target.IsAdmin}}checked{{end}}> Administrator
+        <input type="checkbox" name="is_admin" class="accent-accent" {{if .Data.Target.IsAdmin}}checked{{end}}> {{t "Administrator"}}
       </label>
       <label class="flex cursor-pointer items-center gap-2 text-sm {{if .Data.Self}}opacity-60{{end}}">
-        <input type="checkbox" name="active" class="accent-accent" {{if .Data.Target.Active}}checked{{end}}> Active
+        <input type="checkbox" name="active" class="accent-accent" {{if .Data.Target.Active}}checked{{end}}> {{t "Active"}}
       </label>
     </div>
     {{if .Data.AdminGroups}}
-    <p class="text-xs text-muted">Also administrator via group{{if gt (len .Data.AdminGroups) 1}}s{{end}}:
+    <p class="text-xs text-muted">{{if gt (len .Data.AdminGroups) 1}}{{t "Also administrator via groups:"}}{{else}}{{t "Also administrator via group:"}}{{end}}
       {{range $i, $g := .Data.AdminGroups}}{{if $i}}, {{end}}<a href="/admin/groups/{{$g.ID}}" class="underline">{{$g.Name}}</a>{{end}}
-      — the personal flag above is independent.</p>
+      {{t "— the personal flag above is independent."}}</p>
     {{end}}
-    {{if .Data.Self}}<p class="text-xs text-muted">This is your own account — you cannot deactivate it or drop your administrator role.</p>{{end}}
+    {{if .Data.Self}}<p class="text-xs text-muted">{{t "This is your own account — you cannot deactivate it or drop your administrator role."}}</p>{{end}}
     <div class="flex justify-end border-t border-line pt-5">
-      <button type="submit" class="btn-primary">Save changes</button>
+      <button type="submit" class="btn-primary">{{t "Save changes"}}</button>
     </div>
   </form>
 
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-3">
-      <h2 class="text-sm font-semibold">Groups</h2>
+      <h2 class="text-sm font-semibold">{{t "Groups"}}</h2>
       {{if .Data.AddableGroups}}
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/groups" class="flex items-center gap-2">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <select name="group_id" class="select w-48" required aria-label="Group to add">
-          <option value="" disabled selected>Add to a group…</option>
+        <select name="group_id" class="select w-48" required aria-label="{{t "Group to add"}}">
+          <option value="" disabled selected>{{t "Add to a group…"}}</option>
           {{range .Data.AddableGroups}}<option value="{{.ID}}">{{.Name}}</option>{{end}}
         </select>
-        <button type="submit" class="btn-secondary shrink-0">Add</button>
+        <button type="submit" class="btn-secondary shrink-0">{{t "Add"}}</button>
       </form>
       {{end}}
     </div>
@@ -91,50 +91,50 @@
         <form method="post" action="/admin/users/{{$.Data.Target.ID}}/groups/remove" class="contents">
           <input type="hidden" name="_csrf" value="{{$.CSRF}}">
           <input type="hidden" name="group_id" value="{{.ID}}">
-          <button type="submit" class="cursor-pointer text-faint hover:text-fg" aria-label="Remove from {{.Name}}">&times;</button>
+          <button type="submit" class="cursor-pointer text-faint hover:text-fg" aria-label="{{t "Remove from %s" .Name}}">&times;</button>
         </form>
         {{end}}
       </span>
-      {{else}}<span class="text-sm text-faint">No groups.</span>{{end}}
+      {{else}}<span class="text-sm text-faint">{{t "No groups."}}</span>{{end}}
     </div>
   </div>
 
   <div class="card p-6">
-    <h2 class="text-sm font-semibold">Two-factor authentication</h2>
+    <h2 class="text-sm font-semibold">{{t "Two-factor authentication"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
       {{if .Data.Target.TotpEnabled}}
-      <span class="flex items-center gap-2 text-sm"><span class="badge-accent">Enabled</span></span>
+      <span class="flex items-center gap-2 text-sm"><span class="badge-accent">{{t "Enabled"}}</span></span>
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/mfa/reset" class="shrink-0"
-            data-confirm="This turns off two-factor for {{.Data.Target.Username}} and deletes their recovery codes. Use it to recover a locked-out user."
-            data-confirm-title="Reset two-factor" data-confirm-variant="danger" data-confirm-label="Reset two-factor">
+            data-confirm="{{t "This turns off two-factor for %s and deletes their recovery codes. Use it to recover a locked-out user." .Data.Target.Username}}"
+            data-confirm-title="{{t "Reset two-factor"}}" data-confirm-variant="danger" data-confirm-label="{{t "Reset two-factor"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger-soft">Reset</button>
+        <button type="submit" class="btn-danger-soft">{{t "Reset"}}</button>
       </form>
       {{else}}
-      <span class="text-sm text-muted">Not enabled. The user can turn it on from their profile.</span>
+      <span class="text-sm text-muted">{{t "Not enabled. The user can turn it on from their profile."}}</span>
       {{end}}
     </div>
     <div class="mt-4 border-t border-line pt-4">
-      <h3 class="text-[13px] font-medium text-muted">Passkeys</h3>
+      <h3 class="text-[13px] font-medium text-muted">{{t "Passkeys"}}</h3>
       {{if .Data.Passkeys}}
       <ul class="mt-2 divide-y divide-line">
         {{range .Data.Passkeys}}
         <li class="flex items-center justify-between gap-3 py-2.5">
           <div class="min-w-0">
             <div class="truncate text-sm font-medium">{{.Name}}</div>
-            <div class="text-xs text-faint">Added {{since .CreatedAt}}{{if .LastUsedAt.Valid}} · last used {{since .LastUsedAt.Time}}{{else}} · never used{{end}}</div>
+            <div class="text-xs text-faint">{{if .LastUsedAt.Valid}}{{t "Added %s · last used %s" (since .CreatedAt) (since .LastUsedAt.Time)}}{{else}}{{t "Added %s · never used" (since .CreatedAt)}}{{end}}</div>
           </div>
           <form method="post" action="/admin/users/{{$.Data.Target.ID}}/passkeys/{{.ID}}/delete" class="shrink-0"
-                data-confirm="Remove the passkey “{{.Name}}”? The user will no longer be able to sign in with it."
-                data-confirm-title="Remove passkey" data-confirm-variant="danger" data-confirm-label="Remove">
+                data-confirm="{{t "Remove the passkey “%s”? The user will no longer be able to sign in with it." .Name}}"
+                data-confirm-title="{{t "Remove passkey"}}" data-confirm-variant="danger" data-confirm-label="{{t "Remove"}}">
             <input type="hidden" name="_csrf" value="{{$.CSRF}}">
-            <button type="submit" class="btn-ghost">Remove</button>
+            <button type="submit" class="btn-ghost">{{t "Remove"}}</button>
           </form>
         </li>
         {{end}}
       </ul>
       {{else}}
-      <p class="mt-1 text-sm text-faint">No passkeys registered.</p>
+      <p class="mt-1 text-sm text-faint">{{t "No passkeys registered."}}</p>
       {{end}}
     </div>
   </div>
@@ -143,22 +143,22 @@
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold">Email verification</h2>
-        <p class="mt-1 text-sm text-muted">{{if .Data.EmailVerified}}This address is verified.{{else}}This address has not been verified yet.{{end}}</p>
+        <h2 class="text-sm font-semibold">{{t "Email verification"}}</h2>
+        <p class="mt-1 text-sm text-muted">{{if .Data.EmailVerified}}{{t "This address is verified."}}{{else}}{{t "This address has not been verified yet."}}{{end}}</p>
       </div>
       {{if .Data.EmailVerified}}
-      <span class="badge-accent">Verified</span>
+      <span class="badge-accent">{{t "Verified"}}</span>
       {{else if .Data.CanVerifyEmail}}
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/verify-email" class="shrink-0">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-secondary">Send verification email</button>
+        <button type="submit" class="btn-secondary">{{t "Send verification email"}}</button>
       </form>
       {{else}}
-      <span class="badge">Unverified</span>
+      <span class="badge">{{t "Unverified"}}</span>
       {{end}}
     </div>
     {{if and (not .Data.EmailVerified) (not .Data.CanVerifyEmail)}}
-    <p class="mt-3 text-xs text-faint">Configure SMTP under Admin → Settings → Email to send verification links.</p>
+    <p class="mt-3 text-xs text-faint">{{t "Configure SMTP under Admin → Settings → Email to send verification links."}}</p>
     {{end}}
   </div>
   {{end}}
@@ -166,31 +166,31 @@
   {{if .Data.CanResetPassword}}
   <form method="post" action="/admin/users/{{.Data.Target.ID}}/password" class="card space-y-4 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <h2 class="text-sm font-semibold">Reset password</h2>
-    {{if .Data.IsLDAP}}<p class="-mt-2 text-xs text-muted">Sets the password directly in the directory, using the service account.</p>{{end}}
+    <h2 class="text-sm font-semibold">{{t "Reset password"}}</h2>
+    {{if .Data.IsLDAP}}<p class="-mt-2 text-xs text-muted">{{t "Sets the password directly in the directory, using the service account."}}</p>{{end}}
     <div class="flex items-end gap-3">
       <div class="flex-1">
-        <label class="label" for="password">New password</label>
+        <label class="label" for="password">{{t "New password"}}</label>
         <div class="relative">
           <input class="input pr-11" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required data-secret>
-          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+          <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
             <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
             <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
           </button>
         </div>
       </div>
-      <button type="submit" class="btn-secondary shrink-0">Reset</button>
+      <button type="submit" class="btn-secondary shrink-0">{{t "Reset"}}</button>
     </div>
     {{if not .Data.IsLDAP}}
     <label class="flex cursor-pointer items-center gap-2 text-sm">
       <input type="checkbox" name="must_change" class="accent-accent" checked>
-      Require a new password at next sign-in
+      {{t "Require a new password at next sign-in"}}
     </label>
     {{end}}
     {{if .Data.CanSendReset}}
     <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-4">
-      <p class="text-sm text-muted">Or let the user choose it: email them a reset link (valid 1 hour).</p>
-      <button type="submit" form="send-reset" class="btn-secondary shrink-0">Email a reset link</button>
+      <p class="text-sm text-muted">{{t "Or let the user choose it: email them a reset link (valid 1 hour)."}}</p>
+      <button type="submit" form="send-reset" class="btn-secondary shrink-0">{{t "Email a reset link"}}</button>
     </div>
     {{end}}
   </form>
@@ -203,19 +203,19 @@
 
   <div class="card p-6">
     <div class="flex items-center justify-between gap-4">
-      <h2 class="text-sm font-semibold">Sessions</h2>
+      <h2 class="text-sm font-semibold">{{t "Sessions"}}</h2>
       {{if .Data.Sessions}}
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/sessions/revoke" class="shrink-0"
-            data-confirm="Sign {{.Data.Target.Username}} out of every session and revoke their tokens? They will have to sign in again."
-            data-confirm-title="Sign out all sessions" data-confirm-variant="danger" data-confirm-label="Sign out everywhere">
+            data-confirm="{{t "Sign %s out of every session and revoke their tokens? They will have to sign in again." .Data.Target.Username}}"
+            data-confirm-title="{{t "Sign out all sessions"}}" data-confirm-variant="danger" data-confirm-label="{{t "Sign out everywhere"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger-soft">Sign out all sessions</button>
+        <button type="submit" class="btn-danger-soft">{{t "Sign out all sessions"}}</button>
       </form>
       {{end}}
     </div>
     <p class="mt-1 text-sm text-muted">
-      Last login:
-      {{if .Data.Target.LastLoginAt.Valid}}{{.Data.Target.LastLoginAt.Time.Format "Jan 2, 2006 15:04"}} UTC{{else}}never{{end}}
+      {{t "Last login:"}}
+      {{if .Data.Target.LastLoginAt.Valid}}{{localTime .Data.Target.LastLoginAt.Time}}{{else}}{{t "never"}}{{end}}
     </p>
     {{if .Data.Sessions}}
     <div class="mt-4 divide-y divide-line border-t border-line">
@@ -227,17 +227,17 @@
         <div class="min-w-0 flex-1">
           <div class="flex items-center gap-2">
             <span class="text-sm font-medium">{{.Device}}</span>
-            {{if .Current}}<span class="badge-accent">This device</span>{{end}}
+            {{if .Current}}<span class="badge-accent">{{t "This device"}}</span>{{end}}
           </div>
           <div class="mt-0.5 text-xs text-muted">
-            {{if .IP}}{{.IP}} · {{end}}signed in {{.LoginAt.Format "Jan 2, 2006 15:04"}} · expires {{.Expiry.Format "Jan 2, 2006"}}
+            {{if .IP}}{{.IP}} · {{end}}{{t "signed in"}} {{localTime .LoginAt}} · {{t "expires %s" (date .Expiry)}}
           </div>
         </div>
       </div>
       {{end}}
     </div>
     {{else}}
-    <p class="mt-3 text-sm text-faint">No active sessions.</p>
+    <p class="mt-3 text-sm text-faint">{{t "No active sessions."}}</p>
     {{end}}
   </div>
 
@@ -245,33 +245,33 @@
   <div class="card p-6">
     <div class="flex flex-wrap items-center justify-between gap-4">
       <div class="min-w-0">
-        <h2 class="text-sm font-semibold">Impersonate</h2>
-        <p class="mt-1 text-sm text-muted">View Kivraid as this user to reproduce what they see. A banner lets you return to your own account, and the switch is recorded in the activity log.</p>
+        <h2 class="text-sm font-semibold">{{t "Impersonate"}}</h2>
+        <p class="mt-1 text-sm text-muted">{{t "View Kivraid as this user to reproduce what they see. A banner lets you return to your own account, and the switch is recorded in the activity log."}}</p>
       </div>
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/impersonate" class="shrink-0"
-            data-confirm="You will browse as {{.Data.Target.Username}} until you choose to return. This is recorded in the activity log."
-            data-confirm-title="Impersonate {{.Data.Target.Username}}" data-confirm-label="Impersonate">
+            data-confirm="{{t "You will browse as %s until you choose to return. This is recorded in the activity log." .Data.Target.Username}}"
+            data-confirm-title="{{t "Impersonate %s" .Data.Target.Username}}" data-confirm-label="{{t "Impersonate"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-secondary" {{if not .Data.Target.Active}}disabled{{end}}>Impersonate</button>
+        <button type="submit" class="btn-secondary" {{if not .Data.Target.Active}}disabled{{end}}>{{t "Impersonate"}}</button>
       </form>
     </div>
-    {{if not .Data.Target.Active}}<p class="mt-3 text-xs text-faint">Reactivate the account before impersonating it.</p>{{end}}
+    {{if not .Data.Target.Active}}<p class="mt-3 text-xs text-faint">{{t "Reactivate the account before impersonating it."}}</p>{{end}}
   </div>
   {{end}}
 
   {{if not .Data.Self}}
   <div class="card border-danger/25 p-6">
-    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <h2 class="text-sm font-semibold text-danger">{{t "Danger zone"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
       <p class="text-sm text-muted">
-        Deleting revokes every session and token immediately.
-        {{if .Data.IsLDAP}}The shadow account will be recreated if the user signs in again while the directory is enabled.{{end}}
+        {{t "Deleting revokes every session and token immediately."}}
+        {{if .Data.IsLDAP}}{{t "The shadow account will be recreated if the user signs in again while the directory is enabled."}}{{end}}
       </p>
       <form method="post" action="/admin/users/{{.Data.Target.ID}}/delete" class="shrink-0"
-            data-confirm="Deleting {{.Data.Target.Username}} revokes every session and token immediately. This cannot be undone."
-            data-confirm-title="Delete user" data-confirm-variant="danger" data-confirm-label="Delete user">
+            data-confirm="{{t "Deleting %s revokes every session and token immediately. This cannot be undone." .Data.Target.Username}}"
+            data-confirm-title="{{t "Delete user"}}" data-confirm-variant="danger" data-confirm-label="{{t "Delete user"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger">Delete</button>
+        <button type="submit" class="btn-danger">{{t "Delete"}}</button>
       </form>
     </div>
   </div>

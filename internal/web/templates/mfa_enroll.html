@@ -1,8 +1,8 @@
 {{define "content"}}
-<a href="/profile" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Profile</a>
+<a href="/profile" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>{{t "Profile"}}</a>
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Set up two-factor</h1>
-  <p class="mt-1 text-sm text-muted">Scan the QR code with an authenticator app (Google Authenticator, Aegis, 1Password…), then enter the code it shows to confirm.</p>
+  <h1 class="text-2xl font-semibold tracking-tight">{{t "Set up two-factor"}}</h1>
+  <p class="mt-1 text-sm text-muted">{{t "Scan the QR code with an authenticator app (Google Authenticator, Aegis, 1Password…), then enter the code it shows to confirm."}}</p>
 </div>
 
 {{if .Data.Error}}
@@ -11,25 +11,25 @@
 
 <div class="card p-6">
   <div class="flex flex-col gap-6 sm:flex-row sm:items-center">
-    <img class="mx-auto size-44 shrink-0 rounded-lg bg-white p-2" src="/profile/mfa/qr" alt="TOTP QR code" width="176" height="176">
+    <img class="mx-auto size-44 shrink-0 rounded-lg bg-white p-2" src="/profile/mfa/qr" alt="{{t "TOTP QR code"}}" width="176" height="176">
     <div class="min-w-0 flex-1 space-y-4">
       <div>
-        <div class="dt">Can't scan? Enter this key manually</div>
+        <div class="dt">{{t "Can't scan? Enter this key manually"}}</div>
         <div class="flex items-center gap-2">
           <code class="code-box flex-1">{{.Data.Secret}}</code>
-          <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.SecretRaw}}">Copy</button>
+          <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.SecretRaw}}">{{t "Copy"}}</button>
         </div>
       </div>
       <form method="post" action="/profile/mfa/enable" class="space-y-3">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <div>
-          <label class="label" for="code">Confirmation code</label>
+          <label class="label" for="code">{{t "Confirmation code"}}</label>
           <input class="input font-mono tracking-[0.2em]" id="code" name="code"
                  inputmode="numeric" autocomplete="one-time-code" placeholder="000000" required autofocus>
         </div>
         <div class="flex items-center gap-3">
-          <button type="submit" class="btn-primary">Enable two-factor</button>
-          <a href="/profile" class="btn-ghost">Cancel</a>
+          <button type="submit" class="btn-primary">{{t "Enable two-factor"}}</button>
+          <a href="/profile" class="btn-ghost">{{t "Cancel"}}</a>
         </div>
       </form>
     </div>

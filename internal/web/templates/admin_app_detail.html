@@ -1,5 +1,5 @@
 {{define "content"}}
-<a href="/admin/applications" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Applications</a>
+<a href="/admin/applications" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>{{t "Applications"}}</a>
 <div class="mb-8 flex items-center gap-4">
   {{if .Data.App.IconMime}}
   <img class="size-14 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
@@ -9,56 +9,56 @@
   <div class="min-w-0">
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.App.Name}}</h1>
-      {{if .Data.Provider.Public}}<span class="badge">Public · PKCE</span>{{else}}<span class="badge">Confidential</span>{{end}}
+      {{if .Data.Provider.Public}}<span class="badge">{{t "Public · PKCE"}}</span>{{else}}<span class="badge">{{t "Confidential"}}</span>{{end}}
     </div>
     <p class="mt-0.5 font-mono text-xs text-faint">{{.Data.App.Slug}}</p>
   </div>
 </div>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div data-flash="Changes saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Saved}}<div data-flash="{{t "Changes saved."}}" data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <div class="card space-y-5 p-6">
-    <h2 class="text-sm font-semibold">Credentials</h2>
+    <h2 class="text-sm font-semibold">{{t "Credentials"}}</h2>
     <div>
-      <div class="dt">Client ID</div>
+      <div class="dt">{{t "Client ID"}}</div>
       <div class="flex items-center gap-2">
         <code class="code-box flex-1">{{.Data.Provider.ClientID}}</code>
-        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Provider.ClientID}}">Copy</button>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Provider.ClientID}}">{{t "Copy"}}</button>
       </div>
     </div>
     {{if not .Data.Provider.Public}}
     <div>
-      <div class="dt">Client secret</div>
+      <div class="dt">{{t "Client secret"}}</div>
       <div class="flex items-center gap-2">
         {{if .Data.ClientSecret}}
         <input class="code-box flex-1" type="password" readonly value="{{.Data.ClientSecret}}" data-secret>
-        <button type="button" class="btn-icon shrink-0" data-secret-toggle aria-label="Show secret">
+        <button type="button" class="btn-icon shrink-0" data-secret-toggle aria-label="{{t "Show secret"}}">
           <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
           <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
         </button>
-        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.ClientSecret}}">Copy</button>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.ClientSecret}}">{{t "Copy"}}</button>
         {{else}}
         <code class="code-box flex-1 select-none text-faint">••••••••••••••••••••••••</code>
         {{end}}
         <form method="post" action="/admin/applications/{{.Data.App.ID}}/rotate-secret" class="shrink-0"
-              data-confirm="The application will stop authenticating until it is reconfigured with the new secret."
-              data-confirm-title="Rotate client secret" data-confirm-label="Rotate secret">
+              data-confirm="{{t "The application will stop authenticating until it is reconfigured with the new secret."}}"
+              data-confirm-title="{{t "Rotate client secret"}}" data-confirm-label="{{t "Rotate secret"}}">
           <input type="hidden" name="_csrf" value="{{.CSRF}}">
-          <button type="submit" class="btn-ghost">Rotate</button>
+          <button type="submit" class="btn-ghost">{{t "Rotate"}}</button>
         </form>
       </div>
       {{if not .Data.ClientSecret}}
-      <p class="mt-1.5 text-xs text-muted">This secret predates encrypted storage and cannot be displayed — rotate it to get a visible one.</p>
+      <p class="mt-1.5 text-xs text-muted">{{t "This secret predates encrypted storage and cannot be displayed — rotate it to get a visible one."}}</p>
       {{end}}
     </div>
     {{end}}
     <div>
-      <div class="dt">Discovery URL</div>
+      <div class="dt">{{t "Discovery URL"}}</div>
       <div class="flex items-center gap-2">
         <code class="code-box flex-1">{{.Data.Issuer}}/.well-known/openid-configuration</code>
-        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Issuer}}/.well-known/openid-configuration">Copy</button>
+        <button type="button" class="btn-ghost shrink-0" data-copy="{{.Data.Issuer}}/.well-known/openid-configuration">{{t "Copy"}}</button>
       </div>
     </div>
   </div>
@@ -67,95 +67,95 @@
 
   <form method="post" action="/admin/applications/{{.Data.App.ID}}" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <h2 class="text-sm font-semibold">Settings</h2>
+    <h2 class="text-sm font-semibold">{{t "Settings"}}</h2>
     <div class="grid grid-cols-1 gap-5 sm:grid-cols-2">
       <div>
-        <label class="label" for="name">Name</label>
+        <label class="label" for="name">{{t "Name"}}</label>
         <input class="input" id="name" name="name" value="{{.Data.Form.Name}}" required>
       </div>
       <div>
-        <label class="label" for="slug">Slug</label>
+        <label class="label" for="slug">{{t "Slug"}}</label>
         <input class="input" id="slug" name="slug" value="{{.Data.Form.Slug}}" required>
       </div>
     </div>
     <div>
-      <label class="label" for="description">Description <span class="font-normal text-faint">(optional)</span></label>
-      <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="Shown in the launcher">
+      <label class="label" for="description">{{t "Description"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
+      <input class="input" id="description" name="description" value="{{.Data.Form.Description}}" placeholder="{{t "Shown in the launcher"}}">
     </div>
     <div>
-      <label class="label" for="launch_url">Launch URL <span class="font-normal text-faint">(optional)</span></label>
+      <label class="label" for="launch_url">{{t "Launch URL"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
       <input class="input" id="launch_url" name="launch_url" value="{{.Data.Form.LaunchURL}}">
     </div>
     <div>
-      <label class="label" for="redirect_uris">Redirect URIs</label>
+      <label class="label" for="redirect_uris">{{t "Redirect URIs"}}</label>
       <textarea class="textarea font-mono" id="redirect_uris" name="redirect_uris" rows="3" required>{{.Data.Form.RedirectURIs}}</textarea>
     </div>
     <div>
-      <label class="label" for="post_logout_uris">Post-logout redirect URIs <span class="font-normal text-faint">(optional)</span></label>
+      <label class="label" for="post_logout_uris">{{t "Post-logout redirect URIs"}} <span class="font-normal text-faint">{{t "(optional)"}}</span></label>
       <textarea class="textarea font-mono" id="post_logout_uris" name="post_logout_uris" rows="2">{{.Data.Form.PostLogoutURIs}}</textarea>
     </div>
 
     <div class="border-t border-line pt-5">
-      <h2 class="label">Client type</h2>
+      <h2 class="label">{{t "Client type"}}</h2>
       <div class="space-y-2">
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
           <input type="radio" name="client_type" value="confidential" class="mt-0.5 accent-accent" {{if not .Data.Form.Public}}checked{{end}}>
           <span>
-            <span class="block text-sm font-medium">Confidential</span>
-            <span class="block text-xs text-muted">Server-side application that can keep a client secret (most web apps).</span>
+            <span class="block text-sm font-medium">{{t "Confidential"}}</span>
+            <span class="block text-xs text-muted">{{t "Server-side application that can keep a client secret (most web apps)."}}</span>
           </span>
         </label>
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
           <input type="radio" name="client_type" value="public" class="mt-0.5 accent-accent" {{if .Data.Form.Public}}checked{{end}}>
           <span>
-            <span class="block text-sm font-medium">Public · PKCE</span>
-            <span class="block text-xs text-muted">SPA, mobile or CLI that cannot keep a secret; PKCE is enforced.</span>
+            <span class="block text-sm font-medium">{{t "Public · PKCE"}}</span>
+            <span class="block text-xs text-muted">{{t "SPA, mobile or CLI that cannot keep a secret; PKCE is enforced."}}</span>
           </span>
         </label>
       </div>
-      <p class="mt-2 text-xs text-muted">Switching to public deletes the client secret; switching back to confidential issues a fresh one. The application must be reconfigured either way.</p>
+      <p class="mt-2 text-xs text-muted">{{t "Switching to public deletes the client secret; switching back to confidential issues a fresh one. The application must be reconfigured either way."}}</p>
     </div>
 
     {{template "accesspolicy" .}}
 
     <div class="border-t border-line pt-5">
-      <h2 class="text-sm font-semibold">Token lifetimes</h2>
-      <p class="mt-1 text-xs text-muted">Durations such as <code class="code-inline">5m</code>, <code class="code-inline">1h</code> or <code class="code-inline">30d</code>. Defaults: access 5m, refresh 30d, ID token 1h. Access and ID tokens are capped at 1 day, refresh tokens at 365 days.</p>
+      <h2 class="text-sm font-semibold">{{t "Token lifetimes"}}</h2>
+      <p class="mt-1 text-xs text-muted">{{t "Durations such as"}} <code class="code-inline">5m</code>, <code class="code-inline">1h</code> {{t "or"}} <code class="code-inline">30d</code>. {{t "Defaults: access 5m, refresh 30d, ID token 1h. Access and ID tokens are capped at 1 day, refresh tokens at 365 days."}}</p>
       <div class="mt-3 grid grid-cols-1 gap-5 sm:grid-cols-3">
         <div>
-          <label class="label" for="access_ttl">Access token</label>
+          <label class="label" for="access_ttl">{{t "Access token"}}</label>
           <input class="input font-mono" id="access_ttl" name="access_ttl" value="{{.Data.Form.AccessTTL}}" required
-                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="A number followed by s, m, h or d">
+                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="{{t "A number followed by s, m, h or d"}}">
         </div>
         <div>
-          <label class="label" for="refresh_ttl">Refresh token</label>
+          <label class="label" for="refresh_ttl">{{t "Refresh token"}}</label>
           <input class="input font-mono" id="refresh_ttl" name="refresh_ttl" value="{{.Data.Form.RefreshTTL}}" required
-                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="A number followed by s, m, h or d">
+                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="{{t "A number followed by s, m, h or d"}}">
         </div>
         <div>
-          <label class="label" for="id_ttl">ID token</label>
+          <label class="label" for="id_ttl">{{t "ID token"}}</label>
           <input class="input font-mono" id="id_ttl" name="id_ttl" value="{{.Data.Form.IDTTL}}" required
-                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="A number followed by s, m, h or d">
+                 pattern="\s*[0-9]+\s*[smhdSMHD]?\s*" title="{{t "A number followed by s, m, h or d"}}">
         </div>
       </div>
     </div>
 
     <div class="flex justify-end border-t border-line pt-5">
-      <button type="submit" class="btn-primary">Save changes</button>
+      <button type="submit" class="btn-primary">{{t "Save changes"}}</button>
     </div>
   </form>
 
   {{template "iconcard" .}}
 
   <div class="card border-danger/25 p-6">
-    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <h2 class="text-sm font-semibold text-danger">{{t "Danger zone"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
-      <p class="text-sm text-muted">Deleting the application revokes its provider; signed-in users of the app are not logged out immediately, but no new logins will succeed.</p>
+      <p class="text-sm text-muted">{{t "Deleting the application revokes its provider; signed-in users of the app are not logged out immediately, but no new logins will succeed."}}</p>
       <form method="post" action="/admin/applications/{{.Data.App.ID}}/delete" class="shrink-0"
-            data-confirm="Deleting {{.Data.App.Name}} revokes its provider; no new logins will succeed. This cannot be undone."
-            data-confirm-title="Delete application" data-confirm-variant="danger" data-confirm-label="Delete application">
+            data-confirm="{{t "Deleting %s revokes its provider; no new logins will succeed. This cannot be undone." .Data.App.Name}}"
+            data-confirm-title="{{t "Delete application"}}" data-confirm-variant="danger" data-confirm-label="{{t "Delete application"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger">Delete</button>
+        <button type="submit" class="btn-danger">{{t "Delete"}}</button>
       </form>
     </div>
   </div>

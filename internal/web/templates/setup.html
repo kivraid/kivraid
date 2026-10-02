@@ -1,16 +1,17 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>Welcome · {{brandName}}</title>
+  <title>{{t "Welcome"}} · {{brandName}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{asset "app.css"}}">
   <script src="{{asset "app.js"}}"></script>
 </head>
-<body class="min-h-dvh">
+<body class="min-h-dvh" data-i18n="{{jsI18n}}">
   <div class="aurora{{if brandHasBackground}} aurora-custom{{end}}">{{if brandHasBackground}}<img src="{{brandBackgroundURL}}" alt="">{{end}}</div>
+  {{template "authlang" .}}
   <main class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
     <div class="w-full max-w-sm">
       <div class="mb-8 flex flex-col items-center gap-4">
@@ -20,8 +21,8 @@
           <path d="M10 11.4 H14 L13 17.4 H11 Z" fill="var(--on-accent)"/>
         </svg>
         <div class="text-center">
-          <h1 class="aurora-title">Welcome to {{brandName}}</h1>
-          <p class="aurora-sub">Create the administrator account to get started.</p>
+          <h1 class="aurora-title">{{t "Welcome to %s" brandName}}</h1>
+          <p class="aurora-sub">{{t "Create the administrator account to get started."}}</p>
         </div>
       </div>
 
@@ -33,43 +34,43 @@
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <div class="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label class="label" for="username">Username</label>
+            <label class="label" for="username">{{t "Username"}}</label>
             <input class="input" id="username" name="username" value="{{.Username}}"
                    autocomplete="username" autocapitalize="none" spellcheck="false" required autofocus>
           </div>
           <div>
-            <label class="label" for="name">Display name</label>
+            <label class="label" for="name">{{t "Display name"}}</label>
             <input class="input" id="name" name="name" value="{{.Name}}" autocomplete="name">
           </div>
         </div>
         <div>
-          <label class="label" for="email">Email</label>
+          <label class="label" for="email">{{t "Email"}}</label>
           <input class="input" id="email" name="email" type="email" value="{{.Email}}" autocomplete="email" required>
         </div>
         <div>
-          <label class="label" for="password">Password</label>
+          <label class="label" for="password">{{t "Password"}}</label>
           <div class="relative">
             <input class="input pr-11" id="password" name="password" type="password" autocomplete="new-password" minlength="8" required data-secret>
-            <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+            <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
               <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
             </button>
           </div>
         </div>
         <div>
-          <label class="label" for="confirm_password">Confirm password</label>
+          <label class="label" for="confirm_password">{{t "Confirm password"}}</label>
           <div class="relative">
             <input class="input pr-11" id="confirm_password" name="confirm_password" type="password" autocomplete="new-password" minlength="8" required data-secret>
-            <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="Show password">
+            <button type="button" class="absolute inset-y-0 right-0 flex cursor-pointer items-center px-3 text-faint hover:text-fg" data-secret-toggle aria-label="{{t "Show password"}}">
               <svg data-eye class="size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
               <svg data-eye-off class="hidden size-[18px]" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9.9 4.24A9.1 9.1 0 0 1 12 4c6.5 0 10 7 10 7a13.2 13.2 0 0 1-1.67 2.68M6.1 6.1A13.2 13.2 0 0 0 2 12s3.5 7 10 7a9.1 9.1 0 0 0 5.9-2.1M14.12 14.12A3 3 0 1 1 9.88 9.88"/><path d="M2 2l20 20"/></svg>
             </button>
           </div>
         </div>
-        <button type="submit" class="btn-primary w-full">Create administrator</button>
+        <button type="submit" class="btn-primary w-full">{{t "Create administrator"}}</button>
       </form>
 
-      <p class="mt-8 text-center aurora-foot">This account gets full administrative rights.</p>
+      <p class="mt-8 text-center aurora-foot">{{t "This account gets full administrative rights."}}</p>
     </div>
   </main>
 </body>

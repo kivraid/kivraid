@@ -1,22 +1,22 @@
 <!doctype html>
-<html lang="en">
+<html lang="{{lang}}">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="csrf-token" content="{{.CSRF}}">
-  <title>{{.Title}} · {{brandName}}</title>
+  <title>{{t .Title}} · {{brandName}}</title>
   <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
   <link rel="preload" href="/static/fonts/InterVariable.woff2" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{asset "app.css"}}">
   <script src="{{asset "app.js"}}"></script>
 </head>
-<body class="min-h-dvh">
+<body class="min-h-dvh" data-i18n="{{jsI18n}}">
   {{if .Impersonating}}
   <div class="flex flex-wrap items-center justify-center gap-x-3 gap-y-1.5 border-b border-warn/30 bg-warn-soft px-6 py-2 text-center text-sm text-warn">
-    <span>Viewing as <span class="font-semibold">{{.User.Name}}</span> ({{.User.Username}}).</span>
+    <span>{{t "Viewing as"}} <span class="font-semibold">{{.User.Name}}</span> ({{.User.Username}}).</span>
     <form method="post" action="/impersonate/stop">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="font-semibold underline underline-offset-2 hover:no-underline">Return to {{.Impersonator}}</button>
+      <button type="submit" class="font-semibold underline underline-offset-2 hover:no-underline">{{t "Return to %s" .Impersonator}}</button>
     </form>
   </div>
   {{end}}
@@ -28,9 +28,9 @@
           <span class="hidden sm:inline">{{brandName}}</span>
         </a>
         <nav class="hidden items-center gap-1 sm:flex">
-          <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}" {{if eq .Active "home"}}aria-current="page"{{end}}>Home</a>
-          <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}" {{if eq .Active "profile"}}aria-current="page"{{end}}>Profile</a>
-          <a href="/sessions" class="nav-link {{if eq .Active "sessions"}}nav-active{{end}}" {{if eq .Active "sessions"}}aria-current="page"{{end}}>Sessions</a>
+          <a href="/" class="nav-link {{if eq .Active "home"}}nav-active{{end}}" {{if eq .Active "home"}}aria-current="page"{{end}}>{{t "Home"}}</a>
+          <a href="/profile" class="nav-link {{if eq .Active "profile"}}nav-active{{end}}" {{if eq .Active "profile"}}aria-current="page"{{end}}>{{t "Profile"}}</a>
+          <a href="/sessions" class="nav-link {{if eq .Active "sessions"}}nav-active{{end}}" {{if eq .Active "sessions"}}aria-current="page"{{end}}>{{t "Sessions"}}</a>
         </nav>
       </div>
 
@@ -39,26 +39,26 @@
         <div class="relative" data-menu>
           <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false"
                   class="nav-link flex items-center gap-1 {{if or (eq .Active "dashboard") (eq .Active "apps") (eq .Active "ldap") (eq .Active "providers") (eq .Active "routing") (eq .Active "users") (eq .Active "groups") (eq .Active "audit") (eq .Active "branding") (eq .Active "email") (eq .Active "system") (eq .Active "security")}}nav-active{{end}}">
-            Admin
+            {{t "Admin"}}
             <svg class="size-3.5 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 9l6 6 6-6"/></svg>
           </button>
           <div class="menu-panel">
-            <a href="/admin" class="menu-item {{if eq .Active "dashboard"}}bg-raised{{end}}">Overview</a>
+            <a href="/admin" class="menu-item {{if eq .Active "dashboard"}}bg-raised{{end}}">{{t "Overview"}}</a>
             <div class="menu-divider"></div>
-            <a href="/admin/applications" class="menu-item {{if eq .Active "apps"}}bg-raised{{end}}">Applications</a>
-            <a href="/admin/ldap" class="menu-item {{if eq .Active "ldap"}}bg-raised{{end}}">Directories</a>
-            <a href="/admin/providers" class="menu-item {{if or (eq .Active "providers") (eq .Active "routing")}}bg-raised{{end}}">Federation</a>
-            <a href="/admin/users" class="menu-item {{if eq .Active "users"}}bg-raised{{end}}">Users</a>
-            <a href="/admin/groups" class="menu-item {{if eq .Active "groups"}}bg-raised{{end}}">Groups</a>
+            <a href="/admin/applications" class="menu-item {{if eq .Active "apps"}}bg-raised{{end}}">{{t "Applications"}}</a>
+            <a href="/admin/ldap" class="menu-item {{if eq .Active "ldap"}}bg-raised{{end}}">{{t "Directories"}}</a>
+            <a href="/admin/providers" class="menu-item {{if or (eq .Active "providers") (eq .Active "routing")}}bg-raised{{end}}">{{t "Federation"}}</a>
+            <a href="/admin/users" class="menu-item {{if eq .Active "users"}}bg-raised{{end}}">{{t "Users"}}</a>
+            <a href="/admin/groups" class="menu-item {{if eq .Active "groups"}}bg-raised{{end}}">{{t "Groups"}}</a>
             <div class="menu-divider"></div>
-            <a href="/admin/audit" class="menu-item {{if eq .Active "audit"}}bg-raised{{end}}">Activity</a>
-            <a href="/admin/settings" class="menu-item {{if or (eq .Active "branding") (eq .Active "email") (eq .Active "system") (eq .Active "security")}}bg-raised{{end}}">Settings</a>
+            <a href="/admin/audit" class="menu-item {{if eq .Active "audit"}}bg-raised{{end}}">{{t "Activity"}}</a>
+            <a href="/admin/settings" class="menu-item {{if or (eq .Active "branding") (eq .Active "email") (eq .Active "system") (eq .Active "security")}}bg-raised{{end}}">{{t "Settings"}}</a>
           </div>
         </div>
         {{end}}
 
         <div class="relative" data-menu>
-          <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false" class="flex cursor-pointer items-center gap-2 rounded-lg p-1 pr-1.5 transition-colors hover:bg-raised" aria-label="Account menu">
+          <button type="button" data-menu-button aria-haspopup="menu" aria-expanded="false" class="flex cursor-pointer items-center gap-2 rounded-lg p-1 pr-1.5 transition-colors hover:bg-raised" aria-label="{{t "Account menu"}}">
             {{if .User.PhotoMime}}
             <img class="size-8 rounded-full object-cover" src="/avatar/{{.User.ID}}" alt="">
             {{else}}
@@ -73,26 +73,32 @@
             </div>
             <div class="menu-divider"></div>
             <div class="sm:hidden">
-              <a href="/" class="menu-item {{if eq .Active "home"}}bg-raised{{end}}">Home</a>
-              <a href="/profile" class="menu-item {{if eq .Active "profile"}}bg-raised{{end}}">Profile</a>
-              <a href="/sessions" class="menu-item {{if eq .Active "sessions"}}bg-raised{{end}}">Sessions</a>
+              <a href="/" class="menu-item {{if eq .Active "home"}}bg-raised{{end}}">{{t "Home"}}</a>
+              <a href="/profile" class="menu-item {{if eq .Active "profile"}}bg-raised{{end}}">{{t "Profile"}}</a>
+              <a href="/sessions" class="menu-item {{if eq .Active "sessions"}}bg-raised{{end}}">{{t "Sessions"}}</a>
               <div class="menu-divider"></div>
             </div>
             <div class="px-2 py-1.5">
-              <div class="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-faint">Theme</div>
-              <div class="theme-seg" role="radiogroup" aria-label="Theme">
+              <div class="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-faint">{{t "Theme"}}</div>
+              <div class="theme-seg" role="radiogroup" aria-label="{{t "Theme"}}">
                 <button type="button" class="theme-seg-btn" data-theme-set="system" role="radio" aria-checked="false">
                   <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="14" x="2" y="3" rx="2"/><path d="M8 21h8M12 17v4"/></svg>
-                  System
+                  {{t "System"}}
                 </button>
                 <button type="button" class="theme-seg-btn" data-theme-set="light" role="radio" aria-checked="false">
                   <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>
-                  Light
+                  {{t "Light"}}
                 </button>
                 <button type="button" class="theme-seg-btn" data-theme-set="dark" role="radio" aria-checked="false">
                   <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a6 6 0 0 0 9 9 9 9 0 1 1-9-9Z"/></svg>
-                  Dark
+                  {{t "Dark"}}
                 </button>
+              </div>
+            </div>
+            <div class="px-2 pb-1.5">
+              <div class="mb-1.5 px-1 text-[11px] font-medium uppercase tracking-wide text-faint">{{t "Language"}}</div>
+              <div class="theme-seg">
+                {{range languages}}<a href="/lang?set={{.Code}}" lang="{{.Code}}" class="theme-seg-btn {{if eq .Code lang}}theme-seg-active{{end}}" {{if eq .Code lang}}aria-current="true"{{end}}>{{.Name}}</a>{{end}}
               </div>
             </div>
             <div class="menu-divider"></div>
@@ -100,7 +106,7 @@
               <input type="hidden" name="_csrf" value="{{.CSRF}}">
               <button type="submit" class="menu-item">
                 <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><path d="M16 17l5-5-5-5"/><path d="M21 12H9"/></svg>
-                Sign out
+                {{t "Sign out"}}
               </button>
             </form>
           </div>
@@ -116,7 +122,7 @@
 
 {{define "iconcard"}}
 <div class="card space-y-4 p-6">
-  <h2 class="text-sm font-semibold">Icon</h2>
+  <h2 class="text-sm font-semibold">{{t "Icon"}}</h2>
   <div class="flex items-center gap-4" data-upload>
     <span data-preview data-preview-class="size-12 shrink-0 rounded-xl object-cover">
     {{if .Data.App.IconMime}}
@@ -129,40 +135,40 @@
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
       <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" required data-autoupload data-max-bytes="1048576"
              class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
-      <button type="submit" class="btn-secondary shrink-0" data-upload-button>Upload</button>
+      <button type="submit" class="btn-secondary shrink-0" data-upload-button>{{t "Upload"}}</button>
     </form>
     {{if .Data.App.IconMime}}
     <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon/delete" class="shrink-0"
-          data-confirm="Remove this application's icon?" data-confirm-title="Remove icon"
-          data-confirm-variant="danger" data-confirm-label="Remove">
+          data-confirm="{{t "Remove this application's icon?"}}" data-confirm-title="{{t "Remove icon"}}"
+          data-confirm-variant="danger" data-confirm-label="{{t "Remove"}}">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <button type="submit" class="btn-ghost">Remove</button>
+      <button type="submit" class="btn-ghost">{{t "Remove"}}</button>
     </form>
     {{end}}
   </div>
-  <p class="text-xs text-muted">Shown in the launcher. JPEG, PNG, WebP or GIF, up to 1 MB.</p>
+  <p class="text-xs text-muted">{{t "Shown in the launcher. JPEG, PNG, WebP or GIF, up to 1 MB."}}</p>
 </div>
 {{end}}
 
 {{define "accesspolicy"}}
 <div class="border-t border-line pt-5" data-access>
-  <h2 class="text-sm font-semibold">Access</h2>
+  <h2 class="text-sm font-semibold">{{t "Access"}}</h2>
   {{if and .Data.App.Restricted (not .Data.Bound)}}
-  <div class="alert-warning mt-3" role="alert">Nobody can sign in: this application is restricted to groups, but none are left (they were deleted). Choose groups below, or open it to everyone.</div>
+  <div class="alert-warning mt-3" role="alert">{{t "Nobody can sign in: this application is restricted to groups, but none are left (they were deleted). Choose groups below, or open it to everyone."}}</div>
   {{end}}
   <div class="mt-3 grid gap-2 sm:grid-cols-2">
     <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
       <input type="radio" name="access" value="everyone" class="mt-0.5 accent-accent" {{if not .Data.App.Restricted}}checked{{end}}>
       <span>
-        <span class="block text-sm font-medium">Everyone signed in</span>
-        <span class="block text-xs text-muted">Any authenticated user can use this application.</span>
+        <span class="block text-sm font-medium">{{t "Everyone signed in"}}</span>
+        <span class="block text-xs text-muted">{{t "Any authenticated user can use this application."}}</span>
       </span>
     </label>
     <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
       <input type="radio" name="access" value="groups" class="mt-0.5 accent-accent" {{if .Data.App.Restricted}}checked{{end}}>
       <span>
-        <span class="block text-sm font-medium">Only selected groups</span>
-        <span class="block text-xs text-muted">Members of at least one group below. With no group, nobody gets in.</span>
+        <span class="block text-sm font-medium">{{t "Only selected groups"}}</span>
+        <span class="block text-xs text-muted">{{t "Members of at least one group below. With no group, nobody gets in."}}</span>
       </span>
     </label>
   </div>
@@ -174,25 +180,25 @@
         <span class="chip flex items-center gap-1.5" data-tag data-name="{{.Name}}">
           {{.Name}}
           <input type="hidden" name="policy_groups" value="{{.ID}}">
-          <button type="button" data-tag-remove class="cursor-pointer text-faint hover:text-fg" aria-label="Remove {{.Name}}">&times;</button>
+          <button type="button" data-tag-remove class="cursor-pointer text-faint hover:text-fg" aria-label="{{t "Remove %s" .Name}}">&times;</button>
         </span>
         {{end}}{{end}}
       </div>
-      <input class="input mt-2 sm:w-1/2" list="policy-groups-dl" placeholder="Type to add a group…"
+      <input class="input mt-2 sm:w-1/2" list="policy-groups-dl" placeholder="{{t "Type to add a group…"}}"
              autocomplete="off" data-tag-input data-tag-name="policy_groups">
       <datalist id="policy-groups-dl">
         {{range .Data.Groups}}{{if not (index $.Data.Bound .ID)}}<option value="{{.Name}}" data-id="{{.ID}}"></option>{{end}}{{end}}
       </datalist>
     </div>
     {{else}}
-    <p class="text-xs text-muted">No groups exist yet. Create one under Admin → Groups (or sync them from a directory) to restrict access.</p>
+    <p class="text-xs text-muted">{{t "No groups exist yet. Create one under Admin → Groups (or sync them from a directory) to restrict access."}}</p>
     {{end}}
   </div>
   <label class="mt-4 flex cursor-pointer items-start gap-2 text-sm">
     <input type="checkbox" name="require_mfa" class="mt-0.5 accent-accent" {{if .Data.App.RequireMfa}}checked{{end}}>
     <span>
-      <span class="font-medium">Require two-factor authentication</span>
-      <span class="block text-xs text-muted">Users must have signed in with an authenticator code, a passkey or an upstream provider; others are asked to set up two-factor first.</span>
+      <span class="font-medium">{{t "Require two-factor authentication"}}</span>
+      <span class="block text-xs text-muted">{{t "Users must have signed in with an authenticator code, a passkey or an upstream provider; others are asked to set up two-factor first."}}</span>
     </span>
   </label>
 </div>
@@ -202,20 +208,20 @@
 <div class="card p-6" data-snippets>
   <div class="flex flex-wrap items-center justify-between gap-3">
     <div class="min-w-0">
-      <h2 class="text-sm font-semibold">Set up the application</h2>
-      <p class="mt-0.5 text-xs text-muted">Configuration to paste into the application, with this client's credentials filled in.</p>
+      <h2 class="text-sm font-semibold">{{t "Set up the application"}}</h2>
+      <p class="mt-0.5 text-xs text-muted">{{t "Configuration to paste into the application, with this client's credentials filled in."}}</p>
     </div>
-    <select class="select w-auto" data-snippet-select aria-label="Application type">
-      {{range .Data.Snippets}}<option value="{{.ID}}" {{if eq .ID $.Data.Preset}}selected{{end}}>{{.Name}}</option>{{end}}
+    <select class="select w-auto" data-snippet-select aria-label="{{t "Application type"}}">
+      {{range .Data.Snippets}}<option value="{{.ID}}" {{if eq .ID $.Data.Preset}}selected{{end}}>{{t .Name}}</option>{{end}}
     </select>
   </div>
   {{range .Data.Snippets}}
   <div class="mt-4" data-snippet="{{.ID}}" {{if ne .ID $.Data.Preset}}hidden{{end}}>
     <div class="relative">
       <pre class="code-block">{{.Text}}</pre>
-      <button type="button" class="btn-ghost absolute right-1.5 top-1.5" data-copy="{{.Text}}">Copy</button>
+      <button type="button" class="btn-ghost absolute right-1.5 top-1.5" data-copy="{{.Text}}">{{t "Copy"}}</button>
     </div>
-    {{if .Doc}}<p class="mt-2 text-xs text-muted">Step-by-step guide: <code class="code-inline">docs/integrations/{{.Doc}}</code></p>{{end}}
+    {{if .Doc}}<p class="mt-2 text-xs text-muted">{{t "Step-by-step guide:"}} <code class="code-inline">docs/integrations/{{.Doc}}</code></p>{{end}}
   </div>
   {{end}}
 </div>
@@ -223,12 +229,12 @@
 
 {{define "pager"}}
 <div class="mt-4 flex items-center justify-between gap-4 text-sm text-muted">
-  <span class="tabular">Showing {{.Start}}–{{.End}} of {{.Total}}</span>
+  <span class="tabular">{{t "Showing %d–%d of %d" .Start .End .Total}}</span>
   {{if gt .Pages 1}}
   <div class="flex items-center gap-2">
-    {{if .Prev}}<a href="?{{with .QS}}{{.}}&{{end}}{{.Param}}={{.Prev}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
-    <span class="tabular px-1">Page {{.Page}} / {{.Pages}}</span>
-    {{if .Next}}<a href="?{{with .QS}}{{.}}&{{end}}{{.Param}}={{.Next}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+    {{if .Prev}}<a href="?{{with .QS}}{{.}}&{{end}}{{.Param}}={{.Prev}}" class="btn-secondary">{{t "Previous"}}</a>{{else}}<span class="btn-secondary opacity-50">{{t "Previous"}}</span>{{end}}
+    <span class="tabular px-1">{{t "Page %d / %d" .Page .Pages}}</span>
+    {{if .Next}}<a href="?{{with .QS}}{{.}}&{{end}}{{.Param}}={{.Next}}" class="btn-secondary">{{t "Next"}}</a>{{else}}<span class="btn-secondary opacity-50">{{t "Next"}}</span>{{end}}
   </div>
   {{end}}
 </div>
@@ -236,22 +242,22 @@
 
 {{define "federationtabs"}}
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Federation</h1>
-  <nav class="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="Federation sections">
-    <a href="/admin/providers" class="tab {{if eq .Active "providers"}}tab-active{{end}}" {{if eq .Active "providers"}}aria-current="page"{{end}}>Providers</a>
-    <a href="/admin/routing" class="tab {{if eq .Active "routing"}}tab-active{{end}}" {{if eq .Active "routing"}}aria-current="page"{{end}}>Routing</a>
+  <h1 class="text-2xl font-semibold tracking-tight">{{t "Federation"}}</h1>
+  <nav class="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="{{t "Federation sections"}}">
+    <a href="/admin/providers" class="tab {{if eq .Active "providers"}}tab-active{{end}}" {{if eq .Active "providers"}}aria-current="page"{{end}}>{{t "Providers"}}</a>
+    <a href="/admin/routing" class="tab {{if eq .Active "routing"}}tab-active{{end}}" {{if eq .Active "routing"}}aria-current="page"{{end}}>{{t "Routing"}}</a>
   </nav>
 </div>
 {{end}}
 
 {{define "settingstabs"}}
 <div class="mb-8">
-  <h1 class="text-2xl font-semibold tracking-tight">Settings</h1>
-  <nav class="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="Settings sections">
-    <a href="/admin/settings/system" class="tab {{if eq .Active "system"}}tab-active{{end}}" {{if eq .Active "system"}}aria-current="page"{{end}}>System</a>
-    <a href="/admin/settings/branding" class="tab {{if eq .Active "branding"}}tab-active{{end}}" {{if eq .Active "branding"}}aria-current="page"{{end}}>Branding</a>
-    <a href="/admin/settings/email" class="tab {{if eq .Active "email"}}tab-active{{end}}" {{if eq .Active "email"}}aria-current="page"{{end}}>Email</a>
-    <a href="/admin/settings/security" class="tab {{if eq .Active "security"}}tab-active{{end}}" {{if eq .Active "security"}}aria-current="page"{{end}}>Security</a>
+  <h1 class="text-2xl font-semibold tracking-tight">{{t "Settings"}}</h1>
+  <nav class="mt-5 flex gap-1 overflow-x-auto border-b border-line" aria-label="{{t "Settings sections"}}">
+    <a href="/admin/settings/system" class="tab {{if eq .Active "system"}}tab-active{{end}}" {{if eq .Active "system"}}aria-current="page"{{end}}>{{t "System"}}</a>
+    <a href="/admin/settings/branding" class="tab {{if eq .Active "branding"}}tab-active{{end}}" {{if eq .Active "branding"}}aria-current="page"{{end}}>{{t "Branding"}}</a>
+    <a href="/admin/settings/email" class="tab {{if eq .Active "email"}}tab-active{{end}}" {{if eq .Active "email"}}aria-current="page"{{end}}>{{t "Email"}}</a>
+    <a href="/admin/settings/security" class="tab {{if eq .Active "security"}}tab-active{{end}}" {{if eq .Active "security"}}aria-current="page"{{end}}>{{t "Security"}}</a>
   </nav>
 </div>
 {{end}}

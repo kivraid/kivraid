@@ -1,60 +1,60 @@
 {{define "content"}}
 {{template "settingstabs" .}}
-<p class="mb-6 text-sm text-muted">Sign-in requirements and alerts, token signing keys, and how long activity is kept.</p>
+<p class="mb-6 text-sm text-muted">{{t "Sign-in requirements and alerts, token signing keys, and how long activity is kept."}}</p>
 
 <div class="space-y-4">
-  {{if .Data.Saved}}<div data-flash="Security settings saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Saved}}<div data-flash="{{t "Security settings saved."}}" data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
   <form method="post" action="/admin/settings/security" class="card space-y-5 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div>
-      <h2 class="text-sm font-semibold">Two-factor authentication</h2>
-      <p class="mt-1 text-sm text-muted">Who must sign in with a second factor: an authenticator code, a passkey, or an upstream identity provider (which owns authentication for federated users). Anyone required but not enrolled is asked to set it up before going further, and cannot turn it off.</p>
+      <h2 class="text-sm font-semibold">{{t "Two-factor authentication"}}</h2>
+      <p class="mt-1 text-sm text-muted">{{t "Who must sign in with a second factor: an authenticator code, a passkey, or an upstream identity provider (which owns authentication for federated users). Anyone required but not enrolled is asked to set it up before going further, and cannot turn it off."}}</p>
     </div>
     <div class="grid gap-2 sm:grid-cols-3">
       {{range $p := list "off" "admins" "all"}}
       <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
         <input type="radio" name="mfa_policy" value="{{$p}}" class="mt-0.5 accent-accent" {{if eq $p $.Data.MFAPolicy}}checked{{end}}>
         <span>
-          {{if eq $p "off"}}<span class="block text-sm font-medium">Optional</span><span class="block text-xs text-muted">Users choose. Applications can still require it.</span>{{end}}
-          {{if eq $p "admins"}}<span class="block text-sm font-medium">Administrators</span><span class="block text-xs text-muted">Required for anyone with the administrator role.</span>{{end}}
-          {{if eq $p "all"}}<span class="block text-sm font-medium">Everyone</span><span class="block text-xs text-muted">Required for every account.</span>{{end}}
+          {{if eq $p "off"}}<span class="block text-sm font-medium">{{t "Optional"}}</span><span class="block text-xs text-muted">{{t "Users choose. Applications can still require it."}}</span>{{end}}
+          {{if eq $p "admins"}}<span class="block text-sm font-medium">{{t "Administrators"}}</span><span class="block text-xs text-muted">{{t "Required for anyone with the administrator role."}}</span>{{end}}
+          {{if eq $p "all"}}<span class="block text-sm font-medium">{{t "Everyone"}}</span><span class="block text-xs text-muted">{{t "Required for every account."}}</span>{{end}}
         </span>
       </label>
       {{end}}
     </div>
-    <p class="text-xs text-muted">To require it for a single application only, use the option in that application's Access section.</p>
+    <p class="text-xs text-muted">{{t "To require it for a single application only, use the option in that application's Access section."}}</p>
 
     <div class="border-t border-line pt-5">
-      <h2 class="text-sm font-semibold">Sign-in alerts</h2>
+      <h2 class="text-sm font-semibold">{{t "Sign-in alerts"}}</h2>
       <label class="mt-3 flex cursor-pointer items-start gap-2 text-sm">
         <input type="checkbox" name="new_device_alerts" class="mt-0.5 accent-accent" {{if .Data.NewDeviceAlerts}}checked{{end}}>
         <span>
-          <span class="font-medium">Email users when their account signs in from a new device</span>
-          <span class="block text-xs text-muted">A device is new when that browser has never signed in as the user. Right after turning this on, each user's next sign-in on every browser counts as new. An account's very first sign-in never sends an alert.</span>
+          <span class="font-medium">{{t "Email users when their account signs in from a new device"}}</span>
+          <span class="block text-xs text-muted">{{t "A device is new when that browser has never signed in as the user. Right after turning this on, each user's next sign-in on every browser counts as new. An account's very first sign-in never sends an alert."}}</span>
         </span>
       </label>
-      {{if not .Data.CanEmail}}<p class="mt-2 text-xs text-warn">Email delivery is not configured: no alert will be sent until it is (Settings → Email).</p>{{end}}
+      {{if not .Data.CanEmail}}<p class="mt-2 text-xs text-warn">{{t "Email delivery is not configured: no alert will be sent until it is (Settings → Email)."}}</p>{{end}}
     </div>
     <div class="border-t border-line pt-5">
-      <h2 class="text-sm font-semibold">Token signing key</h2>
-      <p class="mt-1 text-sm text-muted">How often to replace the key that signs ID and access tokens. Previous keys stay published for 7 days, then are retired. You can also rotate now from Settings → System.</p>
-      <select name="key_rotation_days" class="select mt-3 w-auto" aria-label="Automatic key rotation">
-        {{range .Data.RotationChoices}}<option value="{{.}}" {{if eq . $.Data.RotationDays}}selected{{end}}>{{if eq . 0}}Manual only{{else}}Every {{.}} days{{end}}</option>{{end}}
+      <h2 class="text-sm font-semibold">{{t "Token signing key"}}</h2>
+      <p class="mt-1 text-sm text-muted">{{t "How often to replace the key that signs ID and access tokens. Previous keys stay published for 7 days, then are retired. You can also rotate now from Settings → System."}}</p>
+      <select name="key_rotation_days" class="select mt-3 w-auto" aria-label="{{t "Automatic key rotation"}}">
+        {{range .Data.RotationChoices}}<option value="{{.}}" {{if eq . $.Data.RotationDays}}selected{{end}}>{{if eq . 0}}{{t "Manual only"}}{{else}}{{tn . "Every %d day" "Every %d days"}}{{end}}</option>{{end}}
       </select>
     </div>
 
     <div class="border-t border-line pt-5">
-      <h2 class="text-sm font-semibold">Activity log retention</h2>
-      <p class="mt-1 text-sm text-muted">Older events are deleted automatically. Export them to CSV first if you need a longer record.</p>
-      <select name="audit_retention_days" class="select mt-3 w-auto" aria-label="Activity log retention">
-        {{range .Data.RetentionChoices}}<option value="{{.}}" {{if eq . $.Data.RetentionDays}}selected{{end}}>{{if eq . 0}}Keep forever{{else if eq . 365}}1 year{{else}}{{.}} days{{end}}</option>{{end}}
+      <h2 class="text-sm font-semibold">{{t "Activity log retention"}}</h2>
+      <p class="mt-1 text-sm text-muted">{{t "Older events are deleted automatically. Export them to CSV first if you need a longer record."}}</p>
+      <select name="audit_retention_days" class="select mt-3 w-auto" aria-label="{{t "Activity log retention"}}">
+        {{range .Data.RetentionChoices}}<option value="{{.}}" {{if eq . $.Data.RetentionDays}}selected{{end}}>{{if eq . 0}}{{t "Keep forever"}}{{else if eq . 365}}{{t "1 year"}}{{else}}{{tn . "%d day" "%d days"}}{{end}}</option>{{end}}
       </select>
     </div>
 
     <div class="flex justify-end border-t border-line pt-5">
-      <button type="submit" class="btn-primary">Save changes</button>
+      <button type="submit" class="btn-primary">{{t "Save changes"}}</button>
     </div>
   </form>
 </div>

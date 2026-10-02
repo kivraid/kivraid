@@ -49,8 +49,8 @@ func (s *Server) handleUpstreamLoginStart(w http.ResponseWriter, r *http.Request
 	s.sessions.Put(r.Context(), session.KeyPendingNext, s.safeNext(r.URL.Query().Get("next"), "/"))
 	if err := s.broker.StartLogin(w, r, p); err != nil {
 		s.log.Warn("upstream login start", "provider", p.Name, "err", err)
-		s.renderError(w, r, http.StatusBadGateway, "Provider unavailable",
-			"Could not reach the identity provider. Please try again shortly.")
+		s.renderError(w, r, http.StatusBadGateway, s.t(r, "Provider unavailable"),
+			s.t(r, "Could not reach the identity provider. Please try again shortly."))
 	}
 }
 
@@ -64,8 +64,8 @@ func (s *Server) handleUpstreamLoginCallback(w http.ResponseWriter, r *http.Requ
 	ident, err := s.broker.HandleCallback(w, r, p)
 	if err != nil {
 		s.log.Warn("upstream callback", "provider", p.Name, "err", err)
-		s.renderError(w, r, http.StatusBadGateway, "Sign-in failed",
-			"The identity provider returned an error. Please try again.")
+		s.renderError(w, r, http.StatusBadGateway, s.t(r, "Sign-in failed"),
+			s.t(r, "The identity provider returned an error. Please try again."))
 		return
 	}
 	if ident == nil {
@@ -73,24 +73,24 @@ func (s *Server) handleUpstreamLoginCallback(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if ident.Subject == "" || ident.Email == "" {
-		s.renderError(w, r, http.StatusBadGateway, "Incomplete profile",
-			"The provider did not return the required subject and email claims.")
+		s.renderError(w, r, http.StatusBadGateway, s.t(r, "Incomplete profile"),
+			s.t(r, "The provider did not return the required subject and email claims."))
 		return
 	}
 
 	user, err := s.provisionUpstreamUser(r.Context(), p, ident)
 	switch {
 	case errors.Is(err, errSignupDisabled):
-		s.renderError(w, r, http.StatusForbidden, "No linked account",
-			"This provider account isn't linked to a Kivraid user and self-service sign-up is off. Ask an administrator to create your account.")
+		s.renderError(w, r, http.StatusForbidden, s.t(r, "No linked account"),
+			s.t(r, "This provider account isn't linked to a Kivraid user and self-service sign-up is off. Ask an administrator to create your account."))
 		return
 	case errors.Is(err, errEmailCollision):
-		s.renderError(w, r, http.StatusConflict, "Email already in use",
-			"An existing account uses this email but it hasn't been verified, so it can't be linked automatically. Ask an administrator.")
+		s.renderError(w, r, http.StatusConflict, s.t(r, "Email already in use"),
+			s.t(r, "An existing account uses this email but it hasn't been verified, so it can't be linked automatically. Ask an administrator."))
 		return
 	case errors.Is(err, errAccountInactive):
-		s.renderError(w, r, http.StatusForbidden, "Account disabled",
-			"This account is deactivated. Ask an administrator.")
+		s.renderError(w, r, http.StatusForbidden, s.t(r, "Account disabled"),
+			s.t(r, "This account is deactivated. Ask an administrator."))
 		return
 	case err != nil:
 		s.serverError(w, r, err)

@@ -1,41 +1,41 @@
 {{define "content"}}
-{{if .Data.Deleted}}<div data-flash="User deleted." data-variant="success" hidden></div>{{end}}
+{{if .Data.Deleted}}<div data-flash="{{t "User deleted."}}" data-variant="success" hidden></div>{{end}}
 <div class="page-head mb-8">
   <div>
-    <h1 class="text-2xl font-semibold tracking-tight">Users</h1>
-    <p class="mt-1 text-sm text-muted">Local accounts are fully managed here; directory users mirror their LDAP source.</p>
+    <h1 class="text-2xl font-semibold tracking-tight">{{t "Users"}}</h1>
+    <p class="mt-1 text-sm text-muted">{{t "Local accounts are fully managed here; directory users mirror their LDAP source."}}</p>
   </div>
   <div class="page-actions">
     <form method="get" action="/admin/users" class="min-w-0 flex-1 sm:flex-none" id="users-search">
       <input class="input w-full sm:w-56" type="search" name="q" value="{{.Data.Query}}"
-             placeholder="Search users…" aria-label="Search users">
+             placeholder="{{t "Search users…"}}" aria-label="{{t "Search users"}}">
       {{if .Data.Source}}<input type="hidden" name="source" value="{{.Data.Source}}">{{end}}
       {{if .Data.Status}}<input type="hidden" name="status" value="{{.Data.Status}}">{{end}}
       {{if .Data.AdminsOnly}}<input type="hidden" name="role" value="admin">{{end}}
     </form>
-    <a href="/admin/users/new" class="btn-primary shrink-0">New user</a>
+    <a href="/admin/users/new" class="btn-primary shrink-0">{{t "New user"}}</a>
   </div>
 </div>
 
 <form method="get" action="/admin/users" class="mb-4 flex flex-wrap items-center gap-2" data-autosubmit>
   {{if .Data.Query}}<input type="hidden" name="q" value="{{.Data.Query}}">{{end}}
-  <select name="source" class="select w-auto" aria-label="Source">
-    <option value="" {{if eq .Data.Source ""}}selected{{end}}>All sources</option>
-    <option value="local" {{if eq .Data.Source "local"}}selected{{end}}>Local</option>
-    <option value="ldap" {{if eq .Data.Source "ldap"}}selected{{end}}>Directory (LDAP)</option>
-    <option value="upstream" {{if eq .Data.Source "upstream"}}selected{{end}}>Federated</option>
+  <select name="source" class="select w-auto" aria-label="{{t "Source"}}">
+    <option value="" {{if eq .Data.Source ""}}selected{{end}}>{{t "All sources"}}</option>
+    <option value="local" {{if eq .Data.Source "local"}}selected{{end}}>{{t "Local"}}</option>
+    <option value="ldap" {{if eq .Data.Source "ldap"}}selected{{end}}>{{t "Directory (LDAP)"}}</option>
+    <option value="upstream" {{if eq .Data.Source "upstream"}}selected{{end}}>{{t "Federated"}}</option>
   </select>
-  <select name="status" class="select w-auto" aria-label="Status">
-    <option value="" {{if eq .Data.Status ""}}selected{{end}}>Any status</option>
-    <option value="active" {{if eq .Data.Status "active"}}selected{{end}}>Active</option>
-    <option value="inactive" {{if eq .Data.Status "inactive"}}selected{{end}}>Deactivated</option>
+  <select name="status" class="select w-auto" aria-label="{{t "Status"}}">
+    <option value="" {{if eq .Data.Status ""}}selected{{end}}>{{t "Any status"}}</option>
+    <option value="active" {{if eq .Data.Status "active"}}selected{{end}}>{{t "Active"}}</option>
+    <option value="inactive" {{if eq .Data.Status "inactive"}}selected{{end}}>{{t "Deactivated"}}</option>
   </select>
-  <select name="role" class="select w-auto" aria-label="Role">
-    <option value="" {{if not .Data.AdminsOnly}}selected{{end}}>Any role</option>
-    <option value="admin" {{if .Data.AdminsOnly}}selected{{end}}>Administrators</option>
+  <select name="role" class="select w-auto" aria-label="{{t "Role"}}">
+    <option value="" {{if not .Data.AdminsOnly}}selected{{end}}>{{t "Any role"}}</option>
+    <option value="admin" {{if .Data.AdminsOnly}}selected{{end}}>{{t "Administrators"}}</option>
   </select>
-  <noscript><button type="submit" class="btn-secondary">Apply</button></noscript>
-  {{if .Data.Filtered}}<a href="/admin/users{{if .Data.Query}}?q={{.Data.Query}}{{end}}" class="btn-ghost">Clear filters</a>{{end}}
+  <noscript><button type="submit" class="btn-secondary">{{t "Apply"}}</button></noscript>
+  {{if .Data.Filtered}}<a href="/admin/users{{if .Data.Query}}?q={{.Data.Query}}{{end}}" class="btn-ghost">{{t "Clear filters"}}</a>{{end}}
 </form>
 
 {{if .Data.Users}}
@@ -51,20 +51,20 @@
       <div class="flex items-center gap-2">
         <span class="truncate text-sm font-medium">{{.Name}}</span>
         {{if or .IsAdmin (index $.Data.AdminVia .ID)}}<span class="badge-accent">Admin</span>{{end}}
-        {{if not .Active}}<span class="badge">Deactivated</span>{{end}}
+        {{if not .Active}}<span class="badge">{{t "Deactivated"}}</span>{{end}}
       </div>
       <div class="mt-0.5 truncate text-xs text-faint">{{.Username}} · {{.Email}}</div>
     </div>
     <div class="hidden shrink-0 text-right text-xs text-faint sm:block">
-      <div>{{if .LastLoginAt.Valid}}Signed in {{since .LastLoginAt.Time}}{{else}}Never signed in{{end}}</div>
-      {{if .TotpEnabled}}<div class="mt-0.5 text-accent">2FA on</div>{{end}}
+      <div>{{if .LastLoginAt.Valid}}{{t "Signed in %s" (since .LastLoginAt.Time)}}{{else}}{{t "Never signed in"}}{{end}}</div>
+      {{if .TotpEnabled}}<div class="mt-0.5 text-accent">{{t "2FA on"}}</div>{{end}}
     </div>
     {{if eq .Source "ldap"}}
     <span class="badge shrink-0">{{with index $.Data.SourceNames (deref .LdapSourceID)}}{{.}}{{else}}LDAP{{end}}</span>
     {{else if eq .Source "upstream"}}
-    <span class="badge shrink-0">{{with index $.Data.UpstreamNames (deref .UpstreamSourceID)}}{{.}}{{else}}Federated{{end}}</span>
+    <span class="badge shrink-0">{{with index $.Data.UpstreamNames (deref .UpstreamSourceID)}}{{.}}{{else}}{{t "Federated"}}{{end}}</span>
     {{else}}
-    <span class="badge shrink-0">Local</span>
+    <span class="badge shrink-0">{{t "Local"}}</span>
     {{end}}
     <svg class="size-4 shrink-0 text-faint transition-colors group-hover:text-fg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>
   </a>
@@ -72,12 +72,12 @@
 </div>
 
 <div class="mt-4 flex items-center justify-between gap-4 text-sm text-muted">
-  <span class="tabular">Showing {{.Data.RangeStart}}–{{.Data.RangeEnd}} of {{.Data.Total}}</span>
+  <span class="tabular">{{t "Showing %d–%d of %d" .Data.RangeStart .Data.RangeEnd .Data.Total}}</span>
   {{if gt .Data.Pages 1}}
   <div class="flex items-center gap-2">
-    {{if .Data.PrevPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.PrevPage}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
-    <span class="tabular px-1">Page {{.Data.Page}} / {{.Data.Pages}}</span>
-    {{if .Data.NextPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.NextPage}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+    {{if .Data.PrevPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.PrevPage}}" class="btn-secondary">{{t "Previous"}}</a>{{else}}<span class="btn-secondary opacity-50">{{t "Previous"}}</span>{{end}}
+    <span class="tabular px-1">{{t "Page %d / %d" .Data.Page .Data.Pages}}</span>
+    {{if .Data.NextPage}}<a href="?{{with .Data.FilterQS}}{{.}}&{{end}}page={{.Data.NextPage}}" class="btn-secondary">{{t "Next"}}</a>{{else}}<span class="btn-secondary opacity-50">{{t "Next"}}</span>{{end}}
   </div>
   {{end}}
 </div>
@@ -86,14 +86,14 @@
   <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
   <div>
     {{if .Data.Query}}
-    <h2 class="text-sm font-semibold">No users match “{{.Data.Query}}”</h2>
-    <p class="mt-1 text-sm text-muted">Try a different name, username or email.</p>
+    <h2 class="text-sm font-semibold">{{t "No users match “%s”" .Data.Query}}</h2>
+    <p class="mt-1 text-sm text-muted">{{t "Try a different name, username or email."}}</p>
     {{else}}
-    <h2 class="text-sm font-semibold">No users yet</h2>
-    <p class="mt-1 text-sm text-muted">Create a local account or connect an LDAP directory.</p>
+    <h2 class="text-sm font-semibold">{{t "No users yet"}}</h2>
+    <p class="mt-1 text-sm text-muted">{{t "Create a local account or connect an LDAP directory."}}</p>
     {{end}}
   </div>
-  {{if .Data.Query}}<a href="/admin/users" class="btn-secondary">Clear search</a>{{end}}
+  {{if .Data.Query}}<a href="/admin/users" class="btn-secondary">{{t "Clear search"}}</a>{{end}}
 </div>
 {{end}}
 {{end}}

@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/kivraid/kivraid/internal/audit"
+	"github.com/kivraid/kivraid/internal/i18n"
 	"github.com/kivraid/kivraid/internal/session"
 	"github.com/kivraid/kivraid/internal/sources/ldap"
 	"github.com/kivraid/kivraid/internal/sources/local"
@@ -66,15 +67,15 @@ func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if !s.canChangePassword(r, user) {
-		fail("Password changes are not available for this account.")
+		fail(s.t(r, "Password changes are not available for this account."))
 		return
 	}
 	if len(newPW) < 8 {
-		fail("The new password must be at least 8 characters.")
+		fail(s.t(r, "The new password must be at least 8 characters."))
 		return
 	}
 	if newPW != confirm {
-		fail("The new passwords do not match.")
+		fail(s.t(r, "The new passwords do not match."))
 		return
 	}
 
@@ -84,21 +85,21 @@ func (s *Server) handleProfilePassword(w http.ResponseWriter, r *http.Request) {
 		err = s.local.ChangePassword(r.Context(), user, current, newPW)
 	case "ldap":
 		if s.ldap == nil {
-			fail("Password changes are not available for this account.")
+			fail(s.t(r, "Password changes are not available for this account."))
 			return
 		}
 		err = s.ldap.ChangePassword(r.Context(), user, current, newPW)
 	}
 	switch {
 	case errors.Is(err, local.ErrBadCredentials) || errors.Is(err, ldap.ErrBadCredentials):
-		fail("The current password is incorrect.")
+		fail(s.t(r, "The current password is incorrect."))
 		return
 	case errors.Is(err, ldap.ErrWritebackDisabled):
-		fail("Password changes are disabled for your directory.")
+		fail(s.t(r, "Password changes are disabled for your directory."))
 		return
 	case err != nil:
 		s.log.Error("password change", "user", user.Username, "err", err)
-		fail("The directory refused the password change. Contact your administrator.")
+		fail(s.t(r, "The directory refused the password change. Contact your administrator."))
 		return
 	}
 	s.audit.Record(r.Context(), user.Username, audit.ActionPasswordChange, "", "source="+user.Source, s.clientIP(r))
@@ -137,7 +138,7 @@ func (s *Server) listUserSessions(r *http.Request, userID string) ([]sessionInfo
 		hash := sha256.Sum256([]byte(token))
 		out = append(out, sessionInfo{
 			TokenHash: hex.EncodeToString(hash[:]),
-			Device:    summarizeUA(s.sessions.GetString(ctx, session.KeyUserAgent)),
+			Device:    summarizeUA(langOf(r), s.sessions.GetString(ctx, session.KeyUserAgent)),
 			IP:        s.sessions.GetString(ctx, session.KeyIP),
 			LoginAt:   time.Unix(s.sessions.GetInt64(ctx, session.KeyLoginAt), 0).UTC(),
 			Expiry:    s.sessions.Deadline(ctx).UTC(),
@@ -216,12 +217,12 @@ func (s *Server) handleSessionsRevokeOthers(w http.ResponseWriter, r *http.Reque
 	http.Redirect(w, r, "/sessions?revoked=others", http.StatusSeeOther)
 }
 
-// summarizeUA turns a User-Agent header into a short human label.
-func summarizeUA(ua string) string {
+// summarizeUA turns a User-Agent header into a short human label in lang.
+func summarizeUA(lang, ua string) string {
 	if ua == "" {
-		return "Unknown device"
+		return i18n.T(lang, "Unknown device")
 	}
-	browser := "Browser"
+	browser := i18n.T(lang, "Browser")
 	switch {
 	case strings.Contains(ua, "Firefox/"):
 		browser = "Firefox"

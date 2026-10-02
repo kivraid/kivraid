@@ -143,7 +143,7 @@ const createUpstreamUser = `-- name: CreateUpstreamUser :one
 INSERT INTO users (id, username, email, name, source, upstream_source_id, external_id,
                    email_verified, is_admin, active, created_at, updated_at)
 VALUES ($1, $2, $3, $4, 'upstream', $5, $6, $7, FALSE, TRUE, $8, $9)
-RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id, must_change_password
+RETURNING id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id, must_change_password, locale
 `
 
 type CreateUpstreamUserParams struct {
@@ -194,6 +194,7 @@ func (q *Queries) CreateUpstreamUser(ctx context.Context, arg CreateUpstreamUser
 		&i.UpstreamSourceID,
 		&i.ExternalID,
 		&i.MustChangePassword,
+		&i.Locale,
 	)
 	return i, err
 }
@@ -283,7 +284,7 @@ func (q *Queries) GetUpstreamProvider(ctx context.Context, id string) (UpstreamP
 
 const getUserByExternalID = `-- name: GetUserByExternalID :one
 
-SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id, must_change_password FROM users WHERE upstream_source_id = $1 AND external_id = $2
+SELECT id, username, email, name, password_hash, source, is_admin, active, created_at, updated_at, ldap_source_id, ldap_dn, photo, photo_mime, totp_secret_enc, totp_enabled, totp_last_counter, last_login_at, email_verified, upstream_source_id, external_id, must_change_password, locale FROM users WHERE upstream_source_id = $1 AND external_id = $2
 `
 
 type GetUserByExternalIDParams struct {
@@ -318,6 +319,7 @@ func (q *Queries) GetUserByExternalID(ctx context.Context, arg GetUserByExternal
 		&i.UpstreamSourceID,
 		&i.ExternalID,
 		&i.MustChangePassword,
+		&i.Locale,
 	)
 	return i, err
 }

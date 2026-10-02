@@ -1,56 +1,56 @@
 {{define "content"}}
-<a href="/admin/groups" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Groups</a>
+<a href="/admin/groups" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>{{t "Groups"}}</a>
 <div class="mb-8 flex items-center gap-4">
   <span class="avatar-lg">{{initials .Data.Group.Name}}</span>
   <div class="min-w-0">
     <div class="flex items-center gap-2">
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Group.Name}}</h1>
-      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else if .Data.Editable}}<span class="badge">Local</span>{{else}}<span class="badge">Federated</span>{{end}}
+      {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else if .Data.Editable}}<span class="badge">{{t "Local"}}</span>{{else}}<span class="badge">{{t "Federated"}}</span>{{end}}
     </div>
-    <p class="mt-0.5 text-xs text-faint">{{.Data.MemberCount}} member{{if ne .Data.MemberCount 1}}s{{end}}</p>
+    <p class="mt-0.5 text-xs text-faint">{{tn .Data.MemberCount "%d member" "%d members"}}</p>
   </div>
 </div>
 
 <div class="space-y-4">
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
-  {{if .Data.Saved}}<div data-flash="Group saved." data-variant="success" hidden></div>{{end}}
+  {{if .Data.Saved}}<div data-flash="{{t "Group saved."}}" data-variant="success" hidden></div>{{end}}
   {{if not .Data.Editable}}
-  <div class="alert-success" role="note">This group is mirrored from {{if .Data.IsLDAP}}the directory{{else}}an upstream identity provider{{end}}: its name and members are refreshed each time one of its users signs in, and cannot be edited here.</div>
+  <div class="alert-success" role="note">{{if .Data.IsLDAP}}{{t "This group is mirrored from the directory: its name and members are refreshed each time one of its users signs in, and cannot be edited here."}}{{else}}{{t "This group is mirrored from an upstream identity provider: its name and members are refreshed each time one of its users signs in, and cannot be edited here."}}{{end}}</div>
   {{end}}
 
   <form method="post" action="/admin/groups/{{.Data.Group.ID}}" class="card space-y-4 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
-    <h2 class="text-sm font-semibold">Settings</h2>
+    <h2 class="text-sm font-semibold">{{t "Settings"}}</h2>
     {{if .Data.Editable}}
     <div>
-      <label class="label" for="name">Name</label>
+      <label class="label" for="name">{{t "Name"}}</label>
       <input class="input" id="name" name="name" value="{{.Data.Group.Name}}" required>
     </div>
     {{end}}
     <div>
       <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
         <input type="checkbox" name="grants_admin" class="accent-accent" {{if .Data.Group.GrantsAdmin}}checked{{end}}>
-        Members are administrators
+        {{t "Members are administrators"}}
       </label>
-      <p class="mt-1.5 text-xs text-muted">Grants the Kivraid administrator role to every member{{if .Data.IsLDAP}} — since membership is synced from the directory, this lets you manage administrators from there{{end}}. Users keep their personal flag independently.</p>
+      <p class="mt-1.5 text-xs text-muted">{{if .Data.IsLDAP}}{{t "Grants the Kivraid administrator role to every member — since membership is synced from the directory, this lets you manage administrators from there. Users keep their personal flag independently."}}{{else}}{{t "Grants the Kivraid administrator role to every member. Users keep their personal flag independently."}}{{end}}</p>
     </div>
     <div class="flex justify-end border-t border-line pt-4">
-      <button type="submit" class="btn-primary">Save changes</button>
+      <button type="submit" class="btn-primary">{{t "Save changes"}}</button>
     </div>
   </form>
 
   <div class="card">
     <div class="flex items-center justify-between gap-4 border-b border-line p-4">
-      <h2 class="text-sm font-semibold">Members</h2>
+      <h2 class="text-sm font-semibold">{{t "Members"}}</h2>
       {{if .Data.Editable}}
       <form method="post" action="/admin/groups/{{.Data.Group.ID}}/members" class="flex items-center gap-2">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <input class="input w-48" name="username" list="group-members-dl" placeholder="Add a member…"
-               autocomplete="off" autocapitalize="none" spellcheck="false" required aria-label="Username to add"
+        <input class="input w-48" name="username" list="group-members-dl" placeholder="{{t "Add a member…"}}"
+               autocomplete="off" autocapitalize="none" spellcheck="false" required aria-label="{{t "Username to add"}}"
                data-suggest="/admin/groups/{{.Data.Group.ID}}/candidates">
         <datalist id="group-members-dl"></datalist>
-        <button type="submit" class="btn-secondary shrink-0">Add</button>
+        <button type="submit" class="btn-secondary shrink-0">{{t "Add"}}</button>
       </form>
       {{end}}
     </div>
@@ -69,54 +69,54 @@
         </div>
         {{if $.Data.Editable}}
         <form method="post" action="/admin/groups/{{$.Data.Group.ID}}/members/remove" class="shrink-0"
-              data-confirm="Remove {{.Name}} from this group? They may lose access to applications restricted to it."
-              data-confirm-title="Remove member" data-confirm-variant="danger" data-confirm-label="Remove">
+              data-confirm="{{t "Remove %s from this group? They may lose access to applications restricted to it." .Name}}"
+              data-confirm-title="{{t "Remove member"}}" data-confirm-variant="danger" data-confirm-label="{{t "Remove"}}">
           <input type="hidden" name="_csrf" value="{{$.CSRF}}">
           <input type="hidden" name="user_id" value="{{.ID}}">
-          <button type="submit" class="btn-ghost">Remove</button>
+          <button type="submit" class="btn-ghost">{{t "Remove"}}</button>
         </form>
         {{end}}
       </div>
       {{end}}
     </div>
     {{else}}
-    <p class="p-6 text-sm text-faint">No members yet.</p>
+    <p class="p-6 text-sm text-faint">{{t "No members yet."}}</p>
     {{end}}
   </div>
   {{if gt .Data.Pager.Pages 1}}<div class="-mt-2">{{template "pager" .Data.Pager}}</div>{{end}}
 
   <div class="card">
     <div class="border-b border-line p-4">
-      <h2 class="text-sm font-semibold">Applications</h2>
-      <p class="mt-0.5 text-xs text-muted">Applications restricted to members of this group.</p>
+      <h2 class="text-sm font-semibold">{{t "Applications"}}</h2>
+      <p class="mt-0.5 text-xs text-muted">{{t "Applications restricted to members of this group."}}</p>
     </div>
     {{if .Data.Apps}}
     <div class="divide-y divide-line">
       {{range .Data.Apps}}
       <a href="/admin/applications/{{.ID}}" class="flex items-center justify-between gap-4 p-4 hover:bg-raised">
         <span class="truncate text-sm font-medium">{{.Name}}</span>
-        <span class="shrink-0 text-xs text-faint">{{if eq .GroupCount 1}}only this group{{else}}{{.GroupCount}} groups{{end}}</span>
+        <span class="shrink-0 text-xs text-faint">{{if eq .GroupCount 1}}{{t "only this group"}}{{else}}{{t "%d groups" .GroupCount}}{{end}}</span>
       </a>
       {{end}}
     </div>
     {{else}}
-    <p class="p-6 text-sm text-faint">No application is restricted to this group.</p>
+    <p class="p-6 text-sm text-faint">{{t "No application is restricted to this group."}}</p>
     {{end}}
   </div>
 
   <div class="card border-danger/25 p-6">
-    <h2 class="text-sm font-semibold text-danger">Danger zone</h2>
+    <h2 class="text-sm font-semibold text-danger">{{t "Danger zone"}}</h2>
     <div class="mt-3 flex items-center justify-between gap-4">
       <p class="text-sm text-muted">
-        Deleting removes the group and its memberships.
-        {{if .Data.LockedApps}}This is the only group allowed into <strong class="text-fg">{{.Data.LockedApps}}</strong>: nobody will be able to sign in there until you choose other groups.{{else if .Data.Apps}}Applications restricted to it keep their other groups.{{end}}
-        {{if .Data.IsLDAP}}A directory group will be recreated on the next member sign-in.{{end}}
+        {{t "Deleting removes the group and its memberships."}}
+        {{if .Data.LockedApps}}{{t "This is the only group allowed into"}} <strong class="text-fg">{{.Data.LockedApps}}</strong>{{t ": nobody will be able to sign in there until you choose other groups."}}{{else if .Data.Apps}}{{t "Applications restricted to it keep their other groups."}}{{end}}
+        {{if .Data.IsLDAP}}{{t "A directory group will be recreated on the next member sign-in."}}{{end}}
       </p>
       <form method="post" action="/admin/groups/{{.Data.Group.ID}}/delete" class="shrink-0"
-            data-confirm="Deleting {{.Data.Group.Name}} removes the group and its memberships.{{if .Data.LockedApps}} These applications will be locked to everyone until you choose other groups: {{.Data.LockedApps}}.{{end}}"
-            data-confirm-title="Delete group" data-confirm-variant="danger" data-confirm-label="Delete group">
+            data-confirm="{{t "Deleting %s removes the group and its memberships." .Data.Group.Name}}{{if .Data.LockedApps}} {{t "These applications will be locked to everyone until you choose other groups: %s." .Data.LockedApps}}{{end}}"
+            data-confirm-title="{{t "Delete group"}}" data-confirm-variant="danger" data-confirm-label="{{t "Delete group"}}">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
-        <button type="submit" class="btn-danger">Delete</button>
+        <button type="submit" class="btn-danger">{{t "Delete"}}</button>
       </form>
     </div>
   </div>

@@ -1,9 +1,9 @@
 {{define "content"}}
-{{if .Data.Deleted}}<div data-flash="Provider deleted." data-variant="success" hidden></div>{{end}}
+{{if .Data.Deleted}}<div data-flash="{{t "Provider deleted."}}" data-variant="success" hidden></div>{{end}}
 {{template "federationtabs" .}}
 <div class="page-head mb-6">
-  <p class="text-sm text-muted">Upstream OpenID Connect providers users can sign in through. Kivraid federates their accounts.</p>
-  <a href="/admin/providers/new" class="btn-primary shrink-0">New provider</a>
+  <p class="text-sm text-muted">{{t "Upstream OpenID Connect providers users can sign in through. Kivraid federates their accounts."}}</p>
+  <a href="/admin/providers/new" class="btn-primary shrink-0">{{t "New provider"}}</a>
 </div>
 
 {{if .Data.Providers}}
@@ -14,7 +14,7 @@
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">
         <span class="truncate text-sm font-medium">{{.Name}}</span>
-        {{if not .Enabled}}<span class="badge">Disabled</span>{{end}}
+        {{if not .Enabled}}<span class="badge">{{t "Disabled"}}</span>{{end}}
       </div>
       <div class="mt-0.5 truncate font-mono text-xs text-faint">{{.Issuer}}</div>
     </div>
@@ -26,10 +26,10 @@
 <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
   <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Z"/><path d="M2 12h20M12 2a15 15 0 0 1 0 20M12 2a15 15 0 0 0 0 20"/></svg>
   <div>
-    <h2 class="text-sm font-semibold">No providers yet</h2>
-    <p class="mt-1 text-sm text-muted">Add an OpenID Connect provider (Authentik, Keycloak, Google…) to let its users sign in.</p>
+    <h2 class="text-sm font-semibold">{{t "No providers yet"}}</h2>
+    <p class="mt-1 text-sm text-muted">{{t "Add an OpenID Connect provider (Authentik, Keycloak, Google…) to let its users sign in."}}</p>
   </div>
-  <a href="/admin/providers/new" class="btn-primary mt-2">New provider</a>
+  <a href="/admin/providers/new" class="btn-primary mt-2">{{t "New provider"}}</a>
 </div>
 {{end}}
 {{end}}

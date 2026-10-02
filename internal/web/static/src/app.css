@@ -582,6 +582,16 @@
   .aurora-toggle {
     @apply fixed right-4 top-4 inline-flex size-9 cursor-pointer items-center justify-center rounded-lg text-white/80 transition-colors hover:bg-white/15 hover:text-white;
   }
+  /* Language picker beside the theme toggle on the sign-in pages. */
+  .aurora-lang {
+    @apply fixed right-14 top-4 flex h-9 items-center gap-0.5 text-xs font-semibold uppercase tracking-wide;
+  }
+  .aurora-lang a {
+    @apply rounded-md px-2 py-1.5 text-white/60 transition-colors hover:bg-white/15 hover:text-white;
+  }
+  .aurora-lang a.is-current {
+    @apply text-white;
+  }
   .aurora-title {
     @apply text-xl font-semibold tracking-tight text-white;
   }

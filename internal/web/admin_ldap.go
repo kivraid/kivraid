@@ -108,20 +108,20 @@ func parseLdapForm(r *http.Request) ldapForm {
 
 func (f *ldapForm) validate() error {
 	if f.Name == "" {
-		return errors.New("Name is required.")
+		return errorf("Name is required.")
 	}
 	u, err := url.Parse(f.URL)
 	if err != nil || (u.Scheme != "ldap" && u.Scheme != "ldaps") || u.Host == "" {
-		return errors.New("URL must look like ldap://host:389 or ldaps://host:636.")
+		return errorf("URL must look like ldap://host:389 or ldaps://host:636.")
 	}
 	if f.BaseDN == "" {
-		return errors.New("Base DN is required.")
+		return errorf("Base DN is required.")
 	}
 	if !strings.Contains(f.UserFilter, "{username}") {
-		return errors.New("User filter must contain the {username} placeholder.")
+		return errorf("User filter must contain the {username} placeholder.")
 	}
 	if f.GroupFilter != "" && !strings.Contains(f.GroupFilter, "{dn}") && !strings.Contains(f.GroupFilter, "{username}") {
-		return errors.New("Group filter must contain a {dn} or {username} placeholder (or be empty to disable group sync).")
+		return errorf("Group filter must contain a {dn} or {username} placeholder (or be empty to disable group sync).")
 	}
 	return nil
 }
@@ -139,9 +139,9 @@ func (s *Server) handleAdminLdapList(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) renderLdapForm(w http.ResponseWriter, r *http.Request, data adminLdapFormData) {
-	title := "Edit directory"
+	title := msgid("Edit directory")
 	if data.IsNew {
-		title = "New directory"
+		title = msgid("New directory")
 	}
 	// A freshly-typed bind password can be echoed back into the form (see
 	// the template) so it survives a test round-trip; keep that out of the
@@ -168,11 +168,11 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 		s.renderLdapForm(w, r, adminLdapFormData{IsNew: true, Form: form, Error: msg})
 	}
 	if err := form.validate(); err != nil {
-		fail(err.Error())
+		fail(s.tErr(r, err))
 		return
 	}
 	if form.BindDN != "" && form.BindPassword == "" {
-		fail("Bind password is required (leave the bind DN empty for anonymous binds).")
+		fail(s.t(r, "Bind password is required (leave the bind DN empty for anonymous binds)."))
 		return
 	}
 	sealed, err := secrets.Seal(s.ldap.SealKey(), []byte(form.BindPassword))
@@ -193,7 +193,7 @@ func (s *Server) handleAdminLdapCreate(w http.ResponseWriter, r *http.Request) {
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
-			fail("A directory with this name already exists.")
+			fail(s.t(r, "A directory with this name already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -243,7 +243,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: form, Error: msg})
 	}
 	if err := form.validate(); err != nil {
-		fail(err.Error())
+		fail(s.tErr(r, err))
 		return
 	}
 	now := time.Now().UTC()
@@ -257,7 +257,7 @@ func (s *Server) handleAdminLdapUpdate(w http.ResponseWriter, r *http.Request) {
 		Enabled: form.Enabled, UpdatedAt: now, ID: src.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
-			fail("A directory with this name already exists.")
+			fail(s.t(r, "A directory with this name already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -330,10 +330,10 @@ func (s *Server) draftSource(form ldapForm, storedPassword []byte) (sqlcgen.Ldap
 
 // runLdapTest verifies connectivity and the service bind, and optionally
 // resolves a test username through the configured filters.
-func (s *Server) runLdapTest(src sqlcgen.LdapSource, testUser string) *ldapTestResult {
+func (s *Server) runLdapTest(r *http.Request, src sqlcgen.LdapSource, testUser string) *ldapTestResult {
 	result := &ldapTestResult{}
 	if u, err := url.Parse(src.Url); err != nil || (u.Scheme != "ldap" && u.Scheme != "ldaps") || u.Host == "" {
-		result.Message = "Fill in a valid LDAP URL first (ldap://host:389 or ldaps://host:636)."
+		result.Message = s.t(r, "Fill in a valid LDAP URL first (ldap://host:389 or ldaps://host:636).")
 		return result
 	}
 	if testUser == "" {
@@ -345,14 +345,14 @@ func (s *Server) runLdapTest(src sqlcgen.LdapSource, testUser string) *ldapTestR
 		conn.Close()
 		result.OK = true
 		if src.BindDn == "" {
-			result.Message = "Connection succeeded (anonymous bind)."
+			result.Message = s.t(r, "Connection succeeded (anonymous bind).")
 		} else {
-			result.Message = "Connection and service bind succeeded."
+			result.Message = s.t(r, "Connection and service bind succeeded.")
 		}
 		return result
 	}
 	if src.BaseDn == "" || !strings.Contains(src.UserFilter, "{username}") {
-		result.Message = "Fill in the base DN and a user filter containing {username} to test a user lookup."
+		result.Message = s.t(r, "Fill in the base DN and a user filter containing {username} to test a user lookup.")
 		return result
 	}
 	entry, err := s.ldap.FindUser(src, testUser)
@@ -361,7 +361,7 @@ func (s *Server) runLdapTest(src sqlcgen.LdapSource, testUser string) *ldapTestR
 		return result
 	}
 	result.OK = true
-	result.Message = "User found."
+	result.Message = s.t(r, "User found.")
 	result.DN = entry.DN
 	result.Email = entry.Email
 	result.Groups = entry.Groups
@@ -381,7 +381,7 @@ func (s *Server) handleAdminLdapTest(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	result := s.runLdapTest(draft, strings.TrimSpace(r.PostFormValue("test_username")))
+	result := s.runLdapTest(r, draft, strings.TrimSpace(r.PostFormValue("test_username")))
 	s.renderLdapForm(w, r, adminLdapFormData{ID: src.ID, Form: form, TestResult: result})
 }
 
@@ -395,12 +395,16 @@ func (s *Server) syncSource(r *http.Request, src sqlcgen.LdapSource) *ldapTestRe
 		return result
 	}
 	result.OK = true
-	result.Message = fmt.Sprintf("Synchronized: %d user(s) created, %d updated, %d skipped.",
+	// The banner is in the admin's language; the audit detail stays English.
+	detail := fmt.Sprintf("Synchronized: %d user(s) created, %d updated, %d skipped.",
+		sync.Created, sync.Updated, sync.Skipped)
+	result.Message = s.t(r, "Synchronized: %d user(s) created, %d updated, %d skipped.",
 		sync.Created, sync.Updated, sync.Skipped)
 	if sync.Missing > 0 {
-		result.Message += fmt.Sprintf(" %d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
+		detail += fmt.Sprintf(" %d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
+		result.Message += " " + s.t(r, "%d shadow user(s) no longer match the directory — review them under Admin → Users.", sync.Missing)
 	}
-	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, result.Message, s.clientIP(r))
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionLdapSync, src.Name, detail, s.clientIP(r))
 	return result
 }
 
@@ -424,6 +428,6 @@ func (s *Server) handleAdminLdapTestDraft(w http.ResponseWriter, r *http.Request
 		s.serverError(w, r, err)
 		return
 	}
-	result := s.runLdapTest(draft, strings.TrimSpace(r.PostFormValue("test_username")))
+	result := s.runLdapTest(r, draft, strings.TrimSpace(r.PostFormValue("test_username")))
 	s.renderLdapForm(w, r, adminLdapFormData{IsNew: true, Form: form, TestResult: result})
 }

@@ -34,6 +34,7 @@ func (s *Server) resolveLoginTarget(ctx context.Context, identifier string) stri
 type routeRow struct {
 	ID         string
 	Kind       string
+	KindLabel  string // translated in the template
 	Match      string
 	TargetName string
 }
@@ -47,14 +48,25 @@ type adminRoutingData struct {
 }
 
 // targetName resolves a route target to a display name.
-func targetName(target string, byID map[string]string) string {
+func (s *Server) targetName(r *http.Request, target string, byID map[string]string) string {
 	if target == "local" {
-		return "Local"
+		return s.t(r, "Local")
 	}
 	if n, ok := byID[target]; ok {
 		return n
 	}
-	return "(deleted provider)"
+	return s.t(r, "(deleted provider)")
+}
+
+// routeKindLabel is the badge text of a rule kind, as a message to translate.
+func routeKindLabel(kind string) string {
+	switch kind {
+	case "domain":
+		return msgid("domain")
+	case "identifier":
+		return msgid("identifier")
+	}
+	return kind
 }
 
 func (s *Server) renderRouting(w http.ResponseWriter, r *http.Request, errMsg string) {
@@ -80,7 +92,7 @@ func (s *Server) renderRouting(w http.ResponseWriter, r *http.Request, errMsg st
 			continue
 		}
 		data.Rules = append(data.Rules, routeRow{
-			ID: rt.ID, Kind: rt.Kind, Match: rt.MatchValue, TargetName: targetName(rt.Target, byID),
+			ID: rt.ID, Kind: rt.Kind, KindLabel: routeKindLabel(rt.Kind), Match: rt.MatchValue, TargetName: s.targetName(r, rt.Target, byID),
 		})
 	}
 	s.render(w, r, "admin_routing.html", pageData{
@@ -112,26 +124,30 @@ func (s *Server) handleAdminRoutingAdd(w http.ResponseWriter, r *http.Request) {
 		s.renderRouting(w, r, msg)
 	}
 	if kind != "identifier" && kind != "domain" {
-		fail("Choose whether the rule matches an identifier or a domain.")
+		fail(s.t(r, "Choose whether the rule matches an identifier or a domain."))
 		return
 	}
 	if match == "" {
-		fail("Enter the identifier or domain to match.")
+		fail(s.t(r, "Enter the identifier or domain to match."))
 		return
 	}
 	if kind == "domain" && strings.ContainsAny(match, "@ ") {
-		fail("A domain rule matches a bare domain, e.g. example.com (no @).")
+		fail(s.t(r, "A domain rule matches a bare domain, e.g. example.com (no @)."))
 		return
 	}
 	if !s.validTarget(r.Context(), target) {
-		fail("Pick a valid target.")
+		fail(s.t(r, "Pick a valid target."))
 		return
 	}
 	_, err := s.store.CreateLoginRoute(r.Context(), sqlcgen.CreateLoginRouteParams{
 		ID: uuid.NewString(), Kind: kind, MatchValue: match, Target: target, CreatedAt: time.Now().UTC(),
 	})
 	if isUniqueViolation(err) {
-		fail("A rule for this " + kind + " already exists.")
+		if kind == "domain" {
+			fail(s.t(r, "A rule for this domain already exists."))
+		} else {
+			fail(s.t(r, "A rule for this identifier already exists."))
+		}
 		return
 	}
 	if err != nil {
@@ -145,7 +161,7 @@ func (s *Server) handleAdminRoutingAdd(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleAdminRoutingDefault(w http.ResponseWriter, r *http.Request) {
 	target := r.PostFormValue("target")
 	if !s.validTarget(r.Context(), target) {
-		s.renderRouting(w, r, "Pick a valid default target.")
+		s.renderRouting(w, r, s.t(r, "Pick a valid default target."))
 		return
 	}
 	if err := s.store.SetDefaultRoute(r.Context(), sqlcgen.SetDefaultRouteParams{

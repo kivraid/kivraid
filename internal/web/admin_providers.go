@@ -1,7 +1,6 @@
 package web
 
 import (
-	"context"
 	"database/sql"
 	"errors"
 	"net/http"
@@ -89,17 +88,17 @@ func parseProviderForm(r *http.Request) providerForm {
 
 func (f *providerForm) validate() error {
 	if f.Name == "" {
-		return errors.New("Name is required.")
+		return errorf("Name is required.")
 	}
 	u, err := url.Parse(f.Issuer)
 	if err != nil || (u.Scheme != "http" && u.Scheme != "https") || u.Host == "" {
-		return errors.New("Issuer must be an absolute URL, e.g. https://idp.example.com.")
+		return errorf("Issuer must be an absolute URL, e.g. https://idp.example.com.")
 	}
 	if f.ClientID == "" {
-		return errors.New("Client ID is required.")
+		return errorf("Client ID is required.")
 	}
 	if !strings.Contains(f.Scopes, "openid") {
-		return errors.New(`Scopes must include "openid".`)
+		return errorf(`Scopes must include "openid".`)
 	}
 	return nil
 }
@@ -118,9 +117,9 @@ func (s *Server) handleAdminProviders(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) renderProviderForm(w http.ResponseWriter, r *http.Request, data adminProviderFormData) {
-	title := "Edit provider"
+	title := msgid("Edit provider")
 	if data.IsNew {
-		title = "New provider"
+		title = msgid("New provider")
 	}
 	// A freshly-typed client secret can round-trip through a test; keep it
 	// out of the browser cache.
@@ -145,7 +144,7 @@ func (s *Server) handleAdminProviderCreate(w http.ResponseWriter, r *http.Reques
 		s.renderProviderForm(w, r, adminProviderFormData{IsNew: true, Form: form, Error: msg})
 	}
 	if err := form.validate(); err != nil {
-		fail(err.Error())
+		fail(s.tErr(r, err))
 		return
 	}
 	var enc []byte
@@ -167,7 +166,7 @@ func (s *Server) handleAdminProviderCreate(w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		if isUniqueViolation(err) {
-			fail("A provider with this name already exists.")
+			fail(s.t(r, "A provider with this name already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -216,7 +215,7 @@ func (s *Server) handleAdminProviderUpdate(w http.ResponseWriter, r *http.Reques
 		})
 	}
 	if err := form.validate(); err != nil {
-		fail(err.Error())
+		fail(s.tErr(r, err))
 		return
 	}
 	now := time.Now().UTC()
@@ -227,7 +226,7 @@ func (s *Server) handleAdminProviderUpdate(w http.ResponseWriter, r *http.Reques
 		UpdatedAt: now, ID: p.ID,
 	}); err != nil {
 		if isUniqueViolation(err) {
-			fail("A provider with this name already exists.")
+			fail(s.t(r, "A provider with this name already exists."))
 			return
 		}
 		s.serverError(w, r, err)
@@ -266,19 +265,19 @@ func (s *Server) handleAdminProviderDelete(w http.ResponseWriter, r *http.Reques
 
 // runProviderTest fetches the issuer's discovery document to confirm the URL
 // is reachable and valid. It needs no client credentials.
-func (s *Server) runProviderTest(ctx context.Context, issuer string) *providerTestResult {
+func (s *Server) runProviderTest(r *http.Request, issuer string) *providerTestResult {
 	res := &providerTestResult{}
 	if strings.TrimSpace(issuer) == "" {
-		res.Message = "Enter an issuer URL first."
+		res.Message = s.t(r, "Enter an issuer URL first.")
 		return res
 	}
-	d, err := s.broker.Discover(ctx, issuer)
+	d, err := s.broker.Discover(r.Context(), issuer)
 	if err != nil {
-		res.Message = "Discovery failed: " + err.Error()
+		res.Message = s.t(r, "Discovery failed: %s", err.Error())
 		return res
 	}
 	res.OK = true
-	res.Message = "Discovery succeeded."
+	res.Message = s.t(r, "Discovery succeeded.")
 	res.Issuer, res.Auth, res.Token, res.Userinfo = d.Issuer, d.AuthorizationEndpoint, d.TokenEndpoint, d.UserinfoEndpoint
 	return res
 }
@@ -286,7 +285,7 @@ func (s *Server) runProviderTest(ctx context.Context, issuer string) *providerTe
 func (s *Server) handleAdminProviderTestDraft(w http.ResponseWriter, r *http.Request) {
 	form := parseProviderForm(r)
 	s.renderProviderForm(w, r, adminProviderFormData{
-		IsNew: true, Form: form, TestResult: s.runProviderTest(r.Context(), form.Issuer),
+		IsNew: true, Form: form, TestResult: s.runProviderTest(r, form.Issuer),
 	})
 }
 
@@ -298,6 +297,6 @@ func (s *Server) handleAdminProviderTest(w http.ResponseWriter, r *http.Request)
 	form := parseProviderForm(r)
 	s.renderProviderForm(w, r, adminProviderFormData{
 		ID: p.ID, Form: form, RedirectURI: s.broker.RedirectURI(p.ID), PostLogoutURI: s.issuer() + "/login",
-		HasSecret: len(p.ClientSecretEnc) > 0, TestResult: s.runProviderTest(r.Context(), form.Issuer),
+		HasSecret: len(p.ClientSecretEnc) > 0, TestResult: s.runProviderTest(r, form.Issuer),
 	})
 }

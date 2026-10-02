@@ -57,18 +57,18 @@ func (s *Server) handleSetupSubmit(w http.ResponseWriter, r *http.Request) {
 		s.render(w, r, "setup.html", data)
 	}
 	if data.Username == "" || data.Email == "" {
-		fail("Username and email are required.")
+		fail(s.t(r, "Username and email are required."))
 		return
 	}
 	if data.Name == "" {
 		data.Name = data.Username
 	}
 	if len(password) < 8 {
-		fail("The password must be at least 8 characters.")
+		fail(s.t(r, "The password must be at least 8 characters."))
 		return
 	}
 	if password != confirm {
-		fail("The passwords do not match.")
+		fail(s.t(r, "The passwords do not match."))
 		return
 	}
 
@@ -147,17 +147,17 @@ func (s *Server) handlePublicAvatar(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProfilePhoto(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	if user.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed photo",
-			"Directory users get their photo from the directory, not here.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed photo"),
+			s.t(r, "Directory users get their photo from the directory, not here."))
 		return
 	}
 	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
-		s.renderProfile(w, r, user, "The photo must be smaller than 1 MB.", false)
+		s.renderProfile(w, r, user, s.t(r, "The photo must be smaller than 1 MB."), false)
 		return
 	}
 	file, _, err := r.FormFile("photo")
 	if err != nil {
-		s.renderProfile(w, r, user, "Choose an image file first.", false)
+		s.renderProfile(w, r, user, s.t(r, "Choose an image file first."), false)
 		return
 	}
 	defer file.Close()
@@ -167,12 +167,12 @@ func (s *Server) handleProfilePhoto(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if len(photo) > maxUploadPhotoSize {
-		s.renderProfile(w, r, user, "The photo must be smaller than 1 MB.", false)
+		s.renderProfile(w, r, user, s.t(r, "The photo must be smaller than 1 MB."), false)
 		return
 	}
 	mime := http.DetectContentType(photo)
 	if !slices.Contains(allowedPhotoTypes, mime) {
-		s.renderProfile(w, r, user, "Unsupported image format — use JPEG, PNG, WebP or GIF.", false)
+		s.renderProfile(w, r, user, s.t(r, "Unsupported image format — use JPEG, PNG, WebP or GIF."), false)
 		return
 	}
 	if err := s.store.UpdateUserPhoto(r.Context(), sqlcgen.UpdateUserPhotoParams{
@@ -187,8 +187,8 @@ func (s *Server) handleProfilePhoto(w http.ResponseWriter, r *http.Request) {
 func (s *Server) handleProfilePhotoDelete(w http.ResponseWriter, r *http.Request) {
 	user := currentUser(r)
 	if user.Source != "local" {
-		s.renderError(w, r, http.StatusBadRequest, "Directory-managed photo",
-			"Directory users get their photo from the directory, not here.")
+		s.renderError(w, r, http.StatusBadRequest, s.t(r, "Directory-managed photo"),
+			s.t(r, "Directory users get their photo from the directory, not here."))
 		return
 	}
 	if err := s.store.UpdateUserPhoto(r.Context(), sqlcgen.UpdateUserPhotoParams{

@@ -75,7 +75,7 @@ func (s *Server) handleMFAEnable(w http.ResponseWriter, r *http.Request) {
 	counter, ok := mfa.MatchCounter(secret, r.PostFormValue("code"), time.Now())
 	if !ok {
 		w.WriteHeader(http.StatusUnprocessableEntity)
-		s.renderMFAEnroll(w, r, secret, "That code didn't match. Check your authenticator's time and try again.")
+		s.renderMFAEnroll(w, r, secret, s.t(r, "That code didn't match. Check your authenticator's time and try again."))
 		return
 	}
 	if err := s.mfa.Enable(r.Context(), user.ID, secret, counter); err != nil {
@@ -107,7 +107,7 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	if s.mfaRequiredFor(user) {
-		s.renderProfile(w, r, user, "Two-factor authentication is required for your account, so it cannot be turned off.", false)
+		s.renderProfile(w, r, user, s.t(r, "Two-factor authentication is required for your account, so it cannot be turned off."), false)
 		return
 	}
 	code := r.PostFormValue("code")
@@ -125,7 +125,7 @@ func (s *Server) handleMFADisable(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	if !ok {
-		s.renderProfile(w, r, user, "Enter a current authenticator code to disable two-factor.", false)
+		s.renderProfile(w, r, user, s.t(r, "Enter a current authenticator code to disable two-factor."), false)
 		return
 	}
 	if err := s.mfa.Disable(r.Context(), user.ID); err != nil {
@@ -150,7 +150,7 @@ func (s *Server) handleMFARegenerateRecovery(w http.ResponseWriter, r *http.Requ
 		return
 	}
 	if !ok {
-		s.renderProfile(w, r, user, "Enter a current authenticator code to regenerate recovery codes.", false)
+		s.renderProfile(w, r, user, s.t(r, "Enter a current authenticator code to regenerate recovery codes."), false)
 		return
 	}
 	codes, err := s.mfa.GenerateRecoveryCodes(r.Context(), user.ID)
