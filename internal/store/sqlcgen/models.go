@@ -37,6 +37,7 @@ type Application struct {
 	Icon        []byte
 	IconMime    *string
 	ProxyHosts  string
+	Restricted  bool
 }
 
 type AuditLog struct {

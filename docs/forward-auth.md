@@ -101,8 +101,9 @@ Register a **forward-auth application** in Admin → Applications (choose
 the "Forward auth" integration) and list its protected hosts. When a
 request's `X-Forwarded-Host` matches one of them, Kivraid enforces that
 application's group access policy: members who fail it get `403`, so the
-protected app never sees an unauthorized user. An application with no
-policy allows any authenticated user. Give it a launch URL to make it
+protected app never sees an unauthorized user. An application open to
+*Everyone signed in* allows any authenticated user; one restricted to
+groups stays locked if those groups are deleted. Give it a launch URL to make it
 appear in the user portal's launcher.
 
 The `forward_auth.domains` config still governs which hosts may be used

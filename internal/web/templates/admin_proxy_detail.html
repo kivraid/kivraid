@@ -47,30 +47,7 @@
       <p class="mt-1.5 text-xs text-muted">One host per line. Point your reverse proxy's auth request at <code class="code-box inline-block">{{.Data.OutURL}}</code> — requests for these hosts are matched to this application to enforce the access policy below.</p>
     </div>
 
-    <div class="border-t border-line pt-5">
-      <h2 class="text-sm font-semibold">Access</h2>
-      {{if .Data.Groups}}
-      <p class="mb-3 mt-1 text-xs text-muted">Restrict access to members of these groups. Leave empty to let every authenticated user through.</p>
-      <div data-tagselect>
-        <div class="flex flex-wrap gap-1.5 empty:hidden" data-tags>
-          {{range .Data.Groups}}{{if index $.Data.Bound .ID}}
-          <span class="chip flex items-center gap-1.5" data-tag data-name="{{.Name}}">
-            {{.Name}}
-            <input type="hidden" name="policy_groups" value="{{.ID}}">
-            <button type="button" data-tag-remove class="cursor-pointer text-faint hover:text-fg" aria-label="Remove {{.Name}}">&times;</button>
-          </span>
-          {{end}}{{end}}
-        </div>
-        <input class="input mt-2 sm:w-1/2" list="policy-groups-dl" placeholder="Type to add a group…"
-               autocomplete="off" data-tag-input data-tag-name="policy_groups">
-        <datalist id="policy-groups-dl">
-          {{range .Data.Groups}}{{if not (index $.Data.Bound .ID)}}<option value="{{.Name}}" data-id="{{.ID}}"></option>{{end}}{{end}}
-        </datalist>
-      </div>
-      {{else}}
-      <p class="mt-1 text-xs text-muted">No groups exist yet — every authenticated user may access this application.</p>
-      {{end}}
-    </div>
+    {{template "accesspolicy" .}}
 
     <div class="flex justify-end border-t border-line pt-5">
       <button type="submit" class="btn-primary">Save changes</button>

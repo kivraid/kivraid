@@ -254,6 +254,9 @@ func TestOIDCAccessPolicyDenied(t *testing.T) {
 	if _, err := st.DB.Exec(`INSERT INTO app_policies (application_id, group_id) VALUES ('app1', 'g2')`); err != nil {
 		t.Fatal(err)
 	}
+	if _, err := st.DB.Exec(`UPDATE applications SET restricted = $1 WHERE id = 'app1'`, true); err != nil {
+		t.Fatal(err)
+	}
 
 	authURL := issuer + "/authorize?" + url.Values{
 		"client_id":     {testClientID},

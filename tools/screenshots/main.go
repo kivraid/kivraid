@@ -141,7 +141,7 @@ type demoApp struct {
 	kind               string // "oidc" or "proxy"
 	letter             string // "" means no icon (initials fallback)
 	top, bottom        color.RGBA
-	groups             []string // access policy; empty means everyone
+	groups             []string // access policy; empty means everyone signed in
 }
 
 var demoApps = []demoApp{
@@ -246,6 +246,13 @@ func seed(dbPath string) error {
 		for _, g := range a.groups {
 			if err := st.AddAppPolicy(ctx, sqlcgen.AddAppPolicyParams{
 				ApplicationID: app.ID, GroupID: groups[g],
+			}); err != nil {
+				return err
+			}
+		}
+		if len(a.groups) > 0 {
+			if err := st.SetApplicationRestricted(ctx, sqlcgen.SetApplicationRestrictedParams{
+				Restricted: true, ID: app.ID,
 			}); err != nil {
 				return err
 			}

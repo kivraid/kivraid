@@ -354,6 +354,14 @@
   .alert-success {
     @apply rounded-lg border border-accent/25 bg-accent-soft px-3.5 py-2.5 text-sm text-accent;
   }
+  .alert-warning {
+    @apply rounded-lg border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-sm text-warn;
+  }
+
+  /* Application access: the group picker only matters when restricted. */
+  [data-access]:has(input[name="access"][value="everyone"]:checked) .access-groups {
+    display: none;
+  }
 
   .code-box {
     @apply block truncate rounded-lg border border-line bg-raised px-3 py-2 font-mono text-[13px];

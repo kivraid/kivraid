@@ -23,17 +23,6 @@ func (q *Queries) AddAppPolicy(ctx context.Context, arg AddAppPolicyParams) erro
 	return err
 }
 
-const countAppPolicies = `-- name: CountAppPolicies :one
-SELECT COUNT(*) FROM app_policies WHERE application_id = $1
-`
-
-func (q *Queries) CountAppPolicies(ctx context.Context, applicationID string) (int64, error) {
-	row := q.db.QueryRowContext(ctx, countAppPolicies, applicationID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countMatchingAppPolicies = `-- name: CountMatchingAppPolicies :one
 SELECT COUNT(*)
 FROM app_policies p
@@ -89,6 +78,52 @@ func (q *Queries) ListAppPolicyGroupIDs(ctx context.Context, applicationID strin
 	return items, nil
 }
 
+const listApplicationsByPolicyGroup = `-- name: ListApplicationsByPolicyGroup :many
+SELECT a.id, a.name, a.slug,
+       (SELECT COUNT(*) FROM app_policies p2 WHERE p2.application_id = a.id) AS group_count
+FROM applications a
+JOIN app_policies p ON p.application_id = a.id
+WHERE p.group_id = $1
+ORDER BY a.name
+`
+
+type ListApplicationsByPolicyGroupRow struct {
+	ID         string
+	Name       string
+	Slug       string
+	GroupCount int64
+}
+
+// Applications restricted to the group, with how many groups each one is
+// bound to in total (1 means the group is its only way in).
+func (q *Queries) ListApplicationsByPolicyGroup(ctx context.Context, groupID string) ([]ListApplicationsByPolicyGroupRow, error) {
+	rows, err := q.db.QueryContext(ctx, listApplicationsByPolicyGroup, groupID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApplicationsByPolicyGroupRow
+	for rows.Next() {
+		var i ListApplicationsByPolicyGroupRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Slug,
+			&i.GroupCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listGroups = `-- name: ListGroups :many
 SELECT id, name, created_at, source, ldap_source_id, grants_admin, upstream_source_id FROM groups ORDER BY name
 `
@@ -125,11 +160,11 @@ func (q *Queries) ListGroups(ctx context.Context) ([]Group, error) {
 }
 
 const listLaunchableApplications = `-- name: ListLaunchableApplications :many
-SELECT DISTINCT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts
+SELECT DISTINCT a.id, a.name, a.slug, a.launch_url, a.created_at, a.updated_at, a.kind, a.description, a.icon, a.icon_mime, a.proxy_hosts, a.restricted
 FROM applications a
 LEFT JOIN app_policies p ON p.application_id = a.id
 WHERE a.launch_url != ''
-  AND (p.application_id IS NULL
+  AND (NOT a.restricted
        OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = $1))
 ORDER BY a.name
 `
@@ -155,6 +190,7 @@ func (q *Queries) ListLaunchableApplications(ctx context.Context, userID string)
 			&i.Icon,
 			&i.IconMime,
 			&i.ProxyHosts,
+			&i.Restricted,
 		); err != nil {
 			return nil, err
 		}
@@ -167,4 +203,18 @@ func (q *Queries) ListLaunchableApplications(ctx context.Context, userID string)
 		return nil, err
 	}
 	return items, nil
+}
+
+const setApplicationRestricted = `-- name: SetApplicationRestricted :exec
+UPDATE applications SET restricted = $1 WHERE id = $2
+`
+
+type SetApplicationRestrictedParams struct {
+	Restricted bool
+	ID         string
+}
+
+func (q *Queries) SetApplicationRestricted(ctx context.Context, arg SetApplicationRestrictedParams) error {
+	_, err := q.db.ExecContext(ctx, setApplicationRestricted, arg.Restricted, arg.ID)
+	return err
 }

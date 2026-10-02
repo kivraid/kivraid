@@ -136,6 +136,53 @@
 </div>
 {{end}}
 
+{{define "accesspolicy"}}
+<div class="border-t border-line pt-5" data-access>
+  <h2 class="text-sm font-semibold">Access</h2>
+  {{if and .Data.App.Restricted (not .Data.Bound)}}
+  <div class="alert-warning mt-3" role="alert">Nobody can sign in: this application is restricted to groups, but none are left (they were deleted). Choose groups below, or open it to everyone.</div>
+  {{end}}
+  <div class="mt-3 grid gap-2 sm:grid-cols-2">
+    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+      <input type="radio" name="access" value="everyone" class="mt-0.5 accent-accent" {{if not .Data.App.Restricted}}checked{{end}}>
+      <span>
+        <span class="block text-sm font-medium">Everyone signed in</span>
+        <span class="block text-xs text-muted">Any authenticated user can use this application.</span>
+      </span>
+    </label>
+    <label class="flex cursor-pointer items-start gap-3 rounded-lg border border-line p-3 transition-colors has-checked:border-accent has-checked:bg-accent-soft/40">
+      <input type="radio" name="access" value="groups" class="mt-0.5 accent-accent" {{if .Data.App.Restricted}}checked{{end}}>
+      <span>
+        <span class="block text-sm font-medium">Only selected groups</span>
+        <span class="block text-xs text-muted">Members of at least one group below. With no group, nobody gets in.</span>
+      </span>
+    </label>
+  </div>
+  <div class="access-groups mt-3">
+    {{if .Data.Groups}}
+    <div data-tagselect>
+      <div class="flex flex-wrap gap-1.5 empty:hidden" data-tags>
+        {{range .Data.Groups}}{{if index $.Data.Bound .ID}}
+        <span class="chip flex items-center gap-1.5" data-tag data-name="{{.Name}}">
+          {{.Name}}
+          <input type="hidden" name="policy_groups" value="{{.ID}}">
+          <button type="button" data-tag-remove class="cursor-pointer text-faint hover:text-fg" aria-label="Remove {{.Name}}">&times;</button>
+        </span>
+        {{end}}{{end}}
+      </div>
+      <input class="input mt-2 sm:w-1/2" list="policy-groups-dl" placeholder="Type to add a group…"
+             autocomplete="off" data-tag-input data-tag-name="policy_groups">
+      <datalist id="policy-groups-dl">
+        {{range .Data.Groups}}{{if not (index $.Data.Bound .ID)}}<option value="{{.Name}}" data-id="{{.ID}}"></option>{{end}}{{end}}
+      </datalist>
+    </div>
+    {{else}}
+    <p class="text-xs text-muted">No groups exist yet. Create one under Admin → Groups (or sync them from a directory) to restrict access.</p>
+    {{end}}
+  </div>
+</div>
+{{end}}
+
 {{define "federationtabs"}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Federation</h1>

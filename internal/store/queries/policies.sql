@@ -10,8 +10,18 @@ DELETE FROM app_policies WHERE application_id = $1;
 -- name: AddAppPolicy :exec
 INSERT INTO app_policies (application_id, group_id) VALUES ($1, $2);
 
--- name: CountAppPolicies :one
-SELECT COUNT(*) FROM app_policies WHERE application_id = $1;
+-- name: SetApplicationRestricted :exec
+UPDATE applications SET restricted = $1 WHERE id = $2;
+
+-- name: ListApplicationsByPolicyGroup :many
+-- Applications restricted to the group, with how many groups each one is
+-- bound to in total (1 means the group is its only way in).
+SELECT a.id, a.name, a.slug,
+       (SELECT COUNT(*) FROM app_policies p2 WHERE p2.application_id = a.id) AS group_count
+FROM applications a
+JOIN app_policies p ON p.application_id = a.id
+WHERE p.group_id = $1
+ORDER BY a.name;
 
 -- name: CountMatchingAppPolicies :one
 SELECT COUNT(*)
@@ -24,6 +34,6 @@ SELECT DISTINCT a.*
 FROM applications a
 LEFT JOIN app_policies p ON p.application_id = a.id
 WHERE a.launch_url != ''
-  AND (p.application_id IS NULL
+  AND (NOT a.restricted
        OR p.group_id IN (SELECT group_id FROM user_groups WHERE user_id = $1))
 ORDER BY a.name;

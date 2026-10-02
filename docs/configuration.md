@@ -81,8 +81,10 @@ Create the application in **Admin → Applications** — the wizard issues the
 client credentials (the secret is shown once) and lists every endpoint to
 paste into the app. Request the scopes `openid profile email groups`.
 
-Restrict who may sign in by binding groups in the application's **Access**
-section; with no bound group, every authenticated user may use the app.
+Choose who may sign in in the application's **Access** section: *Everyone
+signed in*, or *Only selected groups*. A restricted application fails
+closed: if its groups are all deleted, nobody can sign in until you pick
+new groups or open it to everyone.
 
 Step-by-step recipes for common applications (Grafana, Nextcloud, Gitea,
 Proxmox) and a generic OIDC reference live in

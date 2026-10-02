@@ -26,6 +26,10 @@ type adminGroupDetailData struct {
 	SourceName string
 	Members    []sqlcgen.User
 	NonMembers []sqlcgen.User
+	// Apps are the applications restricted to this group; LockedApps names
+	// those for which it is the only group, which deleting it would lock.
+	Apps       []sqlcgen.ListApplicationsByPolicyGroupRow
+	LockedApps string
 	Error      string
 }
 
@@ -120,12 +124,24 @@ func (s *Server) renderGroupDetail(w http.ResponseWriter, r *http.Request, group
 			sourceName = names[*group.LdapSourceID]
 		}
 	}
+	apps, err := s.store.ListApplicationsByPolicyGroup(r.Context(), group.ID)
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	var locked []string
+	for _, a := range apps {
+		if a.GroupCount == 1 {
+			locked = append(locked, a.Name)
+		}
+	}
 	s.render(w, r, "admin_group_detail.html", pageData{
 		Title: group.Name, Active: "groups", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
 		Data: adminGroupDetailData{
 			Group: group, IsLDAP: group.Source == "ldap", SourceName: sourceName,
-			Members: members, NonMembers: nonMembers, Error: errMsg,
+			Members: members, NonMembers: nonMembers, Apps: apps,
+			LockedApps: strings.Join(locked, ", "), Error: errMsg,
 		},
 	})
 }

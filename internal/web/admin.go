@@ -472,7 +472,7 @@ func (s *Server) handleAdminAppUpdate(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// Replace the group access policy (no boxes checked = everyone).
+	// Replace the group access policy.
 	if err := s.replacePolicy(r, app.ID); err != nil {
 		s.serverError(w, r, err)
 		return
@@ -600,8 +600,18 @@ func (s *Server) handleAdminProxyUpdate(w http.ResponseWriter, r *http.Request, 
 }
 
 // replacePolicy resets an application's group access policy from the
-// submitted policy_groups values.
+// submitted form: access=everyone opens it to every authenticated user,
+// access=groups restricts it to the policy_groups values (possibly none,
+// which locks it). Without an access field, any group restricts it.
 func (s *Server) replacePolicy(r *http.Request, appID string) error {
+	groups := r.PostForm["policy_groups"]
+	restricted := len(groups) > 0
+	switch r.PostFormValue("access") {
+	case "everyone":
+		restricted, groups = false, nil
+	case "groups":
+		restricted = true
+	}
 	tx, err := s.store.DB.BeginTx(r.Context(), nil)
 	if err != nil {
 		return err
@@ -611,12 +621,17 @@ func (s *Server) replacePolicy(r *http.Request, appID string) error {
 	if err := q.DeleteAppPolicies(r.Context(), appID); err != nil {
 		return err
 	}
-	for _, groupID := range r.PostForm["policy_groups"] {
+	for _, groupID := range groups {
 		if err := q.AddAppPolicy(r.Context(), sqlcgen.AddAppPolicyParams{
 			ApplicationID: appID, GroupID: groupID,
 		}); err != nil {
 			return err
 		}
+	}
+	if err := q.SetApplicationRestricted(r.Context(), sqlcgen.SetApplicationRestrictedParams{
+		Restricted: restricted, ID: appID,
+	}); err != nil {
+		return err
 	}
 	return tx.Commit()
 }

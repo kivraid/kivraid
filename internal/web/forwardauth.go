@@ -32,12 +32,12 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// If a proxy application is registered for the requested host, enforce
-	// its group access policy (empty policy = any authenticated user).
+	// its group access policy (an unrestricted app admits any authenticated user).
 	if app, matched, err := s.matchProxyApp(r.Context(), r.Header.Get("X-Forwarded-Host")); err != nil {
 		s.serverError(w, r, err)
 		return
 	} else if matched {
-		allowed, err := s.userCanAccessApp(r.Context(), app.ID, user.ID)
+		allowed, err := s.userCanAccessApp(r.Context(), app, user.ID)
 		if err != nil {
 			s.serverError(w, r, err)
 			return

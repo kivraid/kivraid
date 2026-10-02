@@ -478,7 +478,7 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 		s.serverError(w, r, err)
 		return
 	}
-	allowed, err := s.userCanAccessApp(r.Context(), app.ID, user.ID)
+	allowed, err := s.userCanAccessApp(r.Context(), app, user.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -503,18 +503,15 @@ func (s *Server) handleOIDCResume(w http.ResponseWriter, r *http.Request) {
 	http.Redirect(w, r, oidcserver.CallbackPath(id), http.StatusSeeOther)
 }
 
-// userCanAccessApp evaluates the group policy: no bound groups means the
-// application is open to every authenticated user.
-func (s *Server) userCanAccessApp(ctx context.Context, appID, userID string) (bool, error) {
-	total, err := s.store.CountAppPolicies(ctx, appID)
-	if err != nil {
-		return false, err
-	}
-	if total == 0 {
+// userCanAccessApp evaluates the group policy. An unrestricted application
+// is open to every authenticated user; a restricted one only to members of
+// its groups — and to nobody once those groups are gone (fail closed).
+func (s *Server) userCanAccessApp(ctx context.Context, app sqlcgen.Application, userID string) (bool, error) {
+	if !app.Restricted {
 		return true, nil
 	}
 	matching, err := s.store.CountMatchingAppPolicies(ctx, sqlcgen.CountMatchingAppPoliciesParams{
-		ApplicationID: appID, UserID: userID,
+		ApplicationID: app.ID, UserID: userID,
 	})
 	if err != nil {
 		return false, err

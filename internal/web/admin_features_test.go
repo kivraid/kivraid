@@ -88,6 +88,9 @@ func TestProxyApplicationForwardAuth(t *testing.T) {
 	if err := st.AddAppPolicy(ctx, sqlcgen.AddAppPolicyParams{ApplicationID: appID, GroupID: grp.ID}); err != nil {
 		t.Fatal(err)
 	}
+	if err := st.SetApplicationRestricted(ctx, sqlcgen.SetApplicationRestrictedParams{Restricted: true, ID: appID}); err != nil {
+		t.Fatal(err)
+	}
 	resp = fa(ca)
 	resp.Body.Close()
 	if resp.StatusCode != http.StatusForbidden {
