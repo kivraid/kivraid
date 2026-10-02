@@ -77,6 +77,12 @@ func (m *Mailer) SendTest(ctx context.Context, msg Message) error {
 	return m.send(ctx, cfg, msg)
 }
 
+// SendWith delivers a message with the given settings instead of the stored
+// ones, so an administrator can try a configuration before saving it.
+func (m *Mailer) SendWith(ctx context.Context, cfg sqlcgen.SmtpSetting, msg Message) error {
+	return m.send(ctx, cfg, msg)
+}
+
 // SealPassword encrypts an SMTP password for storage at rest.
 func (m *Mailer) SealPassword(password string) ([]byte, error) {
 	return secrets.Seal(m.sealKey, []byte(password))

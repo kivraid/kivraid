@@ -4,7 +4,7 @@
   {{if .Data.App.IconMime}}
   <img class="size-14 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
   {{else}}
-  <span class="avatar-lg rounded-xl">{{initials .Data.App.Name}}</span>
+  <span class="app-tile size-14 rounded-xl text-xl {{tileClass .Data.App.Name}}">{{initials .Data.App.Name}}</span>
   {{end}}
   <div class="min-w-0">
     <div class="flex items-center gap-2">

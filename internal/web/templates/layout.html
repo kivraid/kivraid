@@ -117,17 +117,19 @@
 {{define "iconcard"}}
 <div class="card space-y-4 p-6">
   <h2 class="text-sm font-semibold">Icon</h2>
-  <div class="flex items-center gap-4">
+  <div class="flex items-center gap-4" data-upload>
+    <span data-preview data-preview-class="size-12 shrink-0 rounded-xl object-cover">
     {{if .Data.App.IconMime}}
     <img class="size-12 shrink-0 rounded-xl object-cover" src="/appicon/{{.Data.App.ID}}" alt="">
     {{else}}
-    <span class="avatar-lg rounded-xl">{{initials .Data.App.Name}}</span>
+    <span class="app-tile size-12 rounded-xl text-lg {{tileClass .Data.App.Name}}">{{initials .Data.App.Name}}</span>
     {{end}}
+    </span>
     <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon" enctype="multipart/form-data" class="flex min-w-0 flex-1 flex-wrap items-center gap-3">
       <input type="hidden" name="_csrf" value="{{.CSRF}}">
-      <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" required
+      <input type="file" name="icon" accept="image/jpeg,image/png,image/webp,image/gif" required data-autoupload data-max-bytes="1048576"
              class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
-      <button type="submit" class="btn-secondary shrink-0">Upload</button>
+      <button type="submit" class="btn-secondary shrink-0" data-upload-button>Upload</button>
     </form>
     {{if .Data.App.IconMime}}
     <form method="post" action="/admin/applications/{{.Data.App.ID}}/icon/delete" class="shrink-0"

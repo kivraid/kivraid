@@ -9,11 +9,13 @@ import (
 	"embed"
 	"encoding/hex"
 	"fmt"
+	"hash/fnv"
 	"html/template"
 	"io/fs"
 	"log/slog"
 	"net/http"
 	"net/netip"
+	"strconv"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -144,6 +146,7 @@ func NewServer(d Deps) (*Server, error) {
 	assetV := assetVersion()
 	funcs := template.FuncMap{
 		"initials":    initials,
+		"tileClass":   tileClass,
 		"since":       since,
 		"actionLabel": audit.Label,
 		"actionTone":  audit.Tone,
@@ -385,6 +388,14 @@ func since(t time.Time) string {
 		return plural(int(d/(24*time.Hour)), "day")
 	}
 	return "on " + t.Format("Jan 2, 2006")
+}
+
+// tileClass picks one of the app-tile gradients from a name, stably, so an
+// application keeps its color everywhere it appears.
+func tileClass(name string) string {
+	h := fnv.New32a()
+	h.Write([]byte(strings.ToLower(name)))
+	return "tile-" + strconv.Itoa(int(h.Sum32()%6))
 }
 
 // initials derives up-to-two uppercase initials for the avatar chip.

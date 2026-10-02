@@ -6,6 +6,16 @@
   {{if .Data.Saved}}<div data-flash="Routing updated." data-variant="success" hidden></div>{{end}}
   {{if .Data.Error}}<div class="alert-danger" role="alert">{{.Data.Error}}</div>{{end}}
 
+  {{if and (not .Data.Providers) (not .Data.Rules)}}
+  <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
+    <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 3v12"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/></svg>
+    <div>
+      <h2 class="text-sm font-semibold">Add a provider first</h2>
+      <p class="mt-1 text-sm text-muted">Routing sends users to an upstream identity provider. Until one exists, everyone signs in with a local or directory password.</p>
+    </div>
+    <a href="/admin/providers/new" class="btn-primary">New provider</a>
+  </div>
+  {{else}}
   <form method="post" action="/admin/routing/default" class="card flex flex-wrap items-end gap-3 p-6">
     <input type="hidden" name="_csrf" value="{{.CSRF}}">
     <div class="min-w-56 flex-1">
@@ -71,5 +81,6 @@
       <button type="submit" class="btn-primary">Add rule</button>
     </div>
   </form>
+  {{end}}
 </div>
 {{end}}

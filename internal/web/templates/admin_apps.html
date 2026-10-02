@@ -21,7 +21,7 @@
     {{if .App.IconMime}}
     <img class="size-8 shrink-0 rounded-lg object-cover" src="/appicon/{{.App.ID}}" alt="">
     {{else}}
-    <span class="avatar rounded-lg">{{initials .App.Name}}</span>
+    <span class="app-tile size-8 rounded-lg text-xs {{tileClass .App.Name}}">{{initials .App.Name}}</span>
     {{end}}
     <div class="min-w-0 flex-1">
       <div class="flex items-center gap-2">

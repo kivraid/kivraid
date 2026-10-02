@@ -434,6 +434,14 @@
     @apply rounded-lg border border-warn/30 bg-warn-soft px-3.5 py-2.5 text-sm text-warn;
   }
 
+  /* LDAP form: warn while certificate verification is turned off. */
+  [data-tls] .tls-insecure {
+    display: none;
+  }
+  [data-tls]:has(input[name="skip_tls_verify"]:checked) .tls-insecure {
+    display: block;
+  }
+
   /* New user: the password fields only matter when setting one now. */
   [data-pwmode]:has(input[name="password_mode"][value="invite"]:checked) .pw-set {
     display: none;
@@ -489,6 +497,19 @@
   .avatar-lg {
     @apply inline-flex size-14 shrink-0 items-center justify-center rounded-full bg-accent-soft text-lg font-semibold text-accent;
   }
+  /* Application tile for apps without an uploaded icon: initials on one of
+   * six gradients picked from the name, so it sits well beside real icons. */
+  .app-tile {
+    @apply inline-flex shrink-0 items-center justify-center font-semibold text-white;
+    text-shadow: 0 1px 1px oklch(0% 0 0 / 0.15);
+  }
+  .tile-0 { background: linear-gradient(160deg, oklch(64% 0.19 293), oklch(52% 0.22 285)); }
+  .tile-1 { background: linear-gradient(160deg, oklch(68% 0.15 240), oklch(54% 0.17 255)); }
+  .tile-2 { background: linear-gradient(160deg, oklch(70% 0.15 165), oklch(56% 0.14 175)); }
+  .tile-3 { background: linear-gradient(160deg, oklch(74% 0.16 65), oklch(62% 0.19 45)); }
+  .tile-4 { background: linear-gradient(160deg, oklch(68% 0.19 10), oklch(56% 0.21 360)); }
+  .tile-5 { background: linear-gradient(160deg, oklch(64% 0.13 215), oklch(50% 0.12 225)); }
+
   .dt {
     @apply mb-1 text-[13px] font-medium text-muted;
   }

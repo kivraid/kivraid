@@ -108,7 +108,7 @@ func (s *Server) handleAdminSystem(w http.ResponseWriter, r *http.Request) {
 		{Label: "Database", Value: cfg.Database.Driver},
 		{Label: "Database DSN", Value: redactDSN(cfg.Database.Driver, cfg.Database.DSN), Mono: true},
 		{Label: "OIDC signing", Value: signing},
-		{Label: "Session lifetime", Value: time.Duration(cfg.Session.Lifetime).String()},
+		{Label: "Session lifetime", Value: readableDuration(time.Duration(cfg.Session.Lifetime))},
 		{Label: "Session idle timeout", Value: idleTimeout(time.Duration(cfg.Session.IdleTimeout))},
 		{Label: "Trusted proxies", Value: trusted, Mono: len(cfg.TrustedProxies) > 0},
 		{Label: "Forward-auth domains", Value: fwdDomains, Mono: len(cfg.ForwardAuth.Domains) > 0},
@@ -177,7 +177,16 @@ func idleTimeout(d time.Duration) string {
 	if d == 0 {
 		return "disabled"
 	}
-	return d.String()
+	return readableDuration(d)
+}
+
+// readableDuration renders a configured duration as "7 days" or
+// "30 minutes", falling back to Go's notation for sub-second precision.
+func readableDuration(d time.Duration) string {
+	if d <= 0 || d%time.Second != 0 {
+		return d.String()
+	}
+	return humanDuration(int64(d / time.Second))
 }
 
 func scheme(https bool) string {

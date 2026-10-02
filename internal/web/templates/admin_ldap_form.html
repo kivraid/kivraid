@@ -2,7 +2,7 @@
 <a href="/admin/ldap" class="back-link"><svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6"/></svg>Directories</a>
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">{{if .Data.IsNew}}New directory{{else}}{{.Data.Form.Name}}{{end}}</h1>
-  <p class="mt-1 text-sm text-muted">LDAP user source — works with OpenLDAP and LLDAP.</p>
+  <p class="mt-1 text-sm text-muted">LDAP user source — tested with OpenLDAP and LLDAP; other LDAPv3 directories such as Active Directory work with matching filters.</p>
 </div>
 
 <div class="space-y-4">
@@ -40,22 +40,31 @@
         <input class="input font-mono" id="url" name="url" value="{{.Data.Form.URL}}" required placeholder="ldap://ldap.example.com:389">
       </div>
     </div>
-    <div class="flex flex-wrap gap-6">
-      <label class="flex cursor-pointer items-center gap-2 text-sm">
-        <input type="checkbox" name="start_tls" class="accent-accent" {{if .Data.Form.StartTLS}}checked{{end}}> StartTLS
-      </label>
-      <label class="flex cursor-pointer items-center gap-2 text-sm">
-        <input type="checkbox" name="skip_tls_verify" class="accent-accent" {{if .Data.Form.SkipTLSVerify}}checked{{end}}> Skip TLS certificate verification
-      </label>
-      <label class="flex cursor-pointer items-center gap-2 text-sm">
-        <input type="checkbox" name="enabled" class="accent-accent" {{if .Data.Form.Enabled}}checked{{end}}> Enabled
-      </label>
-      <label class="flex cursor-pointer items-center gap-2 text-sm" title="Allow users to change their directory password from the portal (RFC 3062)">
-        <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> Password write-back
-      </label>
-      <label class="flex cursor-pointer items-center gap-2 text-sm" title="Let Kivraid reset a user's password with the service account (email-based and admin resets)">
-        <input type="checkbox" name="password_reset" class="accent-accent" {{if .Data.Form.Reset}}checked{{end}}> Password reset
-      </label>
+    <label class="flex cursor-pointer items-center gap-2 text-sm font-medium">
+      <input type="checkbox" name="enabled" class="accent-accent" {{if .Data.Form.Enabled}}checked{{end}}> Enabled — users of this directory can sign in
+    </label>
+    <div data-tls>
+      <span class="label">Transport security</span>
+      <div class="flex flex-wrap gap-6">
+        <label class="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" name="start_tls" class="accent-accent" {{if .Data.Form.StartTLS}}checked{{end}}> StartTLS <span class="text-faint">(for ldap:// URLs)</span>
+        </label>
+        <label class="flex cursor-pointer items-center gap-2 text-sm">
+          <input type="checkbox" name="skip_tls_verify" class="accent-accent" {{if .Data.Form.SkipTLSVerify}}checked{{end}}> Skip TLS certificate verification
+        </label>
+      </div>
+      <div class="tls-insecure alert-warning mt-3" role="alert">Certificate verification is off: anyone able to intercept the connection can impersonate the directory and capture bind and user passwords. Use it only for testing, or trust the directory's CA instead.</div>
+    </div>
+    <div>
+      <span class="label">Passwords</span>
+      <div class="flex flex-wrap gap-6">
+        <label class="flex cursor-pointer items-center gap-2 text-sm" title="Allow users to change their directory password from the portal (RFC 3062)">
+          <input type="checkbox" name="password_writeback" class="accent-accent" {{if .Data.Form.Writeback}}checked{{end}}> Password write-back
+        </label>
+        <label class="flex cursor-pointer items-center gap-2 text-sm" title="Let Kivraid reset a user's password with the service account (email-based and admin resets)">
+          <input type="checkbox" name="password_reset" class="accent-accent" {{if .Data.Form.Reset}}checked{{end}}> Password reset
+        </label>
+      </div>
     </div>
     <div class="space-y-5">
       <div>
@@ -75,7 +84,15 @@
     </div>
     <p class="text-xs text-muted">With an anonymous bind the directory must allow unauthenticated searches. <strong class="font-medium text-fg">Password write-back</strong> lets users change their own password from the portal — it binds as the user with their current password, so it needs no special rights. <strong class="font-medium text-fg">Password reset</strong> is stronger: it lets Kivraid set a password <em>without</em> the current one (for the “forgot password” email and admin resets), so the service (bind) account must have permission to modify user passwords in the directory. Leave it off unless you've granted that.</p>
 
-    <h2 class="border-t border-line pt-5 text-sm font-semibold">Users</h2>
+    <div class="flex flex-wrap items-center justify-between gap-3 border-t border-line pt-5">
+      <h2 class="text-sm font-semibold">Users</h2>
+      <div class="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+        Fill in for:
+        <button type="button" class="chip" data-ldap-preset='{"user_filter":"(&(objectClass=inetOrgPerson)(|(uid={username})(mail={username})))","username_attr":"uid","email_attr":"mail","name_attr":"cn","photo_attr":"jpegPhoto","group_filter":"(&(objectClass=groupOfNames)(member={dn}))","group_name_attr":"cn"}'>OpenLDAP</button>
+        <button type="button" class="chip" data-ldap-preset='{"user_filter":"(&(objectClass=person)(|(uid={username})(mail={username})))","username_attr":"uid","email_attr":"mail","name_attr":"cn","photo_attr":"jpegPhoto","group_filter":"(&(objectClass=groupOfUniqueNames)(uniqueMember={dn}))","group_name_attr":"cn"}'>LLDAP</button>
+        <button type="button" class="chip" data-ldap-preset='{"user_filter":"(&(objectCategory=person)(objectClass=user)(|(sAMAccountName={username})(userPrincipalName={username})(mail={username})))","username_attr":"sAMAccountName","email_attr":"mail","name_attr":"displayName","photo_attr":"thumbnailPhoto","group_filter":"(&(objectClass=group)(member={dn}))","group_name_attr":"cn","password_writeback":false}'>Active Directory</button>
+      </div>
+    </div>
     <div>
       <label class="label" for="base_dn">Base DN</label>
       <input class="input font-mono" id="base_dn" name="base_dn" value="{{.Data.Form.BaseDN}}" required placeholder="dc=example,dc=com">

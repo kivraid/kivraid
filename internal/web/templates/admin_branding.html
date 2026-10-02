@@ -17,13 +17,15 @@
 
     <div class="border-t border-line pt-5">
       <span class="label">Logo</span>
-      <div class="mt-1 flex items-center gap-4">
+      <div class="mt-1 flex items-center gap-4" data-upload>
+        <span data-preview data-preview-class="size-12 shrink-0 rounded-xl border border-line object-contain p-1">
         {{if .Data.HasLogo}}
         <img class="size-12 shrink-0 rounded-xl border border-line object-contain p-1" src="{{brandLogoURL}}" alt="">
         {{else}}
         {{template "logo" 40}}
         {{end}}
-        <input type="file" name="logo" accept="image/jpeg,image/png,image/webp,image/gif"
+        </span>
+        <input type="file" name="logo" accept="image/jpeg,image/png,image/webp,image/gif" data-max-bytes="1048576"
                class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
       </div>
       <p class="mt-1.5 text-xs text-muted">Square works best. JPEG, PNG, WebP or GIF, up to 1 MB.</p>
@@ -31,13 +33,15 @@
 
     <div class="border-t border-line pt-5">
       <span class="label">Sign-in background</span>
-      <div class="mt-1 flex items-center gap-4">
+      <div class="mt-1 flex items-center gap-4" data-upload>
+        <span data-preview data-preview-class="aspect-video w-24 shrink-0 rounded-lg border border-line object-cover">
         {{if .Data.HasBackground}}
         <img class="aspect-video w-24 shrink-0 rounded-lg border border-line object-cover" src="{{brandBackgroundURL}}" alt="">
         {{else}}
-        <span class="aurora-swatch aspect-video w-24 shrink-0 rounded-lg border border-line" aria-hidden="true"></span>
+        <span class="aurora-swatch block aspect-video w-24 shrink-0 rounded-lg border border-line" aria-hidden="true"></span>
         {{end}}
-        <input type="file" name="background" accept="image/jpeg,image/png,image/webp"
+        </span>
+        <input type="file" name="background" accept="image/jpeg,image/png,image/webp" data-max-bytes="4194304"
                class="min-w-0 flex-1 text-sm text-muted file:mr-3 file:cursor-pointer file:rounded-lg file:border file:border-line file:bg-surface file:px-3 file:py-1.5 file:text-sm file:font-medium file:text-fg hover:file:bg-raised">
       </div>
       <p class="mt-1.5 text-xs text-muted">Replaces the default gradient on the sign-in pages; it is darkened slightly so the text stays readable. A landscape photo of at least 1920×1080 works best. JPEG, PNG or WebP, up to 4 MB.</p>

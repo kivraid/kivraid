@@ -164,6 +164,65 @@ document.addEventListener("DOMContentLoaded", () => {
     box.replaceChildren(legend, plot, labels, table);
   }
 
+  // LDAP presets: fill the schema fields for a known directory product.
+  for (const btn of document.querySelectorAll("[data-ldap-preset]")) {
+    btn.addEventListener("click", () => {
+      const preset = JSON.parse(btn.dataset.ldapPreset);
+      const form = btn.closest("form");
+      for (const [name, value] of Object.entries(preset)) {
+        const field = form.elements.namedItem(name);
+        if (!field) continue;
+        if (field.type === "checkbox") field.checked = value;
+        else field.value = value;
+      }
+    });
+  }
+
+  // SMTP: follow the encryption mode with its usual port, unless the admin
+  // typed a non-standard one.
+  for (const select of document.querySelectorAll("[data-port-field]")) {
+    const port = document.getElementById(select.dataset.portField);
+    const defaults = [...select.options].map((o) => o.dataset.defaultPort);
+    select.addEventListener("change", () => {
+      if (port.value === "" || defaults.includes(port.value.trim())) {
+        port.value = select.selectedOptions[0].dataset.defaultPort;
+      }
+    });
+  }
+
+  // Image uploads: preview the picked file right away, reject oversized ones
+  // before sending, and upload immediately where the field stands alone.
+  for (const box of document.querySelectorAll("[data-upload]")) {
+    const input = box.querySelector("input[type=file]");
+    const preview = box.querySelector("[data-preview]");
+    if (!input) continue;
+    if (input.hasAttribute("data-autoupload")) {
+      box.querySelector("[data-upload-button]")?.setAttribute("hidden", "");
+    }
+    input.addEventListener("change", () => {
+      const file = input.files[0];
+      if (!file) return;
+      const max = Number(input.dataset.maxBytes || 0);
+      if (max && file.size > max) {
+        showToast(`That file is too large (max ${Math.round(max / 1048576)} MB).`, "danger");
+        input.value = "";
+        return;
+      }
+      if (preview) {
+        const reader = new FileReader();
+        reader.onload = () => {
+          const img = document.createElement("img");
+          img.className = preview.dataset.previewClass || "";
+          img.alt = "";
+          img.src = reader.result;
+          preview.replaceChildren(img);
+        };
+        reader.readAsDataURL(file);
+      }
+      if (input.hasAttribute("data-autoupload")) input.form.requestSubmit();
+    });
+  }
+
   // Filter bars: apply a select as soon as it changes.
   for (const form of document.querySelectorAll("[data-autosubmit]")) {
     for (const field of form.querySelectorAll("select")) {
