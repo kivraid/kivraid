@@ -19,8 +19,17 @@ func (q *Queries) ClearBrandLogo(ctx context.Context, updatedAt time.Time) error
 	return err
 }
 
+const clearLoginBackground = `-- name: ClearLoginBackground :exec
+UPDATE instance_settings SET login_background = NULL, login_background_mime = NULL, updated_at = $1 WHERE id = 1
+`
+
+func (q *Queries) ClearLoginBackground(ctx context.Context, updatedAt time.Time) error {
+	_, err := q.db.ExecContext(ctx, clearLoginBackground, updatedAt)
+	return err
+}
+
 const getInstanceSettings = `-- name: GetInstanceSettings :one
-SELECT id, brand_name, logo, logo_mime, updated_at FROM instance_settings WHERE id = 1
+SELECT id, brand_name, logo, logo_mime, updated_at, login_background, login_background_mime FROM instance_settings WHERE id = 1
 `
 
 func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, error) {
@@ -32,6 +41,8 @@ func (q *Queries) GetInstanceSettings(ctx context.Context) (InstanceSetting, err
 		&i.Logo,
 		&i.LogoMime,
 		&i.UpdatedAt,
+		&i.LoginBackground,
+		&i.LoginBackgroundMime,
 	)
 	return i, err
 }
@@ -62,5 +73,20 @@ type SetBrandNameParams struct {
 
 func (q *Queries) SetBrandName(ctx context.Context, arg SetBrandNameParams) error {
 	_, err := q.db.ExecContext(ctx, setBrandName, arg.BrandName, arg.UpdatedAt)
+	return err
+}
+
+const setLoginBackground = `-- name: SetLoginBackground :exec
+UPDATE instance_settings SET login_background = $1, login_background_mime = $2, updated_at = $3 WHERE id = 1
+`
+
+type SetLoginBackgroundParams struct {
+	LoginBackground     []byte
+	LoginBackgroundMime *string
+	UpdatedAt           time.Time
+}
+
+func (q *Queries) SetLoginBackground(ctx context.Context, arg SetLoginBackgroundParams) error {
+	_, err := q.db.ExecContext(ctx, setLoginBackground, arg.LoginBackground, arg.LoginBackgroundMime, arg.UpdatedAt)
 	return err
 }

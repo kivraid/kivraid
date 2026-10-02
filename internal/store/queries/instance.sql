@@ -9,3 +9,9 @@ UPDATE instance_settings SET logo = $1, logo_mime = $2, updated_at = $3 WHERE id
 
 -- name: ClearBrandLogo :exec
 UPDATE instance_settings SET logo = NULL, logo_mime = NULL, updated_at = $1 WHERE id = 1;
+
+-- name: SetLoginBackground :exec
+UPDATE instance_settings SET login_background = $1, login_background_mime = $2, updated_at = $3 WHERE id = 1;
+
+-- name: ClearLoginBackground :exec
+UPDATE instance_settings SET login_background = NULL, login_background_mime = NULL, updated_at = $1 WHERE id = 1;

@@ -125,8 +125,9 @@ dark on the right.</sub>
   token lifetimes and uploadable icons; group-based access policies;
   directory management with a connection test; user impersonation for
   support; an append-only audit trail you can filter and export to CSV; and
-  a grouped Settings area — branding, email/SMTP, and read-only system
-  diagnostics with manual OIDC signing-key rotation.
+  a grouped Settings area — branding (name, logo, sign-in background),
+  email/SMTP, and read-only system diagnostics with manual OIDC signing-key
+  rotation.
 - **Hardening** — server-side revocable sessions, CSRF, strict CSP, login
   rate limiting, all secrets hashed or encrypted at rest.
 - **SQLite or PostgreSQL** — SQLite by default (zero external services);

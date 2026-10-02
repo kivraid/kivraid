@@ -80,6 +80,11 @@ type Server struct {
 	brandLogo     []byte
 	brandLogoMime string
 	brandVer      string
+	// brandBg is the optional sign-in background image; brandBgVer
+	// cache-busts its URL the same way.
+	brandBg     []byte
+	brandBgMime string
+	brandBgVer  string
 }
 
 // Deps bundles the server's collaborators.
@@ -139,21 +144,18 @@ func NewServer(d Deps) (*Server, error) {
 	assetV := assetVersion()
 	funcs := template.FuncMap{
 		"initials": initials,
-		"deref": func(p *string) string {
-			if p == nil {
-				return ""
-			}
-			return *p
-		},
+		"deref":    deref,
 		"asset": func(name string) string {
 			return "/static/" + name + "?v=" + assetV
 		},
 		// Branding helpers read the in-memory cache at render time, so a
 		// save is reflected on the next page load.
-		"brandName":    s.brandDisplayName,
-		"brandHasLogo": s.brandHasLogo,
-		"brandLogoURL": func() string { return "/brand/logo?v=" + s.brandVersion() },
-		"mailEnabled":  s.smtpEnabled.Load,
+		"brandName":          s.brandDisplayName,
+		"brandHasLogo":       s.brandHasLogo,
+		"brandLogoURL":       func() string { return "/brand/logo?v=" + s.brandVersion() },
+		"brandHasBackground": s.brandHasBackground,
+		"brandBackgroundURL": func() string { return "/brand/background?v=" + s.brandBackgroundVersion() },
+		"mailEnabled":        s.smtpEnabled.Load,
 	}
 	standalone := []string{"login.html", "login_password.html", "login_mfa.html", "error.html", "setup.html",
 		"forgot.html", "reset.html"}
@@ -208,8 +210,10 @@ func (s *Server) Handler() http.Handler {
 	web.HandleFunc("GET /verify-email", s.handleVerifyEmail)
 	web.HandleFunc("GET /login/upstream/{id}/start", s.handleUpstreamLoginStart)
 	web.HandleFunc("GET /login/upstream/{id}/callback", s.handleUpstreamLoginCallback)
-	// Public custom logo (the login page, served before auth, references it).
+	// Public custom logo and background (the login page, served before
+	// auth, references them).
 	web.HandleFunc("GET /brand/logo", s.handleBrandLogo)
+	web.HandleFunc("GET /brand/background", s.handleBrandBackground)
 	web.Handle("GET /{$}", s.requireAuth(http.HandlerFunc(s.handleHome)))
 	web.Handle("GET /avatar/{id}", s.requireAuth(http.HandlerFunc(s.handleAvatar)))
 	web.Handle("GET /appicon/{id}", s.requireAuth(http.HandlerFunc(s.handleAppIcon)))
@@ -300,6 +304,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/settings/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBranding)))
 	web.Handle("POST /admin/settings/branding", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingSave)))
 	web.Handle("POST /admin/settings/branding/logo/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingLogoDelete)))
+	web.Handle("POST /admin/settings/branding/background/delete", s.requireAdmin(http.HandlerFunc(s.handleAdminBrandingBackgroundDelete)))
 	web.Handle("GET /admin/settings/email", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTP)))
 	web.Handle("POST /admin/settings/email", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTPSave)))
 	web.Handle("POST /admin/settings/email/test", s.requireAdmin(http.HandlerFunc(s.handleAdminSMTPTest)))

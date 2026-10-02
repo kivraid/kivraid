@@ -76,11 +76,13 @@ type Group struct {
 }
 
 type InstanceSetting struct {
-	ID        int32
-	BrandName string
-	Logo      []byte
-	LogoMime  *string
-	UpdatedAt time.Time
+	ID                  int32
+	BrandName           string
+	Logo                []byte
+	LogoMime            *string
+	UpdatedAt           time.Time
+	LoginBackground     []byte
+	LoginBackgroundMime *string
 }
 
 type LdapSource struct {

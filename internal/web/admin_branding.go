@@ -25,24 +25,30 @@ func (s *Server) loadBranding(ctx context.Context) {
 		}
 		return
 	}
-	mime := ""
-	if row.LogoMime != nil {
-		mime = *row.LogoMime
-	}
 	s.brandMu.Lock()
 	s.brandName = row.BrandName
 	s.brandLogo = row.Logo
-	s.brandLogoMime = mime
+	s.brandLogoMime = deref(row.LogoMime)
 	s.brandVer = brandVersion(row.Logo)
+	s.brandBg = row.LoginBackground
+	s.brandBgMime = deref(row.LoginBackgroundMime)
+	s.brandBgVer = brandVersion(row.LoginBackground)
 	s.brandMu.Unlock()
 }
 
-// brandVersion is a short content token for cache-busting the logo URL.
-func brandVersion(logo []byte) string {
-	if len(logo) == 0 {
+func deref(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
+// brandVersion is a short content token for cache-busting an image URL.
+func brandVersion(img []byte) string {
+	if len(img) == 0 {
 		return "none"
 	}
-	sum := sha256.Sum256(logo)
+	sum := sha256.Sum256(img)
 	return hex.EncodeToString(sum[:])[:12]
 }
 
@@ -68,6 +74,18 @@ func (s *Server) brandVersion() string {
 	return s.brandVer
 }
 
+func (s *Server) brandHasBackground() bool {
+	s.brandMu.RLock()
+	defer s.brandMu.RUnlock()
+	return len(s.brandBg) > 0
+}
+
+func (s *Server) brandBackgroundVersion() string {
+	s.brandMu.RLock()
+	defer s.brandMu.RUnlock()
+	return s.brandBgVer
+}
+
 // handleBrandLogo serves the custom logo (public: the login page references
 // it before authentication). Absent logo yields a 404 so templates fall back
 // to the built-in mark.
@@ -85,11 +103,33 @@ func (s *Server) handleBrandLogo(w http.ResponseWriter, r *http.Request) {
 	w.Write(logo)
 }
 
+// handleBrandBackground serves the custom sign-in background (public, like
+// the logo). Absent image yields a 404; templates then keep the gradient.
+func (s *Server) handleBrandBackground(w http.ResponseWriter, r *http.Request) {
+	s.brandMu.RLock()
+	img, mime := s.brandBg, s.brandBgMime
+	s.brandMu.RUnlock()
+	if len(img) == 0 || mime == "" {
+		http.NotFound(w, r)
+		return
+	}
+	w.Header().Set("Content-Type", mime)
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(img)
+}
+
+// maxUploadBackgroundSize caps the sign-in background: a full-screen photo
+// needs more room than a logo, but it is served on every sign-in page.
+const maxUploadBackgroundSize = 4 << 20
+
+var allowedBackgroundTypes = []string{"image/jpeg", "image/png", "image/webp"}
+
 type adminBrandingData struct {
-	Name    string
-	HasLogo bool
-	Saved   bool
-	Error   string
+	Name          string
+	HasLogo       bool
+	HasBackground bool
+	Saved         bool
+	Error         string
 }
 
 func (s *Server) renderBranding(w http.ResponseWriter, r *http.Request, errMsg string, saved bool) {
@@ -97,7 +137,8 @@ func (s *Server) renderBranding(w http.ResponseWriter, r *http.Request, errMsg s
 		Title: "Branding", Active: "branding", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r),
 		Data: adminBrandingData{
-			Name: s.currentBrandName(), HasLogo: s.brandHasLogo(), Saved: saved, Error: errMsg,
+			Name: s.currentBrandName(), HasLogo: s.brandHasLogo(), HasBackground: s.brandHasBackground(),
+			Saved: saved, Error: errMsg,
 		},
 	})
 }
@@ -116,8 +157,8 @@ func (s *Server) handleAdminBranding(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) handleAdminBrandingSave(w http.ResponseWriter, r *http.Request) {
 	if err := r.ParseMultipartForm(maxUploadPhotoSize); err != nil {
-		s.renderError(w, r, http.StatusRequestEntityTooLarge, "Logo too large",
-			"The logo must be smaller than 1 MB.")
+		s.renderError(w, r, http.StatusRequestEntityTooLarge, "Upload too large",
+			"The logo must be smaller than 1 MB and the background smaller than 4 MB.")
 		return
 	}
 	name := strings.TrimSpace(r.PostFormValue("brand_name"))
@@ -154,6 +195,30 @@ func (s *Server) handleAdminBrandingSave(w http.ResponseWriter, r *http.Request)
 		}
 	}
 
+	// Same for the sign-in background.
+	if file, _, err := r.FormFile("background"); err == nil {
+		defer file.Close()
+		img, err := io.ReadAll(io.LimitReader(file, maxUploadBackgroundSize+1))
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		if len(img) > 0 {
+			mime := http.DetectContentType(img)
+			if len(img) > maxUploadBackgroundSize || !slices.Contains(allowedBackgroundTypes, mime) {
+				w.WriteHeader(http.StatusUnprocessableEntity)
+				s.renderBranding(w, r, "Use a JPEG, PNG or WebP background up to 4 MB.", false)
+				return
+			}
+			if err := s.store.SetLoginBackground(r.Context(), sqlcgen.SetLoginBackgroundParams{
+				LoginBackground: img, LoginBackgroundMime: &mime, UpdatedAt: now,
+			}); err != nil {
+				s.serverError(w, r, err)
+				return
+			}
+		}
+	}
+
 	s.loadBranding(r.Context())
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionBrandingUpdate, "", "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/settings/branding?saved=1", http.StatusSeeOther)
@@ -166,5 +231,15 @@ func (s *Server) handleAdminBrandingLogoDelete(w http.ResponseWriter, r *http.Re
 	}
 	s.loadBranding(r.Context())
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionBrandingUpdate, "", "logo removed", s.clientIP(r))
+	http.Redirect(w, r, "/admin/settings/branding?saved=1", http.StatusSeeOther)
+}
+
+func (s *Server) handleAdminBrandingBackgroundDelete(w http.ResponseWriter, r *http.Request) {
+	if err := s.store.ClearLoginBackground(r.Context(), time.Now().UTC()); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	s.loadBranding(r.Context())
+	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionBrandingUpdate, "", "background removed", s.clientIP(r))
 	http.Redirect(w, r, "/admin/settings/branding?saved=1", http.StatusSeeOther)
 }

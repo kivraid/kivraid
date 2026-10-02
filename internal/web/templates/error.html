@@ -9,7 +9,7 @@
   <script src="{{asset "app.js"}}"></script>
 </head>
 <body class="min-h-dvh">
-  <div class="aurora"></div>
+  <div class="aurora{{if brandHasBackground}} aurora-custom{{end}}">{{if brandHasBackground}}<img src="{{brandBackgroundURL}}" alt="">{{end}}</div>
   <main class="flex min-h-dvh flex-col items-center justify-center px-6 py-12">
     <div class="flex w-full max-w-md flex-col items-center gap-4 text-center">
       <svg width="40" height="40" viewBox="0 0 24 24" aria-hidden="true">
