@@ -2,8 +2,11 @@ package web
 
 import (
 	"database/sql"
+	"encoding/json"
 	"errors"
+	"html/template"
 	"net/http"
+	"net/url"
 	"strings"
 	"time"
 
@@ -13,20 +16,32 @@ import (
 	"github.com/kivraid/kivraid/internal/store/sqlcgen"
 )
 
+const (
+	groupsPageSize  = 50
+	membersPageSize = 50
+	// candidateLimit caps the add-member type-ahead suggestions.
+	candidateLimit = 20
+)
+
 type adminGroupsData struct {
-	Groups      []sqlcgen.ListGroupsWithCountsRow
+	Groups      []sqlcgen.ListGroupsPageRow
 	SourceNames map[string]string
 	Error       string
 	Deleted     bool
+	Query       string
+	Source      string
+	Filtered    bool
+	Pager       pager
 }
 
 type adminGroupDetailData struct {
-	Group      sqlcgen.Group
-	IsLDAP     bool
-	Editable   bool // local group: name and members are managed here
-	SourceName string
-	Members    []sqlcgen.User
-	NonMembers []sqlcgen.User
+	Group       sqlcgen.Group
+	IsLDAP      bool
+	Editable    bool // local group: name and members are managed here
+	SourceName  string
+	Members     []sqlcgen.User
+	MemberCount int64
+	Pager       pager
 	// Apps are the applications restricted to this group; LockedApps names
 	// those for which it is the only group, which deleting it would lock.
 	Apps       []sqlcgen.ListApplicationsByPolicyGroupRow
@@ -36,7 +51,22 @@ type adminGroupDetailData struct {
 }
 
 func (s *Server) renderGroups(w http.ResponseWriter, r *http.Request, errMsg string) {
-	groups, err := s.store.ListGroupsWithCounts(r.Context())
+	qv := r.URL.Query()
+	query := strings.TrimSpace(qv.Get("q"))
+	source := qv.Get("source")
+	if source != "local" && source != "ldap" && source != "upstream" {
+		source = ""
+	}
+	pattern := likePattern(query)
+	total, err := s.store.CountGroupsSearch(r.Context(), sqlcgen.CountGroupsSearchParams{Pattern: pattern, Source: source})
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
+	page, pages, limit, offset := pageWindow(r, "page", total, groupsPageSize)
+	groups, err := s.store.ListGroupsPage(r.Context(), sqlcgen.ListGroupsPageParams{
+		Pattern: pattern, Source: source, PageLimit: limit, PageOffset: offset,
+	})
 	if err != nil {
 		s.serverError(w, r, err)
 		return
@@ -46,11 +76,20 @@ func (s *Server) renderGroups(w http.ResponseWriter, r *http.Request, errMsg str
 		s.serverError(w, r, err)
 		return
 	}
+	filters := url.Values{}
+	if query != "" {
+		filters.Set("q", query)
+	}
+	if source != "" {
+		filters.Set("source", source)
+	}
 	s.render(w, r, "admin_groups.html", pageData{
 		Title: "Groups", Active: "groups", CSRF: s.csrfToken(r.Context()),
 		User: currentUser(r), Data: adminGroupsData{
 			Groups: groups, SourceNames: names, Error: errMsg,
-			Deleted: r.URL.Query().Get("deleted") == "1",
+			Deleted: qv.Get("deleted") == "1",
+			Query:   query, Source: source, Filtered: query != "" || source != "",
+			Pager: newPager("page", template.URL(filters.Encode()), page, pages, total, groupsPageSize, len(groups)),
 		},
 	})
 }
@@ -97,28 +136,18 @@ func (s *Server) loadGroup(w http.ResponseWriter, r *http.Request) (sqlcgen.Grou
 }
 
 func (s *Server) renderGroupDetail(w http.ResponseWriter, r *http.Request, group sqlcgen.Group, errMsg string) {
-	members, err := s.store.ListGroupMembers(r.Context(), group.ID)
+	total, err := s.store.CountGroupMembers(r.Context(), group.ID)
 	if err != nil {
 		s.serverError(w, r, err)
 		return
 	}
-	// Candidates for the "add member" select: everyone not yet a member.
-	var nonMembers []sqlcgen.User
-	if group.Source == "local" {
-		all, err := s.store.ListUsers(r.Context())
-		if err != nil {
-			s.serverError(w, r, err)
-			return
-		}
-		isMember := make(map[string]bool, len(members))
-		for _, m := range members {
-			isMember[m.ID] = true
-		}
-		for _, u := range all {
-			if !isMember[u.ID] {
-				nonMembers = append(nonMembers, u)
-			}
-		}
+	page, pages, limit, offset := pageWindow(r, "page", total, membersPageSize)
+	members, err := s.store.ListGroupMembersPage(r.Context(), sqlcgen.ListGroupMembersPageParams{
+		GroupID: group.ID, PageLimit: limit, PageOffset: offset,
+	})
+	if err != nil {
+		s.serverError(w, r, err)
+		return
 	}
 	sourceName := ""
 	if group.LdapSourceID != nil {
@@ -142,7 +171,8 @@ func (s *Server) renderGroupDetail(w http.ResponseWriter, r *http.Request, group
 		User: currentUser(r),
 		Data: adminGroupDetailData{
 			Group: group, IsLDAP: group.Source == "ldap", Editable: group.Source == "local", SourceName: sourceName,
-			Members: members, NonMembers: nonMembers, Apps: apps, Saved: r.URL.Query().Get("saved") == "1",
+			Members: members, MemberCount: total, Apps: apps,
+			Pager: newPager("page", "", page, pages, total, membersPageSize, len(members)), Saved: r.URL.Query().Get("saved") == "1",
 			LockedApps: strings.Join(locked, ", "), Error: errMsg,
 		},
 	})
@@ -263,4 +293,33 @@ func (s *Server) handleAdminGroupDelete(w http.ResponseWriter, r *http.Request) 
 	}
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionGroupDelete, group.Name, "", s.clientIP(r))
 	http.Redirect(w, r, "/admin/groups?deleted=1", http.StatusSeeOther)
+}
+
+// handleAdminGroupCandidates answers the add-member type-ahead: up to
+// candidateLimit users matching the typed text who are not members yet.
+func (s *Server) handleAdminGroupCandidates(w http.ResponseWriter, r *http.Request) {
+	group, ok := s.loadGroup(w, r)
+	if !ok {
+		return
+	}
+	type candidate struct {
+		Username string `json:"username"`
+		Name     string `json:"name"`
+	}
+	out := []candidate{}
+	if q := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("q"))); q != "" && group.Source == "local" {
+		rows, err := s.store.SearchGroupCandidates(r.Context(), sqlcgen.SearchGroupCandidatesParams{
+			Pattern: likePattern(q), GroupID: group.ID, MaxResults: candidateLimit,
+		})
+		if err != nil {
+			s.serverError(w, r, err)
+			return
+		}
+		for _, u := range rows {
+			out = append(out, candidate{Username: u.Username, Name: u.Name})
+		}
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Cache-Control", "no-store")
+	json.NewEncoder(w).Encode(out)
 }

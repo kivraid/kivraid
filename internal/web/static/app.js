@@ -223,6 +223,41 @@ document.addEventListener("DOMContentLoaded", () => {
     });
   }
 
+  // Server-backed type-ahead: fill a datalist with matches as the admin
+  // types, instead of shipping every candidate with the page.
+  for (const input of document.querySelectorAll("[data-suggest]")) {
+    const list = document.getElementById(input.getAttribute("list"));
+    let timer;
+    let last = "";
+    input.addEventListener("input", () => {
+      clearTimeout(timer);
+      timer = setTimeout(async () => {
+        const q = input.value.trim();
+        if (q === last) return;
+        last = q;
+        if (q.length < 1) {
+          list.replaceChildren();
+          return;
+        }
+        try {
+          const res = await fetch(`${input.dataset.suggest}?q=${encodeURIComponent(q)}`);
+          if (!res.ok) return;
+          const rows = await res.json();
+          list.replaceChildren(
+            ...rows.map((u) => {
+              const o = document.createElement("option");
+              o.value = u.username;
+              o.textContent = u.name;
+              return o;
+            }),
+          );
+        } catch {
+          // Offline or session expired: the field still accepts a username.
+        }
+      }, 150);
+    });
+  }
+
   // Filter bars: apply a select as soon as it changes.
   for (const form of document.querySelectorAll("[data-autosubmit]")) {
     for (const field of form.querySelectorAll("select")) {

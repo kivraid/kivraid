@@ -57,12 +57,42 @@ func (q *Queries) CountApplications(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countGroupMembers = `-- name: CountGroupMembers :one
+SELECT COUNT(*) FROM user_groups WHERE group_id = $1
+`
+
+func (q *Queries) CountGroupMembers(ctx context.Context, groupID string) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countGroupMembers, groupID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countGroups = `-- name: CountGroups :one
 SELECT COUNT(*) FROM groups
 `
 
 func (q *Queries) CountGroups(ctx context.Context) (int64, error) {
 	row := q.db.QueryRowContext(ctx, countGroups)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countGroupsSearch = `-- name: CountGroupsSearch :one
+SELECT COUNT(*) FROM groups
+WHERE lower(name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+  AND (CAST($2 AS TEXT) = '' OR source = CAST($2 AS TEXT))
+`
+
+type CountGroupsSearchParams struct {
+	Pattern string
+	Source  string
+}
+
+// Same pattern convention as the users search; an empty source means any.
+func (q *Queries) CountGroupsSearch(ctx context.Context, arg CountGroupsSearchParams) (int64, error) {
+	row := q.db.QueryRowContext(ctx, countGroupsSearch, arg.Pattern, arg.Source)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -259,15 +289,86 @@ func (q *Queries) ListGroupMembers(ctx context.Context, groupID string) ([]User,
 	return items, nil
 }
 
-const listGroupsWithCounts = `-- name: ListGroupsWithCounts :many
+const listGroupMembersPage = `-- name: ListGroupMembersPage :many
+SELECT u.id, u.username, u.email, u.name, u.password_hash, u.source, u.is_admin, u.active, u.created_at, u.updated_at, u.ldap_source_id, u.ldap_dn, u.photo, u.photo_mime, u.totp_secret_enc, u.totp_enabled, u.totp_last_counter, u.last_login_at, u.email_verified, u.upstream_source_id, u.external_id, u.must_change_password
+FROM users u
+JOIN user_groups ug ON ug.user_id = u.id
+WHERE ug.group_id = $1
+ORDER BY u.username
+LIMIT $3 OFFSET $2
+`
+
+type ListGroupMembersPageParams struct {
+	GroupID    string
+	PageOffset int32
+	PageLimit  int32
+}
+
+func (q *Queries) ListGroupMembersPage(ctx context.Context, arg ListGroupMembersPageParams) ([]User, error) {
+	rows, err := q.db.QueryContext(ctx, listGroupMembersPage, arg.GroupID, arg.PageOffset, arg.PageLimit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []User
+	for rows.Next() {
+		var i User
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Email,
+			&i.Name,
+			&i.PasswordHash,
+			&i.Source,
+			&i.IsAdmin,
+			&i.Active,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.LdapSourceID,
+			&i.LdapDn,
+			&i.Photo,
+			&i.PhotoMime,
+			&i.TotpSecretEnc,
+			&i.TotpEnabled,
+			&i.TotpLastCounter,
+			&i.LastLoginAt,
+			&i.EmailVerified,
+			&i.UpstreamSourceID,
+			&i.ExternalID,
+			&i.MustChangePassword,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGroupsPage = `-- name: ListGroupsPage :many
 SELECT g.id, g.name, g.created_at, g.source, g.ldap_source_id, g.grants_admin, g.upstream_source_id, COUNT(ug.user_id) AS member_count
 FROM groups g
 LEFT JOIN user_groups ug ON ug.group_id = g.id
+WHERE lower(g.name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+  AND (CAST($2 AS TEXT) = '' OR g.source = CAST($2 AS TEXT))
 GROUP BY g.id
 ORDER BY g.name
+LIMIT $4 OFFSET $3
 `
 
-type ListGroupsWithCountsRow struct {
+type ListGroupsPageParams struct {
+	Pattern    string
+	Source     string
+	PageOffset int32
+	PageLimit  int32
+}
+
+type ListGroupsPageRow struct {
 	ID               string
 	Name             string
 	CreatedAt        time.Time
@@ -278,15 +379,20 @@ type ListGroupsWithCountsRow struct {
 	MemberCount      int64
 }
 
-func (q *Queries) ListGroupsWithCounts(ctx context.Context) ([]ListGroupsWithCountsRow, error) {
-	rows, err := q.db.QueryContext(ctx, listGroupsWithCounts)
+func (q *Queries) ListGroupsPage(ctx context.Context, arg ListGroupsPageParams) ([]ListGroupsPageRow, error) {
+	rows, err := q.db.QueryContext(ctx, listGroupsPage,
+		arg.Pattern,
+		arg.Source,
+		arg.PageOffset,
+		arg.PageLimit,
+	)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListGroupsWithCountsRow
+	var items []ListGroupsPageRow
 	for rows.Next() {
-		var i ListGroupsWithCountsRow
+		var i ListGroupsPageRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
@@ -502,6 +608,60 @@ type RenameGroupParams struct {
 func (q *Queries) RenameGroup(ctx context.Context, arg RenameGroupParams) error {
 	_, err := q.db.ExecContext(ctx, renameGroup, arg.Name, arg.ID)
 	return err
+}
+
+const searchGroupCandidates = `-- name: SearchGroupCandidates :many
+SELECT u.id, u.username, u.name, u.email
+FROM users u
+WHERE (lower(u.username) LIKE CAST($1 AS TEXT) ESCAPE '\'
+    OR lower(u.name) LIKE CAST($1 AS TEXT) ESCAPE '\'
+    OR lower(u.email) LIKE CAST($1 AS TEXT) ESCAPE '\')
+  AND u.id NOT IN (SELECT user_id FROM user_groups WHERE group_id = $2)
+ORDER BY u.username
+LIMIT $3
+`
+
+type SearchGroupCandidatesParams struct {
+	Pattern    string
+	GroupID    string
+	MaxResults int32
+}
+
+type SearchGroupCandidatesRow struct {
+	ID       string
+	Username string
+	Name     string
+	Email    string
+}
+
+// Users who are not members of the group yet, matching a type-ahead
+// pattern on username, name or email.
+func (q *Queries) SearchGroupCandidates(ctx context.Context, arg SearchGroupCandidatesParams) ([]SearchGroupCandidatesRow, error) {
+	rows, err := q.db.QueryContext(ctx, searchGroupCandidates, arg.Pattern, arg.GroupID, arg.MaxResults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchGroupCandidatesRow
+	for rows.Next() {
+		var i SearchGroupCandidatesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Username,
+			&i.Name,
+			&i.Email,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Close(); err != nil {
+		return nil, err
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateGroupGrantsAdmin = `-- name: UpdateGroupGrantsAdmin :exec

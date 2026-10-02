@@ -64,12 +64,21 @@ DELETE FROM access_tokens WHERE user_id = $1;
 -- name: DeleteRefreshTokensByUser :exec
 DELETE FROM refresh_tokens WHERE user_id = $1;
 
--- name: ListGroupsWithCounts :many
+-- name: CountGroupsSearch :one
+-- Same pattern convention as the users search; an empty source means any.
+SELECT COUNT(*) FROM groups
+WHERE lower(name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+  AND (CAST(sqlc.arg(source) AS TEXT) = '' OR source = CAST(sqlc.arg(source) AS TEXT));
+
+-- name: ListGroupsPage :many
 SELECT g.*, COUNT(ug.user_id) AS member_count
 FROM groups g
 LEFT JOIN user_groups ug ON ug.group_id = g.id
+WHERE lower(g.name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+  AND (CAST(sqlc.arg(source) AS TEXT) = '' OR g.source = CAST(sqlc.arg(source) AS TEXT))
 GROUP BY g.id
-ORDER BY g.name;
+ORDER BY g.name
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
 
 -- name: GetGroup :one
 SELECT * FROM groups WHERE id = $1;
@@ -86,6 +95,29 @@ FROM users u
 JOIN user_groups ug ON ug.user_id = u.id
 WHERE ug.group_id = $1
 ORDER BY u.username;
+
+-- name: CountGroupMembers :one
+SELECT COUNT(*) FROM user_groups WHERE group_id = $1;
+
+-- name: ListGroupMembersPage :many
+SELECT u.*
+FROM users u
+JOIN user_groups ug ON ug.user_id = u.id
+WHERE ug.group_id = sqlc.arg(group_id)
+ORDER BY u.username
+LIMIT sqlc.arg(page_limit) OFFSET sqlc.arg(page_offset);
+
+-- name: SearchGroupCandidates :many
+-- Users who are not members of the group yet, matching a type-ahead
+-- pattern on username, name or email.
+SELECT u.id, u.username, u.name, u.email
+FROM users u
+WHERE (lower(u.username) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+    OR lower(u.name) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\'
+    OR lower(u.email) LIKE CAST(sqlc.arg(pattern) AS TEXT) ESCAPE '\')
+  AND u.id NOT IN (SELECT user_id FROM user_groups WHERE group_id = sqlc.arg(group_id))
+ORDER BY u.username
+LIMIT sqlc.arg(max_results);
 
 -- name: RemoveUserGroup :exec
 DELETE FROM user_groups WHERE user_id = $1 AND group_id = $2;

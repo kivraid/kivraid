@@ -7,7 +7,7 @@
       <h1 class="truncate text-2xl font-semibold tracking-tight">{{.Data.Group.Name}}</h1>
       {{if .Data.IsLDAP}}<span class="badge">{{if .Data.SourceName}}{{.Data.SourceName}}{{else}}LDAP{{end}}</span>{{else if .Data.Editable}}<span class="badge">Local</span>{{else}}<span class="badge">Federated</span>{{end}}
     </div>
-    <p class="mt-0.5 text-xs text-faint">{{len .Data.Members}} member{{if ne (len .Data.Members) 1}}s{{end}}</p>
+    <p class="mt-0.5 text-xs text-faint">{{.Data.MemberCount}} member{{if ne .Data.MemberCount 1}}s{{end}}</p>
   </div>
 </div>
 
@@ -43,14 +43,13 @@
   <div class="card">
     <div class="flex items-center justify-between gap-4 border-b border-line p-4">
       <h2 class="text-sm font-semibold">Members</h2>
-      {{if and .Data.Editable .Data.NonMembers}}
+      {{if .Data.Editable}}
       <form method="post" action="/admin/groups/{{.Data.Group.ID}}/members" class="flex items-center gap-2">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <input class="input w-48" name="username" list="group-members-dl" placeholder="Add a member…"
-               autocomplete="off" autocapitalize="none" spellcheck="false" required aria-label="Username to add">
-        <datalist id="group-members-dl">
-          {{range .Data.NonMembers}}<option value="{{.Username}}">{{.Name}}</option>{{end}}
-        </datalist>
+               autocomplete="off" autocapitalize="none" spellcheck="false" required aria-label="Username to add"
+               data-suggest="/admin/groups/{{.Data.Group.ID}}/candidates">
+        <datalist id="group-members-dl"></datalist>
         <button type="submit" class="btn-secondary shrink-0">Add</button>
       </form>
       {{end}}
@@ -84,6 +83,7 @@
     <p class="p-6 text-sm text-faint">No members yet.</p>
     {{end}}
   </div>
+  {{if gt .Data.Pager.Pages 1}}<div class="-mt-2">{{template "pager" .Data.Pager}}</div>{{end}}
 
   <div class="card">
     <div class="border-b border-line p-4">

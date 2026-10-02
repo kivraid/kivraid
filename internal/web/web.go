@@ -300,6 +300,7 @@ func (s *Server) Handler() http.Handler {
 	web.Handle("GET /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroups)))
 	web.Handle("POST /admin/groups", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupCreate)))
 	web.Handle("GET /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupDetail)))
+	web.Handle("GET /admin/groups/{id}/candidates", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupCandidates)))
 	web.Handle("POST /admin/groups/{id}", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupUpdate)))
 	web.Handle("POST /admin/groups/{id}/members", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupAddMember)))
 	web.Handle("POST /admin/groups/{id}/members/remove", s.requireAdmin(http.HandlerFunc(s.handleAdminGroupRemoveMember)))

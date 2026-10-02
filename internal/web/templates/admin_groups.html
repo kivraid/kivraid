@@ -2,7 +2,7 @@
 {{if .Data.Deleted}}<div data-flash="Group deleted." data-variant="success" hidden></div>{{end}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Groups</h1>
-  <p class="mt-1 text-sm text-muted">Local groups are managed here; directory groups mirror their LDAP source and are read-only.</p>
+  <p class="mt-1 text-sm text-muted">Local groups are managed here; directory and federated groups mirror their source and are read-only.</p>
 </div>
 
 <div class="space-y-4">
@@ -15,6 +15,18 @@
       <input class="input" id="name" name="name" placeholder="engineering" required>
     </div>
     <button type="submit" class="btn-primary shrink-0">Create</button>
+  </form>
+
+  <form method="get" action="/admin/groups" class="flex flex-wrap items-center gap-2" data-autosubmit>
+    <input class="input min-w-0 flex-1 sm:w-56 sm:flex-none" type="search" name="q" value="{{.Data.Query}}"
+           placeholder="Search groups…" aria-label="Search groups">
+    <select name="source" class="select w-auto" aria-label="Source">
+      <option value="" {{if eq .Data.Source ""}}selected{{end}}>All sources</option>
+      <option value="local" {{if eq .Data.Source "local"}}selected{{end}}>Local</option>
+      <option value="ldap" {{if eq .Data.Source "ldap"}}selected{{end}}>Directory (LDAP)</option>
+      <option value="upstream" {{if eq .Data.Source "upstream"}}selected{{end}}>Federated</option>
+    </select>
+    {{if .Data.Filtered}}<a href="/admin/groups" class="btn-ghost">Clear</a>{{end}}
   </form>
 
   {{if .Data.Groups}}
@@ -31,6 +43,8 @@
       </div>
       {{if eq .Source "ldap"}}
       <span class="badge shrink-0">{{with index $.Data.SourceNames (deref .LdapSourceID)}}{{.}}{{else}}LDAP{{end}}</span>
+      {{else if eq .Source "upstream"}}
+      <span class="badge shrink-0">Federated</span>
       {{else}}
       <span class="badge shrink-0">Local</span>
       {{end}}
@@ -38,6 +52,9 @@
     </a>
     {{end}}
   </div>
+  {{template "pager" .Data.Pager}}
+  {{else if .Data.Filtered}}
+  <div class="card px-6 py-12 text-center text-sm text-muted">No groups match these filters.</div>
   {{else}}
   <div class="card flex flex-col items-center gap-3 px-6 py-16 text-center">
     <svg class="size-8 text-faint" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87M16 3.13a4 4 0 0 1 0 7.75"/></svg>

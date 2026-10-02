@@ -214,6 +214,19 @@
 </div>
 {{end}}
 
+{{define "pager"}}
+<div class="mt-4 flex items-center justify-between gap-4 text-sm text-muted">
+  <span class="tabular">Showing {{.Start}}–{{.End}} of {{.Total}}</span>
+  {{if gt .Pages 1}}
+  <div class="flex items-center gap-2">
+    {{if .Prev}}<a href="?{{with .QS}}{{.}}&{{end}}{{.Param}}={{.Prev}}" class="btn-secondary">Previous</a>{{else}}<span class="btn-secondary opacity-50">Previous</span>{{end}}
+    <span class="tabular px-1">Page {{.Page}} / {{.Pages}}</span>
+    {{if .Next}}<a href="?{{with .QS}}{{.}}&{{end}}{{.Param}}={{.Next}}" class="btn-secondary">Next</a>{{else}}<span class="btn-secondary opacity-50">Next</span>{{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}
+
 {{define "federationtabs"}}
 <div class="mb-8">
   <h1 class="text-2xl font-semibold tracking-tight">Federation</h1>
