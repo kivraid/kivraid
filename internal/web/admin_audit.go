@@ -22,6 +22,7 @@ type adminAuditData struct {
 	Filtered   bool         // a filter is applied
 	FilterQS   template.URL // encoded filters, for pagination and export links (already escaped)
 	Ranges     []auditRange
+	Retention  int32 // days events are kept, 0 = forever
 	Page       int
 	Pages      int
 	Total      int64
@@ -112,8 +113,12 @@ func (s *Server) handleAdminAudit(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var retention int32
+	if settings, err := s.store.GetInstanceSettings(r.Context()); err == nil {
+		retention = settings.AuditRetentionDays
+	}
 	data := adminAuditData{
-		Entries: entries, Actions: audit.Actions, Filter: f, Ranges: auditRanges,
+		Entries: entries, Actions: audit.Actions, Filter: f, Ranges: auditRanges, Retention: retention,
 		Filtered: f != (auditFilterValues{}), FilterQS: template.URL(f.encode()),
 		Page: page, Pages: pages, Total: total,
 		RangeStart: int64(page-1)*auditPageSize + 1,

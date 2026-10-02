@@ -1,6 +1,6 @@
 {{define "content"}}
 {{template "settingstabs" .}}
-<p class="mb-6 text-sm text-muted">Sign-in requirements for this instance.</p>
+<p class="mb-6 text-sm text-muted">Sign-in requirements and alerts, token signing keys, and how long activity is kept.</p>
 
 <div class="space-y-4">
   {{if .Data.Saved}}<div data-flash="Security settings saved." data-variant="success" hidden></div>{{end}}
@@ -42,6 +42,14 @@
       <p class="mt-1 text-sm text-muted">How often to replace the key that signs ID and access tokens. Previous keys stay published for 7 days, then are retired. You can also rotate now from Settings → System.</p>
       <select name="key_rotation_days" class="select mt-3 w-auto" aria-label="Automatic key rotation">
         {{range .Data.RotationChoices}}<option value="{{.}}" {{if eq . $.Data.RotationDays}}selected{{end}}>{{if eq . 0}}Manual only{{else}}Every {{.}} days{{end}}</option>{{end}}
+      </select>
+    </div>
+
+    <div class="border-t border-line pt-5">
+      <h2 class="text-sm font-semibold">Activity log retention</h2>
+      <p class="mt-1 text-sm text-muted">Older events are deleted automatically. Export them to CSV first if you need a longer record.</p>
+      <select name="audit_retention_days" class="select mt-3 w-auto" aria-label="Activity log retention">
+        {{range .Data.RetentionChoices}}<option value="{{.}}" {{if eq . $.Data.RetentionDays}}selected{{end}}>{{if eq . 0}}Keep forever{{else if eq . 365}}1 year{{else}}{{.}} days{{end}}</option>{{end}}
       </select>
     </div>
 

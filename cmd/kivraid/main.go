@@ -175,9 +175,13 @@ func serve(args []string) error {
 				if err := oidcStorage.CleanupExpired(ctx); err != nil {
 					log.Warn("token cleanup", "err", err)
 				}
-				// Audit retention: 90 days.
-				if err := st.DeleteAuditBefore(ctx, time.Now().UTC().AddDate(0, 0, -90)); err != nil {
-					log.Warn("audit cleanup", "err", err)
+				// Audit retention, set under Settings → Security (0 keeps
+				// every event).
+				if settings, err := st.GetInstanceSettings(ctx); err == nil && settings.AuditRetentionDays > 0 {
+					cutoff := time.Now().UTC().AddDate(0, 0, -int(settings.AuditRetentionDays))
+					if err := st.DeleteAuditBefore(ctx, cutoff); err != nil {
+						log.Warn("audit cleanup", "err", err)
+					}
 				}
 				// Expired password-reset / verification tokens.
 				if err := st.DeleteExpiredEmailTokens(ctx, time.Now().UTC()); err != nil {

@@ -141,22 +141,34 @@ func (s *Server) markSecondFactor(ctx context.Context, method string) {
 // (0 = manual only).
 var keyRotationChoices = []int32{0, 30, 90, 180}
 
+// auditRetentionChoices are the activity-log retention periods offered, in
+// days (0 = forever).
+var auditRetentionChoices = []int32{30, 90, 180, 365, 0}
+
 type adminSecurityData struct {
-	MFAPolicy       string
-	RotationDays    int32
-	RotationChoices []int32
-	NewDeviceAlerts bool
-	CanEmail        bool
-	Saved           bool
-	Error           string
+	MFAPolicy        string
+	RotationDays     int32
+	RotationChoices  []int32
+	RetentionDays    int32
+	RetentionChoices []int32
+	NewDeviceAlerts  bool
+	CanEmail         bool
+	Saved            bool
+	Error            string
 }
 
 func (s *Server) renderSecurity(w http.ResponseWriter, r *http.Request, errMsg string) {
+	settings, err := s.store.GetInstanceSettings(r.Context())
+	if err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	s.render(w, r, "admin_security.html", pageData{
 		Title: "Security", Active: "security", CSRF: s.csrfToken(r.Context()), User: currentUser(r),
 		Data: adminSecurityData{
 			MFAPolicy: s.currentMFAPolicy(), NewDeviceAlerts: s.newDeviceAlerts.Load(),
-			RotationDays: s.keyRotationDays(r.Context()), RotationChoices: keyRotationChoices,
+			RotationDays: settings.KeyRotationDays, RotationChoices: keyRotationChoices,
+			RetentionDays: settings.AuditRetentionDays, RetentionChoices: auditRetentionChoices,
 			CanEmail: s.smtpEnabled.Load(), Saved: r.URL.Query().Get("saved") == "1", Error: errMsg,
 		},
 	})
@@ -181,6 +193,16 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 		s.renderSecurity(w, r, "Choose a key rotation period.")
 		return
 	}
+	retention64, rerr := strconv.ParseInt(r.PostFormValue("audit_retention_days"), 10, 32)
+	retention := int32(retention64)
+	if rerr != nil {
+		retention = 90 // field absent (older form): keep the default
+	}
+	if !slices.Contains(auditRetentionChoices, retention) {
+		w.WriteHeader(http.StatusUnprocessableEntity)
+		s.renderSecurity(w, r, "Choose how long to keep the activity log.")
+		return
+	}
 	now := time.Now().UTC()
 	if err := s.store.SetMFAPolicy(r.Context(), sqlcgen.SetMFAPolicyParams{MfaPolicy: policy, UpdatedAt: now}); err != nil {
 		s.serverError(w, r, err)
@@ -194,20 +216,13 @@ func (s *Server) handleAdminSecuritySave(w http.ResponseWriter, r *http.Request)
 		s.serverError(w, r, err)
 		return
 	}
+	if err := s.store.SetAuditRetentionDays(r.Context(), sqlcgen.SetAuditRetentionDaysParams{AuditRetentionDays: retention, UpdatedAt: now}); err != nil {
+		s.serverError(w, r, err)
+		return
+	}
 	s.loadSecuritySettings(r.Context())
 	s.audit.Record(r.Context(), currentUser(r).Username, audit.ActionSecurityUpdate, "",
 		"mfa_policy="+policy+" new_device_alerts="+strconv.FormatBool(alerts)+
-			" key_rotation_days="+strconv.Itoa(int(days)), s.clientIP(r))
+			" key_rotation_days="+strconv.Itoa(int(days))+" audit_retention_days="+strconv.Itoa(int(retention)), s.clientIP(r))
 	http.Redirect(w, r, "/admin/settings/security?saved=1", http.StatusSeeOther)
-}
-
-// keyRotationDays reads the automatic signing-key rotation period (days,
-// 0 = manual). It is read where needed rather than cached: the key
-// maintenance loop in main reads it from the database too.
-func (s *Server) keyRotationDays(ctx context.Context) int32 {
-	settings, err := s.store.GetInstanceSettings(ctx)
-	if err != nil {
-		return 0
-	}
-	return settings.KeyRotationDays
 }

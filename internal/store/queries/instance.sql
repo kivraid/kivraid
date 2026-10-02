@@ -24,3 +24,6 @@ UPDATE instance_settings SET new_device_alerts = $1, updated_at = $2 WHERE id = 
 
 -- name: SetKeyRotationDays :exec
 UPDATE instance_settings SET key_rotation_days = $1, updated_at = $2 WHERE id = 1;
+
+-- name: SetAuditRetentionDays :exec
+UPDATE instance_settings SET audit_retention_days = $1, updated_at = $2 WHERE id = 1;

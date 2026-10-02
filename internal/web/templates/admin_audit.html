@@ -2,7 +2,7 @@
 <div class="page-head mb-6">
   <div>
     <h1 class="text-2xl font-semibold tracking-tight">Activity</h1>
-    <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first.</p>
+    <p class="mt-1 text-sm text-muted">Security-relevant events, most recent first. {{if .Data.Retention}}Kept for {{.Data.Retention}} days{{else}}Kept forever{{end}} (<a href="/admin/settings/security" class="underline underline-offset-2 hover:text-fg">change</a>).</p>
   </div>
   <a href="/admin/audit/export.csv{{with .Data.FilterQS}}?{{.}}{{end}}"
      class="btn-secondary shrink-0" data-no-spinner>

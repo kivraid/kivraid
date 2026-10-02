@@ -114,3 +114,34 @@ func TestAppRequireMFAForwardAuth(t *testing.T) {
 		t.Fatalf("profile: want 200, got %d", status)
 	}
 }
+
+func TestSecuritySettingsSave(t *testing.T) {
+	ts, st, c, csrf := adminClient(t)
+	resp, err := c.PostForm(ts.URL+"/admin/settings/security", url.Values{
+		"_csrf": {csrf}, "mfa_policy": {mfaPolicyOff}, "key_rotation_days": {"90"}, "audit_retention_days": {"365"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	settings, err := st.GetInstanceSettings(context.Background())
+	if err != nil {
+		t.Fatal(err)
+	}
+	if settings.KeyRotationDays != 90 || settings.AuditRetentionDays != 365 {
+		t.Fatalf("saved rotation %d / retention %d", settings.KeyRotationDays, settings.AuditRetentionDays)
+	}
+	if _, body := getPage(t, c, ts.URL+"/admin/audit"); !strings.Contains(body, "Kept for 365 days") {
+		t.Error("activity page should state the retention period")
+	}
+	resp, err = c.PostForm(ts.URL+"/admin/settings/security", url.Values{
+		"_csrf": {csrf}, "mfa_policy": {mfaPolicyOff}, "audit_retention_days": {"7"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	if resp.StatusCode != http.StatusUnprocessableEntity {
+		t.Fatalf("unsupported retention: want 422, got %d", resp.StatusCode)
+	}
+}

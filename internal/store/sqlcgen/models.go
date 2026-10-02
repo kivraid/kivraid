@@ -88,6 +88,7 @@ type InstanceSetting struct {
 	MfaPolicy           string
 	NewDeviceAlerts     bool
 	KeyRotationDays     int32
+	AuditRetentionDays  int32
 }
 
 type LdapSource struct {
