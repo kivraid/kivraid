@@ -280,3 +280,39 @@ func TestGroupSettingsAndMemberByUsername(t *testing.T) {
 		t.Fatalf("unknown username: want 422, got %d", resp.StatusCode)
 	}
 }
+
+// Forward-auth applications also wait for the required password change.
+func TestMustChangePasswordBlocksForwardAuth(t *testing.T) {
+	ts, _, c, csrf := adminClient(t)
+	resp, err := c.PostForm(ts.URL+"/admin/applications", url.Values{
+		"_csrf": {csrf}, "kind": {"proxy"}, "name": {"Wiki"}, "proxy_hosts": {"wiki.example.com"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	resp, err = c.PostForm(ts.URL+"/admin/users", url.Values{
+		"_csrf": {csrf}, "username": {"erin"}, "email": {"erin@example.com"},
+		"password_mode": {"set"}, "password": {"given-pass-1"}, "must_change": {"on"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+
+	ce := newClient(t)
+	login(t, ce, ts.URL, "erin", "given-pass-1")
+	req, _ := http.NewRequest("GET", ts.URL+"/outpost/auth", nil)
+	req.Header.Set("X-Forwarded-Host", "wiki.example.com")
+	req.Header.Set("X-Forwarded-Uri", "/page")
+	resp, err = ce.Do(req)
+	if err != nil {
+		t.Fatal(err)
+	}
+	resp.Body.Close()
+	// The redirect targets the issuer (the test config's base URL).
+	want := "http://localhost" + passwordChangePath + "?next=" + url.QueryEscape("https://wiki.example.com/page")
+	if resp.StatusCode != http.StatusFound || resp.Header.Get("Location") != want {
+		t.Fatalf("forward auth with a required change: want 302 to %s, got %d %q", want, resp.StatusCode, resp.Header.Get("Location"))
+	}
+}

@@ -30,6 +30,12 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 		s.forwardAuthDeny(w, r)
 		return
 	}
+	// A password set by an administrator must be replaced before reaching
+	// protected applications too, not only Kivraid's own pages.
+	if user.MustChangePassword && s.sessions.GetString(r.Context(), session.KeyImpersonatorName) == "" {
+		s.forwardAuthRedirect(w, r, passwordChangePath)
+		return
+	}
 
 	// If a proxy application is registered for the requested host, enforce
 	// its group access policy (an unrestricted app admits any authenticated user).
@@ -68,6 +74,13 @@ func (s *Server) handleForwardAuth(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) forwardAuthDeny(w http.ResponseWriter, r *http.Request) {
+	s.forwardAuthRedirect(w, r, "/login")
+}
+
+// forwardAuthRedirect sends a browser request for an allowlisted host to a
+// Kivraid page (login, password change) that returns it to the original URL
+// afterwards; anything else gets a bare 401.
+func (s *Server) forwardAuthRedirect(w http.ResponseWriter, r *http.Request, path string) {
 	host := r.Header.Get("X-Forwarded-Host")
 	if host != "" && s.forwardHostAllowed(host) {
 		proto := r.Header.Get("X-Forwarded-Proto")
@@ -75,7 +88,7 @@ func (s *Server) forwardAuthDeny(w http.ResponseWriter, r *http.Request) {
 			proto = "https"
 		}
 		original := proto + "://" + host + r.Header.Get("X-Forwarded-Uri")
-		http.Redirect(w, r, s.issuer()+"/login?next="+url.QueryEscape(original), http.StatusFound)
+		http.Redirect(w, r, s.issuer()+path+"?next="+url.QueryEscape(original), http.StatusFound)
 		return
 	}
 	http.Error(w, "unauthorized", http.StatusUnauthorized)
