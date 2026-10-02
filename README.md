@@ -109,6 +109,10 @@ dark on the right.</sub>
 - **Passkeys (WebAuthn)** — register device biometrics or a security key
   and sign in passwordless; a discoverable passkey is phishing-resistant
   and stands in for both password and second factor.
+- **Account chooser** — a browser that already signed in offers its
+  remembered accounts, with name and avatar, on the sign-in page. The list
+  lives in an encrypted cookie, so a stranger typing an identifier still
+  learns nothing about whether the account exists.
 - **Email** — optional SMTP delivery, configured in the admin (password
   encrypted at rest) with a test-send button. Powers self-service password
   reset ("forgot password") and email-address verification; the OIDC

@@ -26,6 +26,9 @@ const (
 	// KeyPendingLogin holds the identifier entered on the first login step,
 	// carried to the password step. It grants no access on its own.
 	KeyPendingLogin = "pendingLogin"
+	// KeyPendingAccount holds the ID of the remembered account (see the
+	// account chooser) matching KeyPendingLogin, for greeting it by name.
+	KeyPendingAccount = "pendingAccount"
 	// KeyPendingMFA holds the user ID that passed the password step but
 	// still owes a TOTP code; it grants no access on its own. KeyPendingNext
 	// carries the post-login redirect target across login steps.

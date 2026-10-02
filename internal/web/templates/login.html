@@ -42,6 +42,48 @@
       <div class="alert-success mb-4" role="status">{{.Notice}}</div>
       {{end}}
 
+      {{if .Accounts}}
+      <div class="auth-card p-2">
+        <p class="px-3 pb-1 pt-2 text-sm font-medium text-muted">Choose an account</p>
+        <ul>
+          {{range .Accounts}}
+          <li class="flex items-center rounded-xl hover:bg-raised">
+            <form method="post" action="/login/account" class="min-w-0 flex-1">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="next" value="{{$.Next}}">
+              <input type="hidden" name="account" value="{{.ID}}">
+              <button type="submit" class="flex w-full cursor-pointer items-center gap-3 px-3 py-2.5 text-left">
+                {{if .HasPhoto}}
+                <img class="size-9 shrink-0 rounded-full object-cover" src="/oidc/avatar/{{.ID}}" alt="">
+                {{else}}
+                <span class="avatar size-9">{{initials .Name}}</span>
+                {{end}}
+                <span class="min-w-0">
+                  <span class="block truncate text-sm font-medium text-fg">{{.Name}}</span>
+                  <span class="block truncate text-xs text-muted">{{.Login}}</span>
+                </span>
+              </button>
+            </form>
+            <form method="post" action="/login/account/forget" class="shrink-0 pr-2">
+              <input type="hidden" name="_csrf" value="{{$.CSRF}}">
+              <input type="hidden" name="next" value="{{$.Next}}">
+              <input type="hidden" name="account" value="{{.ID}}">
+              <button type="submit" class="inline-flex size-8 cursor-pointer items-center justify-center rounded-lg text-faint hover:bg-surface hover:text-fg"
+                      aria-label="Remove {{.Login}} from this device" title="Remove from this device">
+                <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6 6 18M6 6l12 12"/></svg>
+              </button>
+            </form>
+          </li>
+          {{end}}
+        </ul>
+        <a href="/login?other=1&next={{.Next}}" class="flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-fg hover:bg-raised">
+          <span class="inline-flex size-9 shrink-0 items-center justify-center rounded-full border border-line text-muted">
+            <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10" cy="8" r="4"/><path d="M4 20v-1a6 6 0 0 1 9-5.2M19 15v6M16 18h6"/></svg>
+          </span>
+          Use another account
+        </a>
+      </div>
+      {{else}}
       <form method="post" action="/login" class="auth-card space-y-4 p-6">
         <input type="hidden" name="_csrf" value="{{.CSRF}}">
         <input type="hidden" name="next" value="{{.Next}}">
@@ -52,6 +94,7 @@
         </div>
         <button type="submit" class="btn-primary w-full">Continue</button>
       </form>
+      {{end}}
 
       <div data-passkey-login hidden class="mt-4">
         <div class="flex items-center gap-3 text-xs aurora-foot">

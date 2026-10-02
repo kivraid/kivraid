@@ -190,6 +190,8 @@ func (s *Server) Handler() http.Handler {
 	web := http.NewServeMux()
 	web.HandleFunc("GET /login", s.handleLoginPage)
 	web.HandleFunc("POST /login", s.handleLoginIdentify)
+	web.HandleFunc("POST /login/account", s.handleLoginAccount)
+	web.HandleFunc("POST /login/account/forget", s.handleLoginAccountForget)
 	web.HandleFunc("GET /login/password", s.handleLoginPasswordPage)
 	web.HandleFunc("POST /login/password", s.handleLoginPasswordSubmit)
 	web.HandleFunc("GET /login/mfa", s.handleMFAChallengePage)

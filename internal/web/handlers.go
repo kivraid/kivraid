@@ -24,6 +24,11 @@ type loginData struct {
 	Username  string
 	Next      string
 	Providers []loginProvider
+	// Accounts lists the accounts remembered by this browser; when set, the
+	// login page shows the account chooser instead of the identifier form.
+	Accounts []rememberedAccount
+	// Account is the remembered identity greeted on the password step.
+	Account *rememberedAccount
 }
 
 // loginProvider is an upstream sign-in option shown on the login page.
@@ -60,6 +65,7 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	s.sessions.Remove(r.Context(), session.KeyPendingLogin)
+	s.sessions.Remove(r.Context(), session.KeyPendingAccount)
 	notice := ""
 	switch {
 	case r.URL.Query().Get("reset") == "1":
@@ -67,11 +73,18 @@ func (s *Server) handleLoginPage(w http.ResponseWriter, r *http.Request) {
 	case r.URL.Query().Get("verified") == "1":
 		notice = "Your email address is now verified."
 	}
+	var accounts []rememberedAccount
+	if r.URL.Query().Get("other") != "1" {
+		for _, u := range s.rememberedAccounts(r.Context(), r) {
+			accounts = append(accounts, newRememberedAccount(u))
+		}
+	}
 	s.render(w, r, "login.html", loginData{
 		CSRF:      s.csrfToken(r.Context()),
 		Notice:    notice,
 		Next:      s.safeNext(r.URL.Query().Get("next"), ""),
 		Providers: s.enabledLoginProviders(r.Context()),
+		Accounts:  accounts,
 	})
 }
 
@@ -107,6 +120,13 @@ func (s *Server) handleLoginIdentify(w http.ResponseWriter, r *http.Request) {
 		})
 		return
 	}
+	s.beginLogin(w, r, identifier, next)
+}
+
+// beginLogin routes an identifier to its sign-in method: an upstream provider
+// when a home-realm rule matches, else the local password step. A remembered
+// account matching the identifier is greeted by name on that step.
+func (s *Server) beginLogin(w http.ResponseWriter, r *http.Request, identifier, next string) {
 	// Home-realm discovery: a matching rule routes the identifier to an
 	// upstream provider; otherwise fall through to the local password step.
 	if s.broker != nil {
@@ -120,6 +140,11 @@ func (s *Server) handleLoginIdentify(w http.ResponseWriter, r *http.Request) {
 	}
 	s.sessions.Put(r.Context(), session.KeyPendingLogin, identifier)
 	s.sessions.Put(r.Context(), session.KeyPendingNext, next)
+	if u, ok := s.matchRememberedAccount(r.Context(), r, identifier); ok {
+		s.sessions.Put(r.Context(), session.KeyPendingAccount, u.ID)
+	} else {
+		s.sessions.Remove(r.Context(), session.KeyPendingAccount)
+	}
 	http.Redirect(w, r, "/login/password", http.StatusSeeOther)
 }
 
@@ -132,7 +157,8 @@ func (s *Server) handleLoginPasswordPage(w http.ResponseWriter, r *http.Request)
 		return
 	}
 	s.render(w, r, "login_password.html", loginData{
-		CSRF: s.csrfToken(r.Context()), Username: identifier,
+		CSRF: s.csrfToken(r.Context()), Username: identifier, Account: s.pendingAccount(r, identifier),
+		Next: s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), ""),
 	})
 }
 
@@ -151,6 +177,7 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 		w.WriteHeader(status)
 		s.render(w, r, "login_password.html", loginData{
 			CSRF: s.csrfToken(r.Context()), Username: identifier, Error: msg,
+			Account: s.pendingAccount(r, identifier), Next: s.safeNext(next, ""),
 		})
 	}
 
@@ -188,6 +215,7 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 			return
 		}
 		s.sessions.Remove(r.Context(), session.KeyPendingLogin)
+		s.sessions.Remove(r.Context(), session.KeyPendingAccount)
 		s.sessions.Put(r.Context(), session.KeyPendingMFA, user.ID)
 		s.sessions.Put(r.Context(), session.KeyPendingNext, next)
 		http.Redirect(w, r, "/login/mfa", http.StatusSeeOther)
@@ -195,7 +223,8 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 	}
 
 	s.sessions.Remove(r.Context(), session.KeyPendingLogin)
-	if err := s.completeLogin(r, user, next); err != nil {
+	s.sessions.Remove(r.Context(), session.KeyPendingAccount)
+	if err := s.completeLogin(w, r, user, next); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
@@ -203,8 +232,9 @@ func (s *Server) handleLoginPasswordSubmit(w http.ResponseWriter, r *http.Reques
 }
 
 // completeLogin establishes a full authenticated session. A fresh token
-// on privilege change prevents session fixation.
-func (s *Server) completeLogin(r *http.Request, user sqlcgen.User, next string) error {
+// on privilege change prevents session fixation. The account is remembered
+// by this browser for the login page's account chooser.
+func (s *Server) completeLogin(w http.ResponseWriter, r *http.Request, user sqlcgen.User, next string) error {
 	if err := s.sessions.RenewToken(r.Context()); err != nil {
 		return err
 	}
@@ -212,6 +242,7 @@ func (s *Server) completeLogin(r *http.Request, user sqlcgen.User, next string) 
 	s.sessions.Put(r.Context(), session.KeyIP, s.clientIP(r))
 	s.sessions.Put(r.Context(), session.KeyUserAgent, r.UserAgent())
 	s.sessions.Put(r.Context(), session.KeyLoginAt, time.Now().Unix())
+	s.rememberAccount(w, r, user.ID)
 	// Record the last login for the admin view. Best-effort: a failure
 	// here must not block sign-in.
 	if err := s.store.SetUserLastLogin(r.Context(), sqlcgen.SetUserLastLoginParams{
@@ -284,7 +315,7 @@ func (s *Server) handleMFAChallengeSubmit(w http.ResponseWriter, r *http.Request
 	next := s.safeNext(s.sessions.GetString(r.Context(), session.KeyPendingNext), "/")
 	s.sessions.Remove(r.Context(), session.KeyPendingMFA)
 	s.sessions.Remove(r.Context(), session.KeyPendingNext)
-	if err := s.completeLogin(r, user, next); err != nil {
+	if err := s.completeLogin(w, r, user, next); err != nil {
 		s.serverError(w, r, err)
 		return
 	}
