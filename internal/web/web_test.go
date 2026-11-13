@@ -390,3 +390,15 @@ func TestSecurityHeaders(t *testing.T) {
 		t.Errorf("CSP must not restrict form-action, got %q", csp)
 	}
 }
+
+// The password step repeats the identifier in a username field so password
+// managers pair it with the password, both when saving and when filling.
+func TestPasswordStepCarriesUsernameForPasswordManagers(t *testing.T) {
+	ts := newTestServer(t)
+	c := newClient(t)
+	identify(t, c, ts.URL, "alice@example.com", "")
+	_, body := getPage(t, c, ts.URL+"/login/password")
+	if !strings.Contains(body, `name="username" value="alice@example.com" autocomplete="username"`) {
+		t.Fatal("password step missing the username field for password managers")
+	}
+}
