@@ -62,7 +62,7 @@ func verifyLogoutToken(t *testing.T, issuer, raw string) oidc.LogoutTokenClaims 
 	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
 		t.Fatal(err)
 	}
-	jws, err := jose.ParseSigned(raw, []jose.SignatureAlgorithm{jose.ES256, jose.RS256})
+	jws, err := jose.ParseSignedCompact(raw, []jose.SignatureAlgorithm{jose.ES256, jose.RS256})
 	if err != nil {
 		t.Fatalf("parse logout token: %v", err)
 	}

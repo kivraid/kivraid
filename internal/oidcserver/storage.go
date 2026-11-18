@@ -565,7 +565,7 @@ func (s *Storage) RevokeToken(ctx context.Context, tokenOrTokenID string, userID
 // signing keys and issuer, and returns its subject. Expiry is not checked:
 // RP-initiated logout routinely sends an expired ID token as the hint.
 func (s *Storage) SubjectFromIDTokenHint(hint string) (string, error) {
-	jws, err := jose.ParseSigned(hint, []jose.SignatureAlgorithm{jose.ES256, jose.RS256})
+	jws, err := jose.ParseSignedCompact(hint, []jose.SignatureAlgorithm{jose.ES256, jose.RS256})
 	if err != nil {
 		return "", err
 	}
